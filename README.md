@@ -18,7 +18,7 @@ irm https://raw.githubusercontent.com/wwoosshh/geul-lang/main/install.ps1 | iex
 ```
 
 ### 방법 2: 수동 설치
-1. [최신 릴리즈](https://github.com/wwoosshh/geul-lang/releases/latest)에서 `geul-language-0.1.0.vsix` 다운로드
+1. [최신 릴리즈](https://github.com/wwoosshh/geul-lang/releases/latest)에서 `geul-language-0.2.0.vsix` 다운로드
 2. VS Code → `Ctrl+Shift+P` → "VSIX에서 설치" → 파일 선택
 
 ---

@@ -19,7 +19,7 @@ if (-not $codePath) {
 }
 
 # 다운로드
-$url = "https://github.com/wwoosshh/geul-lang/releases/latest/download/geul-language-0.1.0.vsix"
+$url = "https://github.com/wwoosshh/geul-lang/releases/latest/download/geul-language-0.2.0.vsix"
 $tempFile = Join-Path $env:TEMP "geul-language.vsix"
 
 Write-Host "  [1/2] 글 확장 다운로드 중..." -ForegroundColor White
