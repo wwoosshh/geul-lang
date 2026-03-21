@@ -69,6 +69,8 @@ typedef enum {
     토큰_만약정의,          /* 만약정의 (#ifdef) */
     토큰_만약미정의,        /* 만약미정의 (#ifndef) */
     토큰_합침,              /* 합침 (union) */
+    토큰_없으면,            /* 없으면 (null/zero check) */
+    토큰_있으면,            /* 있으면 (non-null/nonzero check) */
 
     /* ===== 조사 (Postpositions) ===== */
     토큰_조사_을,           /* 을 - 목적어 (받침 있는 명사 뒤) */

@@ -70,6 +70,8 @@ const char *토큰_이름(토큰_종류 종류) {
     case 토큰_만약정의:      return "만약정의";
     case 토큰_만약미정의:    return "만약미정의";
     case 토큰_합침:          return "합침";
+    case 토큰_없으면:        return "없으면";
+    case 토큰_있으면:        return "있으면";
 
     /* 조사 */
     case 토큰_조사_을:       return "조사:을";
