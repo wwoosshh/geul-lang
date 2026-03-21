@@ -1,53 +1,67 @@
 # 글 프로그래밍 언어 설치 스크립트
-# 사용법: irm https://raw.githubusercontent.com/geul-lang/geul/main/install.ps1 | iex
+# 사용법: irm https://raw.githubusercontent.com/wwoosshh/geul-lang/main/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 Write-Host ""
 Write-Host "  ===================================" -ForegroundColor Cyan
-Write-Host "   글 프로그래밍 언어 설치" -ForegroundColor Cyan
+Write-Host "   글 프로그래밍 언어 v1.0 설치" -ForegroundColor Cyan
 Write-Host "  ===================================" -ForegroundColor Cyan
 Write-Host ""
 
-# VS Code 확인
+$installDir = Join-Path $env:LOCALAPPDATA "geul-lang"
+$binDir = Join-Path $installDir "bin"
+$stdDir = Join-Path $installDir "표준"
+New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+New-Item -ItemType Directory -Path $stdDir -Force | Out-Null
+
+$baseUrl = "https://github.com/wwoosshh/geul-lang/releases/latest/download"
+
+Write-Host "  [1/5] 글도구.exe 다운로드 중..." -ForegroundColor White
+try { Invoke-WebRequest -Uri "$baseUrl/글도구.exe" -OutFile (Join-Path $binDir "글도구.exe") -UseBasicParsing }
+catch { Write-Host "  [경고] 다운로드 실패" -ForegroundColor Yellow }
+
+Write-Host "  [2/5] 네이티브컴파일러.exe 다운로드 중..." -ForegroundColor White
+try { Invoke-WebRequest -Uri "$baseUrl/네이티브컴파일러.exe" -OutFile (Join-Path $binDir "네이티브컴파일러.exe") -UseBasicParsing }
+catch { Write-Host "  [경고] 다운로드 실패" -ForegroundColor Yellow }
+
+Write-Host "  [3/5] 표준 라이브러리 다운로드 중..." -ForegroundColor White
+$stdFiles = @("기본.글","입출력.글","문자열.글","메모리.글","수학.글","변환.글","시간.글","체계.글","정밀시간.글")
+foreach ($f in $stdFiles) {
+    try { Invoke-WebRequest -Uri "https://raw.githubusercontent.com/wwoosshh/geul-lang/main/표준/$f" -OutFile (Join-Path $stdDir $f) -UseBasicParsing } catch { }
+}
+
+Write-Host "  [4/5] PATH 설정 중..." -ForegroundColor White
+$userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+if ($userPath -notlike "*$binDir*") {
+    [Environment]::SetEnvironmentVariable("PATH", "$userPath;$binDir", "User")
+}
+
 $codePath = Get-Command code -ErrorAction SilentlyContinue
-if (-not $codePath) {
-    Write-Host "  [오류] VS Code가 설치되어 있지 않습니다." -ForegroundColor Red
-    Write-Host "  https://code.visualstudio.com 에서 먼저 설치하세요." -ForegroundColor Yellow
-    exit 1
+if ($codePath) {
+    Write-Host "  [5/5] VS Code 확장 설치 중..." -ForegroundColor White
+    $vsixPath = Join-Path $env:TEMP "geul-language.vsix"
+    try {
+        Invoke-WebRequest -Uri "$baseUrl/geul-language-0.2.0.vsix" -OutFile $vsixPath -UseBasicParsing
+        & code --install-extension $vsixPath --force 2>$null
+        Remove-Item $vsixPath -Force -ErrorAction SilentlyContinue
+    } catch { Write-Host "  [경고] 확장 설치 실패" -ForegroundColor Yellow }
+} else {
+    Write-Host "  [5/5] VS Code 미설치 — 건너뜀" -ForegroundColor Yellow
 }
-
-# 다운로드
-$url = "https://github.com/wwoosshh/geul-lang/releases/latest/download/geul-language-0.2.0.vsix"
-$tempFile = Join-Path $env:TEMP "geul-language.vsix"
-
-Write-Host "  [1/2] 글 확장 다운로드 중..." -ForegroundColor White
-try {
-    Invoke-WebRequest -Uri $url -OutFile $tempFile -UseBasicParsing
-} catch {
-    Write-Host "  [오류] 다운로드 실패: $_" -ForegroundColor Red
-    exit 1
-}
-
-# 설치
-Write-Host "  [2/2] VS Code에 설치 중..." -ForegroundColor White
-& code --install-extension $tempFile --force 2>$null
-
-Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "  ===================================" -ForegroundColor Green
 Write-Host "   설치 완료!" -ForegroundColor Green
 Write-Host "  ===================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "  사용법:" -ForegroundColor White
-Write-Host "    1. VS Code를 재시작하세요"
-Write-Host "    2. 새 파일을 만들고 .글 로 저장하세요"
-Write-Host "    3. 코드를 작성하고 F5를 누르면 실행됩니다"
+Write-Host "  설치 경로: $installDir"
 Write-Host ""
-Write-Host "  예제:" -ForegroundColor White
-Write-Host '    [시작하기]는 {'
-Write-Host '        "안녕하세요!\n"을 쓰기다.'
-Write-Host '    }'
+Write-Host "  사용법:"
+Write-Host "    글도구 실행 소스.글           # C 트랜스파일 (MSVC 필요)"
+Write-Host "    네이티브컴파일러 소스.글       # 네이티브 .exe 직접 생성"
+Write-Host ""
+Write-Host "  VS Code: .글 파일 만들고 F5 → 실행"
+Write-Host "  새 터미널을 열어야 PATH가 적용됩니다." -ForegroundColor Yellow
 Write-Host ""
