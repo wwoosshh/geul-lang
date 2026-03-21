@@ -19,11 +19,11 @@ New-Item -ItemType Directory -Path $stdDir -Force | Out-Null
 $baseUrl = "https://github.com/wwoosshh/geul-lang/releases/latest/download"
 
 Write-Host "  [1/5] 글도구.exe 다운로드 중..." -ForegroundColor White
-try { Invoke-WebRequest -Uri "$baseUrl/글도구.exe" -OutFile (Join-Path $binDir "글도구.exe") -UseBasicParsing }
+try { Invoke-WebRequest -Uri "$baseUrl/geultool.exe" -OutFile (Join-Path $binDir "글도구.exe") -UseBasicParsing }
 catch { Write-Host "  [경고] 다운로드 실패" -ForegroundColor Yellow }
 
 Write-Host "  [2/5] 네이티브컴파일러.exe 다운로드 중..." -ForegroundColor White
-try { Invoke-WebRequest -Uri "$baseUrl/네이티브컴파일러.exe" -OutFile (Join-Path $binDir "네이티브컴파일러.exe") -UseBasicParsing }
+try { Invoke-WebRequest -Uri "$baseUrl/native-compiler.exe" -OutFile (Join-Path $binDir "네이티브컴파일러.exe") -UseBasicParsing }
 catch { Write-Host "  [경고] 다운로드 실패" -ForegroundColor Yellow }
 
 Write-Host "  [3/5] 표준 라이브러리 다운로드 중..." -ForegroundColor White
