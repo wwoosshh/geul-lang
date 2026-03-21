@@ -1,0 +1,31 @@
+# 빌드 아티팩트
+*.exe
+*.obj
+*.pdb
+*.c
+!부트스트랩/src/*.c
+*.asm
+
+# 임시 파일
+*.tmp
+/c/temp/
+
+# node_modules
+node_modules/
+
+# VSCode 사용자 설정
+.vscode/
+
+# Claude 프로젝트 메모리
+.claude/
+
+# TCC 바이너리 (용량 큼)
+도구/tcc-0.9.27-win64-bin.zip
+도구/tcc-extract/
+도구/글-vscode/bin/tcc/
+
+# 벤치마크 결과 (재생성 가능)
+벤치마크/결과/testdata.txt
+
+# VSIX 패키지 (릴리스에서 배포)
+*.vsix

@@ -1,0 +1,4 @@
+.vscode/**
+node_modules/**
+*.map
+설치방법.md

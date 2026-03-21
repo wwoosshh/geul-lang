@@ -1,0 +1,172 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "글",
+  "scopeName": "source.geul",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#characters" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#particles" },
+    { "include": "#endings" },
+    { "include": "#operators" },
+    { "include": "#functions" },
+    { "include": "#preprocessor" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.geul",
+          "begin": "\\(\\*",
+          "end": "\\*\\)"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.geul",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.geul",
+              "match": "\\\\[nrt0\\\\\"']"
+            },
+            {
+              "name": "constant.other.placeholder.geul",
+              "match": "%[dsllfxcp%]|%lld|%-?\\d*[dsllfxcp]"
+            }
+          ]
+        }
+      ]
+    },
+    "characters": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.geul",
+          "match": "'(\\\\.|[^'])'"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.geul",
+          "match": "\\b\\d+\\.\\d+([eE][+-]?\\d+)?\\b"
+        },
+        {
+          "name": "constant.numeric.hex.geul",
+          "match": "\\b0[xX][0-9a-fA-F]+\\b"
+        },
+        {
+          "name": "constant.numeric.binary.geul",
+          "match": "\\b0[bB][01]+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.geul",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.geul",
+          "match": "\\b(반환|탈출|계속|아니면|갈래|경우|기본|반복|반복하기)\\b"
+        },
+        {
+          "name": "keyword.declaration.geul",
+          "match": "\\b(묶음|나열|합침|별칭|외부|정적|상수)\\b"
+        },
+        {
+          "name": "keyword.other.geul",
+          "match": "\\b(포함|정의|크기|만약정의|만약미정의|끝)\\b"
+        },
+        {
+          "name": "constant.language.geul",
+          "match": "\\b(참|거짓|없음)\\b"
+        },
+        {
+          "name": "keyword.operator.sizeof.geul",
+          "match": "\\b크기\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.geul",
+          "match": "\\b(정수|긴정수|짧은정수|작은정수|부호없는|실수|짧은실수|문자|문자열|참거짓|공허)\\b"
+        },
+        {
+          "name": "storage.modifier.geul",
+          "match": "\\b(참조)\\b"
+        }
+      ]
+    },
+    "particles": {
+      "patterns": [
+        {
+          "name": "keyword.operator.particle.geul",
+          "match": "(?<=[가-힣])(을|를|이|가|은|는|에|로|으로|에서|부터|까지|와|과|의|보다|에게)(?=\\s|[.{},;)\\]])"
+        }
+      ]
+    },
+    "endings": {
+      "patterns": [
+        {
+          "name": "keyword.operator.ending.geul",
+          "match": "(?<=[가-힣])(이면|동안|다)(?=[.\\s{},;)])"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.geul",
+          "match": "==|!=|>=|<=|>|<"
+        },
+        {
+          "name": "keyword.operator.arithmetic.geul",
+          "match": "\\+\\+|--|\\+=|-=|\\*=|/=|%=|\\+|-|\\*|/|%"
+        },
+        {
+          "name": "keyword.operator.logical.geul",
+          "match": "&&|\\|\\||!"
+        },
+        {
+          "name": "keyword.operator.bitwise.geul",
+          "match": "<<|>>|&|\\||\\^|~"
+        },
+        {
+          "name": "keyword.operator.arrow.geul",
+          "match": "→"
+        },
+        {
+          "name": "keyword.operator.assignment.geul",
+          "match": "="
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.geul",
+          "match": "(?<=\\[)[^\\[\\]]*?([가-힣]+)(?=\\])"
+        }
+      ]
+    },
+    "preprocessor": {
+      "patterns": [
+        {
+          "name": "meta.preprocessor.geul",
+          "match": "^\\s*(포함|정의|만약정의|만약미정의|끝)\\b.*$"
+        }
+      ]
+    }
+  }
+}
