@@ -4301,7 +4301,7 @@
     PE_헤더16비트(3).
     PE_헤더16비트(33120).
     PE_헤더64비트(16777216).   (* SizeOfStackReserve: 16MB *)
-    PE_헤더64비트(1048576).    (* SizeOfStackCommit: 1MB *)
+    PE_헤더64비트(16777216).   (* SizeOfStackCommit: 16MB — 전체 커밋으로 guard page 문제 방지 *)
     PE_헤더64비트(16777216).   (* SizeOfHeapReserve: 16MB *)
     PE_헤더64비트(65536).      (* SizeOfHeapCommit: 64KB *)
     PE_헤더32비트(0).
