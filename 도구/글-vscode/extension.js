@@ -12,28 +12,37 @@ function activate(context) {
     diagnosticCollection = vscode.languages.createDiagnosticCollection('geul');
     outputChannel = vscode.window.createOutputChannel('글 언어');
 
-    // 글도구 경로 탐색
+    // 컴파일러 경로 탐색 (네이티브컴파일러 우선)
     function findToolPath() {
         const config = vscode.workspace.getConfiguration('geul');
-        const configPath = config.get('toolPath');
+        const configPath = config.get('compilerPath') || config.get('toolPath');
         if (configPath && fs.existsSync(configPath)) return configPath;
 
-        // 확장 디렉토리 내 bin/글도구.exe
-        const extPath = path.join(context.extensionPath, 'bin', '글도구.exe');
-        if (fs.existsSync(extPath)) return extPath;
+        // PATH에서 네이티브컴파일러 탐색
+        try {
+            const result = execSync('where 네이티브컴파일러.exe', { encoding: 'utf8', timeout: 5000 });
+            const found = result.trim().split('\n')[0].trim();
+            if (found && fs.existsSync(found)) return found;
+        } catch (e) {}
 
-        // 확장 디렉토리 직접
-        const extPath2 = path.join(context.extensionPath, '글도구.exe');
-        if (fs.existsSync(extPath2)) return extPath2;
-
-        // PATH에서 탐색
+        // PATH에서 글도구 폴백
         try {
             const result = execSync('where 글도구.exe', { encoding: 'utf8', timeout: 5000 });
             const found = result.trim().split('\n')[0].trim();
             if (found && fs.existsSync(found)) return found;
         } catch (e) {}
 
+        // 확장 디렉토리 내
+        for (const name of ['네이티브컴파일러.exe', '글도구.exe']) {
+            const p = path.join(context.extensionPath, 'bin', name);
+            if (fs.existsSync(p)) return p;
+        }
+
         return null;
+    }
+
+    function isNativeCompiler(toolPath) {
+        return toolPath && toolPath.includes('네이티브컴파일러');
     }
 
     // 오류 파싱: "파일:줄:열: 오류: 메시지"
@@ -71,32 +80,39 @@ function activate(context) {
 
             if (!toolPath) {
                 vscode.window.showErrorMessage(
-                    '글도구.exe를 찾을 수 없습니다. 설정에서 경로를 지정하세요.',
+                    '컴파일러를 찾을 수 없습니다. install.ps1로 설치하거나 설정에서 경로를 지정하세요.',
                     '설정 열기'
                 ).then(selection => {
                     if (selection === '설정 열기') {
-                        vscode.commands.executeCommand('workbench.action.openSettings', 'geul.toolPath');
+                        vscode.commands.executeCommand('workbench.action.openSettings', 'geul.compilerPath');
                     }
                 });
                 return;
             }
 
             diagnosticCollection.clear();
+            const native = isNativeCompiler(toolPath);
 
             if (command === '실행') {
-                // 터미널에서 실행 (사용자 입력 가능)
+                // 터미널에서 컴파일 + 실행
                 let terminal = vscode.window.terminals.find(t => t.name === '글 실행');
                 if (!terminal) {
                     terminal = vscode.window.createTerminal('글 실행');
                 }
                 terminal.show();
-                terminal.sendText(`"${toolPath}" 실행 "${filePath}"`);
+                if (native) {
+                    const exePath = filePath.replace(/\.글$/, '.exe');
+                    terminal.sendText(`"${toolPath}" "${filePath}" && "${exePath}"`);
+                } else {
+                    terminal.sendText(`"${toolPath}" 실행 "${filePath}"`);
+                }
             } else if (command === '빌드') {
                 outputChannel.clear();
                 outputChannel.show();
                 outputChannel.appendLine(`빌드 중: ${path.basename(filePath)}`);
 
-                exec(`"${toolPath}" 빌드 "${filePath}"`, { encoding: 'utf8' }, (error, stdout, stderr) => {
+                const buildCmd = native ? `"${toolPath}" "${filePath}"` : `"${toolPath}" 빌드 "${filePath}"`;
+                exec(buildCmd, { encoding: 'utf8' }, (error, stdout, stderr) => {
                     if (stderr) {
                         outputChannel.appendLine(stderr);
                         const errCount = parseErrors(stderr, filePath);
@@ -112,7 +128,8 @@ function activate(context) {
                 outputChannel.clear();
                 outputChannel.show();
 
-                exec(`"${toolPath}" 검사 "${filePath}"`, { encoding: 'utf8' }, (error, stdout, stderr) => {
+                const checkCmd = native ? `"${toolPath}" --dump-ir "${filePath}"` : `"${toolPath}" 검사 "${filePath}"`;
+                exec(checkCmd, { encoding: 'utf8' }, (error, stdout, stderr) => {
                     const allOutput = (stderr || '') + (stdout || '');
                     outputChannel.appendLine(allOutput);
                     const errCount = parseErrors(allOutput, filePath);
