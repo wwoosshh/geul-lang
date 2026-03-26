@@ -154,6 +154,81 @@ function activate(context) {
         outputChannel
     );
 
+    // ── F5 디버그 어댑터 (컴파일+실행) ──
+    context.subscriptions.push(
+        vscode.debug.registerDebugConfigurationProvider('geul', {
+            resolveDebugConfiguration(folder, config) {
+                if (!config.type && !config.request && !config.name) {
+                    const editor = vscode.window.activeTextEditor;
+                    if (editor && editor.document.languageId === 'geul') {
+                        config.type = 'geul';
+                        config.request = 'launch';
+                        config.name = '글 실행';
+                        config.program = editor.document.fileName;
+                    }
+                }
+                if (!config.program) {
+                    vscode.window.showErrorMessage('.글 파일을 열어주세요');
+                    return undefined;
+                }
+                return config;
+            }
+        }),
+        vscode.debug.registerDebugAdapterDescriptorFactory('geul', {
+            createDebugAdapterDescriptor() {
+                return new vscode.DebugAdapterInlineImplementation(new GeulDebugAdapter());
+            }
+        })
+    );
+
+    // 간단한 디버그 어댑터 — 컴파일+실행만 수행
+    class GeulDebugAdapter {
+        constructor() { this._sendEvent = null; }
+
+        handleMessage(msg) {
+            if (msg.type === 'request') {
+                if (msg.command === 'initialize') {
+                    this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: true, body: {} });
+                    this._send({ type: 'event', event: 'initialized' });
+                } else if (msg.command === 'launch') {
+                    const program = msg.arguments.program;
+                    const toolPath = findToolPath();
+                    if (!toolPath) {
+                        this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: false, message: '컴파일러를 찾을 수 없습니다' });
+                        return;
+                    }
+                    this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: true });
+
+                    // 터미널에서 컴파일+실행
+                    let terminal = vscode.window.terminals.find(t => t.name === '글 실행');
+                    if (!terminal) terminal = vscode.window.createTerminal('글 실행');
+                    terminal.show();
+                    if (isNativeCompiler(toolPath)) {
+                        const exePath = program.replace(/\.글$/, '.exe');
+                        terminal.sendText(`"${toolPath}" "${program}" && "${exePath}"`);
+                    } else {
+                        terminal.sendText(`"${toolPath}" 실행 "${program}"`);
+                    }
+
+                    // 즉시 세션 종료 (디버거가 아니므로)
+                    this._send({ type: 'event', event: 'terminated' });
+                } else if (msg.command === 'disconnect') {
+                    this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: true });
+                } else if (msg.command === 'configurationDone') {
+                    this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: true });
+                } else {
+                    this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: true });
+                }
+            }
+        }
+
+        _send(msg) {
+            if (this._sendEvent) this._sendEvent(msg);
+        }
+
+        set onDidSendMessage(handler) { this._sendEvent = handler; }
+    }
+
     // ── LSP 클라이언트 시작 ──
     const lspServerModule = path.join(context.extensionPath, '..', '글-lsp', 'server.js');
     if (fs.existsSync(lspServerModule)) {

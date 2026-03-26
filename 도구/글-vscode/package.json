@@ -2,14 +2,14 @@
   "name": "geul-language",
   "displayName": "글 프로그래밍 언어",
   "description": "한글로 프로그래밍하는 글(Geul) 언어 — 문법 강조, F5 실행, 빌드",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "geul-lang",
   "license": "MIT",
   "engines": {
     "vscode": "^1.80.0"
   },
-  "categories": ["Programming Languages", "Snippets"],
-  "activationEvents": ["onLanguage:geul"],
+  "categories": ["Programming Languages", "Debuggers", "Snippets"],
+  "activationEvents": ["onLanguage:geul", "onDebugResolve:geul"],
   "main": "./extension.js",
   "icon": "icon.png",
   "dependencies": {
@@ -38,6 +38,43 @@
         "path": "./snippets.json"
       }
     ],
+    "debuggers": [
+      {
+        "type": "geul",
+        "label": "글 실행",
+        "languages": ["geul"],
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "실행할 .글 파일 경로"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "geul",
+            "request": "launch",
+            "name": "글 실행",
+            "program": "${file}"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "글: 실행",
+            "description": "글 프로그램 컴파일 + 실행",
+            "body": {
+              "type": "geul",
+              "request": "launch",
+              "name": "글 실행",
+              "program": "^\"${1:\\${file\\}}\""
+            }
+          }
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "geul.run",
@@ -54,11 +91,6 @@
     ],
     "keybindings": [
       {
-        "command": "geul.run",
-        "key": "f5",
-        "when": "editorLangId == geul && !inDebugMode"
-      },
-      {
         "command": "geul.build",
         "key": "ctrl+shift+b",
         "when": "editorLangId == geul"
@@ -67,10 +99,15 @@
     "configuration": {
       "title": "글 언어",
       "properties": {
+        "geul.compilerPath": {
+          "type": "string",
+          "default": "",
+          "description": "네이티브컴파일러.exe 경로 (비워두면 PATH에서 탐색)"
+        },
         "geul.toolPath": {
           "type": "string",
           "default": "",
-          "description": "글도구.exe 경로 (비워두면 확장에 포함된 것을 사용)"
+          "description": "글도구.exe 경로 (하위 호환)"
         }
       }
     }
