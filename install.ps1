@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "  ===================================" -ForegroundColor Cyan
-Write-Host "   글 프로그래밍 언어 v1.0 설치" -ForegroundColor Cyan
+Write-Host "   글 프로그래밍 언어 v2.0 설치" -ForegroundColor Cyan
 Write-Host "  ===================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -59,8 +59,7 @@ Write-Host ""
 Write-Host "  설치 경로: $installDir"
 Write-Host ""
 Write-Host "  사용법:"
-Write-Host "    글도구 실행 소스.글           # C 트랜스파일 (MSVC 필요)"
-Write-Host "    네이티브컴파일러 소스.글       # 네이티브 .exe 직접 생성"
+Write-Host "    네이티브컴파일러 소스.글       # .exe 직접 생성 (C 불필요)"
 Write-Host ""
 Write-Host "  VS Code: .글 파일 만들고 F5 → 실행"
 Write-Host "  새 터미널을 열어야 PATH가 적용됩니다." -ForegroundColor Yellow
