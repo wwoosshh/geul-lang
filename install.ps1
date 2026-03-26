@@ -45,6 +45,8 @@ $toolName = "" + [char]0xAE00 + [char]0xB3C4 + [char]0xAD6C + ".exe"
 Write-Host "  [1/5] 네이티브컴파일러 다운로드 중..." -ForegroundColor White
 try {
     Invoke-WebRequest -Uri "$baseUrl/native-compiler.exe" -OutFile (Join-Path $binDir $ncName) -UseBasicParsing
+    # 영문 복사본 (geulc.exe) — PATH/where 호환
+    Copy-Item (Join-Path $binDir $ncName) (Join-Path $binDir "geulc.exe") -Force
     Write-Host "       완료" -ForegroundColor Green
 } catch {
     Write-Host "       실패: $_" -ForegroundColor Red
@@ -60,6 +62,10 @@ try {
 }
 
 Write-Host "  [3/5] 표준 라이브러리 다운로드 중..." -ForegroundColor White
+# std.gl (통합 표준 라이브러리) — bin 디렉토리에 배치
+try {
+    Invoke-WebRequest -Uri "$baseUrl/std.gl" -OutFile (Join-Path $binDir "std.gl") -UseBasicParsing
+} catch { }
 $stdNames = @(
     ([char]0xAE30 + [char]0xBCF8),
     ([char]0xC785 + [char]0xCD9C + [char]0xB825),

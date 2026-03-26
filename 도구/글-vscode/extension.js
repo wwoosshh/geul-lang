@@ -2,7 +2,12 @@ const vscode = require('vscode');
 const path = require('path');
 const { execSync, exec } = require('child_process');
 const fs = require('fs');
-const { LanguageClient, TransportKind } = require('vscode-languageclient/node');
+let LanguageClient, TransportKind;
+try {
+    ({ LanguageClient, TransportKind } = require('vscode-languageclient/node'));
+} catch (e) {
+    // LSP 클라이언트 없으면 무시 — 기본 기능은 동작
+}
 
 let diagnosticCollection;
 let outputChannel;
@@ -18,31 +23,31 @@ function activate(context) {
         const configPath = config.get('compilerPath') || config.get('toolPath');
         if (configPath && fs.existsSync(configPath)) return configPath;
 
-        // PATH에서 네이티브컴파일러 탐색
-        try {
-            const result = execSync('where 네이티브컴파일러.exe', { encoding: 'utf8', timeout: 5000 });
-            const found = result.trim().split('\n')[0].trim();
-            if (found && fs.existsSync(found)) return found;
-        } catch (e) {}
-
-        // PATH에서 글도구 폴백
-        try {
-            const result = execSync('where 글도구.exe', { encoding: 'utf8', timeout: 5000 });
-            const found = result.trim().split('\n')[0].trim();
-            if (found && fs.existsSync(found)) return found;
-        } catch (e) {}
+        // install.ps1 기본 설치 경로
+        const installDir = path.join(process.env.LOCALAPPDATA || '', 'geul-lang', 'bin');
+        for (const name of ['\uB124\uC774\uD2F0\uBE0C\uCEF4\uD30C\uC77C\uB7EC.exe', 'geulc.exe']) {
+            const p = path.join(installDir, name);
+            if (fs.existsSync(p)) return p;
+        }
 
         // 확장 디렉토리 내
-        for (const name of ['네이티브컴파일러.exe', '글도구.exe']) {
+        for (const name of ['\uB124\uC774\uD2F0\uBE0C\uCEF4\uD30C\uC77C\uB7EC.exe', 'geulc.exe']) {
             const p = path.join(context.extensionPath, 'bin', name);
             if (fs.existsSync(p)) return p;
         }
+
+        // PATH에서 탐색
+        try {
+            const result = execSync('where geulc.exe', { encoding: 'utf8', timeout: 5000 });
+            const found = result.trim().split('\n')[0].trim();
+            if (found && fs.existsSync(found)) return found;
+        } catch (e) {}
 
         return null;
     }
 
     function isNativeCompiler(toolPath) {
-        return toolPath && toolPath.includes('네이티브컴파일러');
+        return toolPath && !toolPath.includes('\uAE00\uB3C4\uAD6C');
     }
 
     // 오류 파싱: "파일:줄:열: 오류: 메시지"
@@ -154,84 +159,11 @@ function activate(context) {
         outputChannel
     );
 
-    // ── F5 디버그 어댑터 (컴파일+실행) ──
-    context.subscriptions.push(
-        vscode.debug.registerDebugConfigurationProvider('geul', {
-            resolveDebugConfiguration(folder, config) {
-                if (!config.type && !config.request && !config.name) {
-                    const editor = vscode.window.activeTextEditor;
-                    if (editor && editor.document.languageId === 'geul') {
-                        config.type = 'geul';
-                        config.request = 'launch';
-                        config.name = '글 실행';
-                        config.program = editor.document.fileName;
-                    }
-                }
-                if (!config.program) {
-                    vscode.window.showErrorMessage('.글 파일을 열어주세요');
-                    return undefined;
-                }
-                return config;
-            }
-        }),
-        vscode.debug.registerDebugAdapterDescriptorFactory('geul', {
-            createDebugAdapterDescriptor() {
-                return new vscode.DebugAdapterInlineImplementation(new GeulDebugAdapter());
-            }
-        })
-    );
+    // F5는 keybinding → geul.run 명령으로 직접 연결됨 (package.json)
 
-    // 간단한 디버그 어댑터 — 컴파일+실행만 수행
-    class GeulDebugAdapter {
-        constructor() { this._sendEvent = null; }
-
-        handleMessage(msg) {
-            if (msg.type === 'request') {
-                if (msg.command === 'initialize') {
-                    this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: true, body: {} });
-                    this._send({ type: 'event', event: 'initialized' });
-                } else if (msg.command === 'launch') {
-                    const program = msg.arguments.program;
-                    const toolPath = findToolPath();
-                    if (!toolPath) {
-                        this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: false, message: '컴파일러를 찾을 수 없습니다' });
-                        return;
-                    }
-                    this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: true });
-
-                    // 터미널에서 컴파일+실행
-                    let terminal = vscode.window.terminals.find(t => t.name === '글 실행');
-                    if (!terminal) terminal = vscode.window.createTerminal('글 실행');
-                    terminal.show();
-                    if (isNativeCompiler(toolPath)) {
-                        const exePath = program.replace(/\.글$/, '.exe');
-                        terminal.sendText(`"${toolPath}" "${program}" && "${exePath}"`);
-                    } else {
-                        terminal.sendText(`"${toolPath}" 실행 "${program}"`);
-                    }
-
-                    // 즉시 세션 종료 (디버거가 아니므로)
-                    this._send({ type: 'event', event: 'terminated' });
-                } else if (msg.command === 'disconnect') {
-                    this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: true });
-                } else if (msg.command === 'configurationDone') {
-                    this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: true });
-                } else {
-                    this._send({ type: 'response', request_seq: msg.seq, command: msg.command, success: true });
-                }
-            }
-        }
-
-        _send(msg) {
-            if (this._sendEvent) this._sendEvent(msg);
-        }
-
-        set onDidSendMessage(handler) { this._sendEvent = handler; }
-    }
-
-    // ── LSP 클라이언트 시작 ──
+    // ── LSP 클라이언트 시작 (선택사항) ──
     const lspServerModule = path.join(context.extensionPath, '..', '글-lsp', 'server.js');
-    if (fs.existsSync(lspServerModule)) {
+    if (LanguageClient && fs.existsSync(lspServerModule)) {
         const serverOptions = {
             run:   { module: lspServerModule, transport: TransportKind.ipc },
             debug: { module: lspServerModule, transport: TransportKind.ipc },
