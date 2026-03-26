@@ -107,9 +107,10 @@ function activate(context) {
                 terminal.show();
                 if (native) {
                     const exePath = filePath.replace(/\.글$/, '.exe');
-                    terminal.sendText(`"${toolPath}" "${filePath}" && "${exePath}"`);
+                    // PowerShell 5.1 호환: && 대신 ; if ($?) 사용
+                    terminal.sendText(`& "${toolPath}" --no-std "${filePath}"; if ($?) { & "${exePath}" }`);
                 } else {
-                    terminal.sendText(`"${toolPath}" 실행 "${filePath}"`);
+                    terminal.sendText(`& "${toolPath}" 실행 "${filePath}"`);
                 }
             } else if (command === '빌드') {
                 outputChannel.clear();
