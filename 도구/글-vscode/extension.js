@@ -107,8 +107,8 @@ function activate(context) {
                 terminal.show();
                 if (native) {
                     const exePath = filePath.replace(/\.글$/, '.exe');
-                    // PowerShell 5.1 호환: && 대신 ; if ($?) 사용
-                    terminal.sendText(`& "${toolPath}" --no-std "${filePath}"; if ($?) { & "${exePath}" }`);
+                    // PowerShell 5.1 호환 + UTF-8 출력
+                    terminal.sendText(`chcp 65001 | Out-Null; & "${toolPath}" --no-std "${filePath}" 2>$null; if ($?) { & "${exePath}" }`);
                 } else {
                     terminal.sendText(`& "${toolPath}" 실행 "${filePath}"`);
                 }
