@@ -30,30 +30,20 @@ let tempDir = os.tmpdir();
 // ── 컴파일러 경로 탐색 ──────────────────────────────────
 
 function findCompiler() {
-  // 1) 같은 도구 폴더 안의 글도구.exe
-  const sibling = path.resolve(__dirname, '..', '글도구.exe');
+  // 1) 설치된 네이티브컴파일러 (사용자 환경)
+  const installDir = path.join(process.env.LOCALAPPDATA || '', 'geul-lang', 'bin');
+  const installed = path.join(installDir, '\uB124\uC774\uD2F0\uBE0C\uCEF4\uD30C\uC77C\uB7EC.exe');
+  if (fs.existsSync(installed)) return installed;
+
+  // 2) 같은 도구 폴더 근처 (개발 환경)
+  const sibling = path.resolve(__dirname, '..', '..', '\uBC30\uD3EC', '\uB124\uC774\uD2F0\uBE0C\uCEF4\uD30C\uC77C\uB7EC.exe');
   if (fs.existsSync(sibling)) return sibling;
 
-  // 2) 글-vscode/bin/글도구.exe
-  const vscBin = path.resolve(__dirname, '..', '글-vscode', 'bin', '글도구.exe');
-  if (fs.existsSync(vscBin)) return vscBin;
-
-  // 3) 프로젝트 루트 빌드 산출물
-  const root = path.resolve(__dirname, '..', '..');
-  const rootBuild = path.join(root, '빌드', '글도구.exe');
-  if (fs.existsSync(rootBuild)) return rootBuild;
-
-  // 4) 네이티브컴파일러.exe (구 이름)
-  const native = path.join(root, '빌드', '네이티브컴파일러.exe');
-  if (fs.existsSync(native)) return native;
-
-  // 5) PATH 탐색 (동기)
+  // 3) PATH 탐색 — geulc.exe (영문 복사본)
   try {
-    const { execSync } = require('child_process');
-    const result = execSync('where 글도구.exe', {
-      encoding: 'utf8',
-      timeout: 3000,
-      windowsHide: true,
+    const { execFileSync } = require('child_process');
+    const result = execFileSync('where', ['geulc.exe'], {
+      encoding: 'utf8', timeout: 3000, windowsHide: true,
     });
     const found = result.trim().split('\n')[0].trim();
     if (found && fs.existsSync(found)) return found;
@@ -161,8 +151,8 @@ function validateDocument(doc) {
       return;
     }
 
-    // 글도구.exe 검사 tmpFile
-    execFile(compilerPath, ['검사', tmpFile], {
+    // 네이티브컴파일러 --검사 tmpFile
+    execFile(compilerPath, ['--검사', tmpFile], {
       encoding: 'utf8',
       timeout: 10000,
       windowsHide: true,
@@ -246,8 +236,9 @@ const KEYWORDS = [
 
 /** 표준 라이브러리 함수 목록 */
 const STDLIB_FUNCTIONS = [
-  // 입출력
+  // 입출력 (동사형 호출 포함)
   { label: '쓰기', detail: 'printf -- 서식 출력', kind: CompletionItemKind.Function },
+  { label: '쓰다', detail: '쓰기의 동사형 — "값을 쓰다."', kind: CompletionItemKind.Function },
   { label: '쓰기_줄', detail: 'puts -- 줄 출력', kind: CompletionItemKind.Function },
   { label: '파일에_쓰기', detail: 'fprintf', kind: CompletionItemKind.Function },
   { label: '버퍼에_쓰기', detail: 'snprintf', kind: CompletionItemKind.Function },
@@ -278,6 +269,16 @@ const STDLIB_FUNCTIONS = [
   { label: '문자열_복제', detail: 'strdup', kind: CompletionItemKind.Function },
   { label: '정수로_변환', detail: 'atoi', kind: CompletionItemKind.Function },
   { label: '긴정수로_변환', detail: 'atol', kind: CompletionItemKind.Function },
+
+  // 동사형 호출
+  { label: '더하다', detail: '더하기의 동사형', kind: CompletionItemKind.Function },
+  { label: '빼다', detail: '빼기의 동사형', kind: CompletionItemKind.Function },
+  { label: '읽다', detail: '읽기의 동사형', kind: CompletionItemKind.Function },
+  { label: '열다', detail: '열기의 동사형', kind: CompletionItemKind.Function },
+  { label: '닫다', detail: '닫기의 동사형', kind: CompletionItemKind.Function },
+  { label: '반환하다', detail: '값을 반환하다', kind: CompletionItemKind.Keyword },
+  { label: '증가하다', detail: '변수를 증가하다 (++)', kind: CompletionItemKind.Keyword },
+  { label: '감소하다', detail: '변수를 감소하다 (--)', kind: CompletionItemKind.Keyword },
 
   // 메모리
   { label: '할당', detail: 'malloc -- 메모리 할당', kind: CompletionItemKind.Function },

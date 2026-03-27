@@ -16,9 +16,8 @@ $stdDir = Join-Path $installDir ([char]0xD45C + [char]0xC900)
 
 # 기존 설치 감지
 $existing = Test-Path (Join-Path $binDir ([char]0xB124 + [char]0xC774 + [char]0xD2F0 + [char]0xBE0C + [char]0xCEF4 + [char]0xD30C + [char]0xC77C + [char]0xB7EC + ".exe"))
-$existingTool = Test-Path (Join-Path $binDir ([char]0xAE00 + [char]0xB3C4 + [char]0xAD6C + ".exe"))
 
-if ($existing -or $existingTool) {
+if ($existing) {
     Write-Host "  기존 설치가 감지되었습니다: $installDir" -ForegroundColor Yellow
     Write-Host ""
     $choice = Read-Host "  기존 버전을 삭제하고 새 버전으로 설치할까요? (y/n)"
@@ -40,9 +39,8 @@ New-Item -ItemType Directory -Path $stdDir -Force | Out-Null
 
 $baseUrl = "https://github.com/wwoosshh/geul-lang/releases/latest/download"
 $ncName = "" + [char]0xB124 + [char]0xC774 + [char]0xD2F0 + [char]0xBE0C + [char]0xCEF4 + [char]0xD30C + [char]0xC77C + [char]0xB7EC + ".exe"
-$toolName = "" + [char]0xAE00 + [char]0xB3C4 + [char]0xAD6C + ".exe"
 
-Write-Host "  [1/5] 네이티브컴파일러 다운로드 중..." -ForegroundColor White
+Write-Host "  [1/4] 네이티브컴파일러 다운로드 중..." -ForegroundColor White
 try {
     Invoke-WebRequest -Uri "$baseUrl/native-compiler.exe" -OutFile (Join-Path $binDir $ncName) -UseBasicParsing
     # 영문 복사본 (geulc.exe) — PATH/where 호환
@@ -53,15 +51,7 @@ try {
     exit 1
 }
 
-Write-Host "  [2/5] 글도구 다운로드 중..." -ForegroundColor White
-try {
-    Invoke-WebRequest -Uri "$baseUrl/geultool.exe" -OutFile (Join-Path $binDir $toolName) -UseBasicParsing
-    Write-Host "       완료" -ForegroundColor Green
-} catch {
-    Write-Host "       실패 (선택사항)" -ForegroundColor Yellow
-}
-
-Write-Host "  [3/5] 표준 라이브러리 다운로드 중..." -ForegroundColor White
+Write-Host "  [2/4] 표준 라이브러리 다운로드 중..." -ForegroundColor White
 # std.gl (통합 표준 라이브러리) — bin 디렉토리에 배치
 try {
     Invoke-WebRequest -Uri "$baseUrl/std.gl" -OutFile (Join-Path $binDir "std.gl") -UseBasicParsing
@@ -89,7 +79,7 @@ foreach ($name in $stdNames) {
 }
 Write-Host "       $stdOk/${stdNames.Count}개 완료" -ForegroundColor $(if ($stdOk -gt 0) { "Green" } else { "Yellow" })
 
-Write-Host "  [4/5] PATH 설정 중..." -ForegroundColor White
+Write-Host "  [3/4] PATH 설정 중..." -ForegroundColor White
 $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
 if ($userPath -notlike "*$binDir*") {
     [Environment]::SetEnvironmentVariable("PATH", "$userPath;$binDir", "User")
@@ -100,7 +90,7 @@ if ($userPath -notlike "*$binDir*") {
 
 $codePath = Get-Command code -ErrorAction SilentlyContinue
 if ($codePath) {
-    Write-Host "  [5/5] VS Code 확장 설치 중..." -ForegroundColor White
+    Write-Host "  [4/4] VS Code 확장 설치 중..." -ForegroundColor White
     $vsixPath = Join-Path $env:TEMP "geul-language.vsix"
     try {
         Invoke-WebRequest -Uri "$baseUrl/geul-language-0.2.2.vsix" -OutFile $vsixPath -UseBasicParsing
@@ -111,7 +101,7 @@ if ($codePath) {
         Write-Host "       실패 (선택사항)" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "  [5/5] VS Code 미설치 — 건너뜀" -ForegroundColor Yellow
+    Write-Host "  [4/4] VS Code 미설치 — 건너뜀" -ForegroundColor Yellow
 }
 
 Write-Host ""
