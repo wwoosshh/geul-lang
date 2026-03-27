@@ -266,6 +266,17 @@ static void 출력_런타임(코드생성기 *gen) {
     출력(gen, ")(x)\n");
     출력(gen, "\n");
 
+    /* 보간 출력 매크로 — 문자열 보간용 */
+    출력(gen, "static void _보간_int(int v) { printf(\"%%d\", v); }\n");
+    출력(gen, "static void _보간_lld(long long v) { printf(\"%%lld\", v); }\n");
+    출력(gen, "static void _보간_dbl(double v) { printf(\"%%g\", v); }\n");
+    출력(gen, "static void _보간_str(char *v) { printf(\"%%s\", v); }\n");
+    출력(gen, "static void _보간_chr(char v) { printf(\"%%c\", v); }\n");
+    출력(gen, "#define _보간(x) _Generic((0,(x)), \\\n");
+    출력(gen, "    int: _보간_int, long long: _보간_lld, \\\n");
+    출력(gen, "    double: _보간_dbl, float: _보간_dbl, \\\n");
+    출력(gen, "    char: _보간_chr, char*: _보간_str)(x)\n\n");
+
     /* 입력 함수 스텁 */
     출력(gen, "/* 입력 함수 스텁 */\n");
     출력(gen, "static int 입력_정수(void) {\n");
@@ -769,6 +780,57 @@ static void 생성_호출(코드생성기 *gen, 노드 *n) {
             출력(gen, " %s ", 비교연산);
             생성_표현식(gen, 인자p->다음->값);
             출력(gen, ")");
+            return;
+        }
+    }
+
+    /*
+     * 문자열 보간 처리:
+     * "이름은 {이름}이고 {나이}세\n"을 쓰다.
+     * → printf("이름은 "); _보간(이름); printf("이고 "); _보간(나이); printf("세\n");
+     */
+    인자 *첫인자 = n->데이터.호출.인자목록;
+    if (첫인자 && 첫인자->값 && 첫인자->값->종류 == 노드_문자열_리터럴) {
+        const char *s = 첫인자->값->데이터.문자열_리터럴.값;
+        /* 보간 문자열 감지: \{ 가 아닌 { 가 있으면 보간 */
+        bool 보간있음 = false;
+        for (const char *p = s; *p; p++) {
+            if (*p == '{' && (p == s || *(p-1) != '\\')) { 보간있음 = true; break; }
+        }
+        if (보간있음) {
+            /* 보간 문자열을 printf + _보간 체인으로 변환 */
+            출력(gen, "do { ");
+            const char *p = s;
+            while (*p) {
+                if (*p == '{' && (p == s || *(p-1) != '\\')) {
+                    p++; /* '{' 건너뛰기 */
+                    /* 변수이름 추출 */
+                    const char *이름시작 = p;
+                    while (*p && *p != '}') p++;
+                    int 이름길이 = (int)(p - 이름시작);
+                    if (*p == '}') p++;
+                    출력(gen, "_보간(");
+                    fwrite(이름시작, 1, 이름길이, gen->출력);
+                    출력(gen, "); ");
+                } else {
+                    /* 일반 텍스트 구간: 다음 { 또는 끝까지 수집 */
+                    const char *텍스트시작 = p;
+                    while (*p && !(*p == '{' && (p == s || *(p-1) != '\\'))) p++;
+                    출력(gen, "printf(\"");
+                    for (const char *t = 텍스트시작; t < p; t++) {
+                        switch (*t) {
+                        case '\n': 출력(gen, "\\n"); break;
+                        case '\t': 출력(gen, "\\t"); break;
+                        case '\\': 출력(gen, "\\\\"); break;
+                        case '"':  출력(gen, "\\\""); break;
+                        case '%':  출력(gen, "%%%%"); break;
+                        default: fprintf(gen->출력, "%c", *t); break;
+                        }
+                    }
+                    출력(gen, "\"); ");
+                }
+            }
+            출력(gen, "} while(0)");
             return;
         }
     }
