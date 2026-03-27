@@ -72,8 +72,6 @@ const char *토큰_이름(토큰_종류 종류) {
     case 토큰_합침:          return "합침";
     case 토큰_없으면:        return "없으면";
     case 토큰_있으면:        return "있으면";
-    case 토큰_정리:          return "정리";
-    case 토큰_넘기다:        return "넘기다";
 
     /* 조사 */
     case 토큰_조사_을:       return "을";

@@ -42,7 +42,6 @@ typedef enum {
     노드_반환문,
     노드_탈출문,         /* break */
     노드_계속문,         /* continue */
-    노드_넘기다,         /* goto cleanup */
     노드_표현식문,       /* 표현식으로 구성된 문장 */
     노드_갈래문,         /* switch */
 
@@ -154,7 +153,6 @@ struct 노드 {
             매개변수 *매개변수목록;
             노드 *반환타입;     /* NULL이면 공허 */
             노드 *본문;         /* 블록 노드 (외부 선언이면 NULL) */
-            노드 *정리블록;     /* 정리 { } 블록 (NULL이면 없음) */
             bool 외부;          /* true면 extern 선언 */
             bool 가변인자;      /* true면 variadic (...) */
             bool 정적;          /* true면 static */
