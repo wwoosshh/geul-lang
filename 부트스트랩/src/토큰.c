@@ -7,13 +7,13 @@
 const char *토큰_이름(토큰_종류 종류) {
     switch (종류) {
     /* 리터럴 */
-    case 토큰_정수_리터럴:   return "정수_리터럴";
-    case 토큰_실수_리터럴:   return "실수_리터럴";
-    case 토큰_문자열_리터럴: return "문자열_리터럴";
-    case 토큰_문자_리터럴:   return "문자_리터럴";
+    case 토큰_정수_리터럴:   return "숫자";
+    case 토큰_실수_리터럴:   return "소수";
+    case 토큰_문자열_리터럴: return "문자열";
+    case 토큰_문자_리터럴:   return "문자";
 
     /* 식별자 */
-    case 토큰_식별자:        return "식별자";
+    case 토큰_식별자:        return "이름";
 
     /* 타입 */
     case 토큰_정수:          return "정수";
@@ -74,40 +74,40 @@ const char *토큰_이름(토큰_종류 종류) {
     case 토큰_있으면:        return "있으면";
 
     /* 조사 */
-    case 토큰_조사_을:       return "조사:을";
-    case 토큰_조사_를:       return "조사:를";
-    case 토큰_조사_이:       return "조사:이";
-    case 토큰_조사_가:       return "조사:가";
-    case 토큰_조사_은:       return "조사:은";
-    case 토큰_조사_는:       return "조사:는";
-    case 토큰_조사_에:       return "조사:에";
-    case 토큰_조사_로:       return "조사:로";
-    case 토큰_조사_으로:     return "조사:으로";
-    case 토큰_조사_에서:     return "조사:에서";
-    case 토큰_조사_부터:     return "조사:부터";
-    case 토큰_조사_까지:     return "조사:까지";
-    case 토큰_조사_와:       return "조사:와";
-    case 토큰_조사_과:       return "조사:과";
-    case 토큰_조사_의:       return "조사:의";
-    case 토큰_조사_보다:     return "조사:보다";
-    case 토큰_조사_에게:     return "조사:에게";
+    case 토큰_조사_을:       return "을";
+    case 토큰_조사_를:       return "를";
+    case 토큰_조사_이:       return "이";
+    case 토큰_조사_가:       return "가";
+    case 토큰_조사_은:       return "은";
+    case 토큰_조사_는:       return "는";
+    case 토큰_조사_에:       return "에";
+    case 토큰_조사_로:       return "로";
+    case 토큰_조사_으로:     return "으로";
+    case 토큰_조사_에서:     return "에서";
+    case 토큰_조사_부터:     return "부터";
+    case 토큰_조사_까지:     return "까지";
+    case 토큰_조사_와:       return "와";
+    case 토큰_조사_과:       return "과";
+    case 토큰_조사_의:       return "의";
+    case 토큰_조사_보다:     return "보다";
+    case 토큰_조사_에게:     return "에게";
 
     /* 어미 */
-    case 토큰_어미_다:       return "어미:다";
-    case 토큰_어미_면:       return "어미:면";
-    case 토큰_어미_고:       return "어미:고";
-    case 토큰_어미_서:       return "어미:서";
-    case 토큰_어미_여:       return "어미:여";
-    case 토큰_어미_거나:     return "어미:거나";
-    case 토큰_어미_지만:     return "어미:지만";
-    case 토큰_어미_도록:     return "어미:도록";
-    case 토큰_어미_동안:     return "어미:동안";
-    case 토큰_어미_때:       return "어미:때";
-    case 토큰_어미_라:       return "어미:라";
-    case 토큰_어미_자:       return "어미:자";
-    case 토큰_어미_까:       return "어미:까";
-    case 토큰_어미_며:       return "어미:며";
-    case 토큰_어미_면서:     return "어미:면서";
+    case 토큰_어미_다:       return "다";
+    case 토큰_어미_면:       return "면";
+    case 토큰_어미_고:       return "고";
+    case 토큰_어미_서:       return "서";
+    case 토큰_어미_여:       return "여";
+    case 토큰_어미_거나:     return "거나";
+    case 토큰_어미_지만:     return "지만";
+    case 토큰_어미_도록:     return "도록";
+    case 토큰_어미_동안:     return "동안";
+    case 토큰_어미_때:       return "때";
+    case 토큰_어미_라:       return "라";
+    case 토큰_어미_자:       return "자";
+    case 토큰_어미_까:       return "까";
+    case 토큰_어미_며:       return "며";
+    case 토큰_어미_면서:     return "면서";
 
     /* 구분자 */
     case 토큰_여는괄호:      return "(";
@@ -148,7 +148,7 @@ const char *토큰_이름(토큰_종류 종류) {
 
     /* 특수 */
     case 토큰_줄바꿈:        return "줄바꿈";
-    case 토큰_파일끝:        return "파일끝";
+    case 토큰_파일끝:        return "파일 끝";
     case 토큰_오류:          return "오류";
     }
     return "알수없음";
