@@ -71,8 +71,6 @@ typedef enum {
     토큰_합침,              /* 합침 (union) */
     토큰_없으면,            /* 없으면 (null/zero check) */
     토큰_있으면,            /* 있으면 (non-null/nonzero check) */
-    토큰_정리,              /* 정리 (cleanup block) */
-    토큰_넘기다,            /* 넘기다 (goto cleanup) */
 
     /* ===== 조사 (Postpositions) ===== */
     토큰_조사_을,           /* 을 - 목적어 (받침 있는 명사 뒤) */
