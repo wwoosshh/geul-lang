@@ -1,31 +1,33 @@
-# 빌드 아티팩트
+# ===== 빌드 아티팩트 =====
 *.exe
 *.obj
 *.pdb
-*.c
-!부트스트랩/src/*.c
 *.asm
 
-# 임시 파일
+# C 트랜스파일 결과 (부트스트랩 소스만 예외)
+*.c
+!부트스트랩/src/*.c
+
+# ===== 배포 =====
+# 배포 바이너리는 릴리즈에서 관리, 로컬 빌드물은 무시
+배포/*.exe
+배포/merged.글
+배포/nc_stage*.exe
+
+# ===== 임시/캐시 =====
 *.tmp
 /c/temp/
 
-# node_modules
-node_modules/
-
-# VSCode 사용자 설정
-.vscode/
-
-# Claude 프로젝트 메모리
-.claude/
-
-# TCC 바이너리 (용량 큼)
+# ===== 도구 바이너리 =====
 도구/tcc-0.9.27-win64-bin.zip
 도구/tcc-extract/
 도구/글-vscode/bin/tcc/
 
-# 벤치마크 결과 (재생성 가능)
+# ===== 벤치마크 =====
 벤치마크/결과/testdata.txt
 
-# VSIX 패키지 (릴리스에서 배포)
+# ===== IDE/에디터 =====
+.vscode/
+.claude/
+node_modules/
 *.vsix
