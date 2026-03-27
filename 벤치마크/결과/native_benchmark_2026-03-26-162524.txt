@@ -1,0 +1,22 @@
+﻿글 네이티브 컴파일러 벤치마크 결과
+일시: 2026-03-26 16:21:16
+CPU: Intel(R) Core(TM) Ultra 5 226V | RAM: 16GB
+
+재귀 피보나치 fib(40):
+  글 (네이티브): 465.5ms (1.46x vs C)
+  C (/O2): 318.9ms (1.00x vs C)
+  Python: 7335.2ms (23.00x vs C)
+
+에라토스테네스 체 (100만):
+  글 (네이티브): 10.2ms (1.13x vs C)
+  C (/O2): 9ms (1.00x vs C)
+  Python: 182.1ms (20.16x vs C)
+
+버블정렬 (30,000개):
+  글 (네이티브): 1556.9ms (2.82x vs C)
+  C (/O2): 551.9ms (1.00x vs C)
+  Python: 39321.5ms (71.25x vs C)
+
+측정 방법: PowerShell Measure-Command, 5회 중앙값
+글: 네이티브 PE 직접 생성 (최적화 없음)
+C: MSVC /O2 최적화
