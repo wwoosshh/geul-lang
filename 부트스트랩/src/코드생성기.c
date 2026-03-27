@@ -792,17 +792,48 @@ static void 생성_호출(코드생성기 *gen, 노드 *n) {
     인자 *첫인자 = n->데이터.호출.인자목록;
     if (첫인자 && 첫인자->값 && 첫인자->값->종류 == 노드_문자열_리터럴) {
         const char *s = 첫인자->값->데이터.문자열_리터럴.값;
-        /* 보간 문자열 감지: \{ 가 아닌 { 가 있으면 보간 */
+        /* 보간 문자열 감지: {순수식별자} 패턴만 보간 */
+        /* {와} 사이에 알파벳/한글/밑줄/숫자만 있어야 함 — [, =, ; 등 포함시 무시 */
         bool 보간있음 = false;
         for (const char *p = s; *p; p++) {
-            if (*p == '{' && (p == s || *(p-1) != '\\')) { 보간있음 = true; break; }
+            if (*p == '{' && (p == s || *(p-1) != '\\')) {
+                const char *q = p + 1;
+                /* 첫 글자: 알파벳/한글/밑줄 */
+                unsigned char 첫 = (unsigned char)*q;
+                if (!((첫 >= 'A' && 첫 <= 'Z') || (첫 >= 'a' && 첫 <= 'z') ||
+                      첫 == '_' || 첫 >= 0x80)) continue;
+                /* 나머지: 알파벳/한글/밑줄/숫자만, }까지 */
+                while (*q && *q != '}') {
+                    unsigned char c = (unsigned char)*q;
+                    if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                          (c >= '0' && c <= '9') || c == '_' || c >= 0x80)) break;
+                    q++;
+                }
+                if (*q == '}' && q > p + 1) { 보간있음 = true; break; }
+            }
         }
         if (보간있음) {
             /* 보간 문자열을 printf + _보간 체인으로 변환 */
             출력(gen, "do { ");
             const char *p = s;
             while (*p) {
+                /* {순수식별자} 패턴인지 확인 */
+                bool _보간시작 = false;
                 if (*p == '{' && (p == s || *(p-1) != '\\')) {
+                    const char *_q = p + 1;
+                    unsigned char _fc = (unsigned char)*_q;
+                    if ((_fc >= 'A' && _fc <= 'Z') || (_fc >= 'a' && _fc <= 'z') ||
+                        _fc == '_' || _fc >= 0x80) {
+                        while (*_q && *_q != '}') {
+                            unsigned char _cc = (unsigned char)*_q;
+                            if (!((_cc >= 'A' && _cc <= 'Z') || (_cc >= 'a' && _cc <= 'z') ||
+                                  (_cc >= '0' && _cc <= '9') || _cc == '_' || _cc >= 0x80)) break;
+                            _q++;
+                        }
+                        if (*_q == '}' && _q > p + 1) _보간시작 = true;
+                    }
+                }
+                if (_보간시작) {
                     p++; /* '{' 건너뛰기 */
                     /* 변수이름 추출 */
                     const char *이름시작 = p;
@@ -813,9 +844,25 @@ static void 생성_호출(코드생성기 *gen, 노드 *n) {
                     fwrite(이름시작, 1, 이름길이, gen->출력);
                     출력(gen, "); ");
                 } else {
-                    /* 일반 텍스트 구간: 다음 { 또는 끝까지 수집 */
+                    /* 일반 텍스트 구간: 다음 보간{순수식별자} 또는 끝까지 수집 */
                     const char *텍스트시작 = p;
-                    while (*p && !(*p == '{' && (p == s || *(p-1) != '\\'))) p++;
+                    while (*p) {
+                        if (*p == '{' && (p == 텍스트시작 || *(p-1) != '\\')) {
+                            const char *_tq = p + 1;
+                            unsigned char _tfc = (unsigned char)*_tq;
+                            if ((_tfc >= 'A' && _tfc <= 'Z') || (_tfc >= 'a' && _tfc <= 'z') ||
+                                _tfc == '_' || _tfc >= 0x80) {
+                                while (*_tq && *_tq != '}') {
+                                    unsigned char _tc = (unsigned char)*_tq;
+                                    if (!((_tc >= 'A' && _tc <= 'Z') || (_tc >= 'a' && _tc <= 'z') ||
+                                          (_tc >= '0' && _tc <= '9') || _tc == '_' || _tc >= 0x80)) break;
+                                    _tq++;
+                                }
+                                if (*_tq == '}' && _tq > p + 1) break;
+                            }
+                        }
+                        p++;
+                    }
                     출력(gen, "printf(\"");
                     for (const char *t = 텍스트시작; t < p; t++) {
                         switch (*t) {
