@@ -107,8 +107,8 @@ function activate(context) {
                 terminal.show();
                 if (native) {
                     const exePath = filePath.replace(/\.글$/, '.exe');
-                    // PowerShell 5.1 호환 + UTF-8 출력
-                    terminal.sendText(`chcp 65001 | Out-Null; & "${toolPath}" --no-std "${filePath}" 2>$null; if ($?) { & "${exePath}" }`);
+                    // 기존 exe 삭제 → 컴파일 → exe 존재 시에만 실행
+                    terminal.sendText(`chcp 65001 | Out-Null; Remove-Item "${exePath}" -ErrorAction SilentlyContinue; & "${toolPath}" "${filePath}" 2>&1; if (Test-Path "${exePath}") { & "${exePath}" } else { Write-Host "컴파일 실패" -ForegroundColor Red }`);
                 } else {
                     terminal.sendText(`& "${toolPath}" 실행 "${filePath}"`);
                 }

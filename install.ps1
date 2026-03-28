@@ -93,7 +93,7 @@ if ($codePath) {
     Write-Host "  [4/4] VS Code 확장 설치 중..." -ForegroundColor White
     $vsixPath = Join-Path $env:TEMP "geul-language.vsix"
     try {
-        Invoke-WebRequest -Uri "$baseUrl/geul-language-0.3.0.vsix" -OutFile $vsixPath -UseBasicParsing
+        Invoke-WebRequest -Uri "$baseUrl/geul-language-0.3.1.vsix" -OutFile $vsixPath -UseBasicParsing
         & code --install-extension $vsixPath --force 2>$null
         Remove-Item $vsixPath -Force -ErrorAction SilentlyContinue
         Write-Host "       완료" -ForegroundColor Green
