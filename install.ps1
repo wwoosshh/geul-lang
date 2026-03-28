@@ -93,8 +93,9 @@ if ($codePath) {
     Write-Host "  [4/4] VS Code 확장 설치 중..." -ForegroundColor White
     $vsixPath = Join-Path $env:TEMP "geul-language.vsix"
     try {
-        # 기존 확장 제거 후 새로 설치
-        & code --uninstall-extension geul-lang.geul-language 2>$null
+        # 기존 확장 디렉토리 직접 삭제 (VS Code 창 열림 방지)
+        $extDir = Join-Path $env:USERPROFILE ".vscode\extensions"
+        Get-ChildItem $extDir -Directory -Filter "geul-lang.geul-language*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
         Invoke-WebRequest -Uri "$baseUrl/geul-language-0.3.1.vsix" -OutFile $vsixPath -UseBasicParsing
         & code --install-extension $vsixPath --force 2>$null
         Remove-Item $vsixPath -Force -ErrorAction SilentlyContinue
