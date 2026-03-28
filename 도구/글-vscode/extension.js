@@ -162,8 +162,8 @@ function activate(context) {
 
     // F5는 keybinding → geul.run 명령으로 직접 연결됨 (package.json)
 
-    // ── LSP 클라이언트 시작 (선택사항) ──
-    const lspServerModule = path.join(context.extensionPath, '..', '글-lsp', 'server.js');
+    // ── LSP 클라이언트 시작 ──
+    const lspServerModule = path.join(context.extensionPath, 'server', 'server.js');
     if (LanguageClient && fs.existsSync(lspServerModule)) {
         const serverOptions = {
             run:   { module: lspServerModule, transport: TransportKind.ipc },
