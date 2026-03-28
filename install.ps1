@@ -93,33 +93,35 @@ if ($codePath) {
     Write-Host "  [4/4] VS Code 확장 설치 중..." -ForegroundColor White
     $vsixPath = Join-Path $env:TEMP "geul-language.vsix"
     try {
-        # 기존 확장 디렉토리 직접 삭제 (VS Code 창 열림 방지)
-        $extDir = Join-Path $env:USERPROFILE ".vscode\extensions"
-        Get-ChildItem $extDir -Directory -Filter "geul-lang.geul-language*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
         Invoke-WebRequest -Uri "$baseUrl/geul-language-0.3.2.vsix" -OutFile $vsixPath -UseBasicParsing
-        $installResult = & code --install-extension $vsixPath --force 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            # code CLI 실패 시 직접 압축 해제로 설치
-            $targetDir = Join-Path $extDir "geul-lang.geul-language-0.3.2"
-            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
-            $zip = [System.IO.Compression.ZipFile]::OpenRead($vsixPath)
-            foreach ($entry in $zip.Entries) {
-                if ($entry.FullName.StartsWith("extension/")) {
-                    $rel = $entry.FullName.Substring(10)
-                    if ($rel -eq "") { continue }
-                    $dest = Join-Path $targetDir $rel
-                    $destDir = Split-Path $dest -Parent
-                    if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
-                    if (-not $entry.FullName.EndsWith("/")) {
-                        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dest, $true)
-                    }
+        # 직접 압축 해제로 설치 — VS Code 실행 중에도 안전
+        $extDir = Join-Path $env:USERPROFILE ".vscode\extensions"
+        # 이전 버전 정리 (현재 버전과 다른 것만)
+        Get-ChildItem $extDir -Directory -Filter "geul-lang.geul-language*" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne "geul-lang.geul-language-0.3.2" } |
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        $targetDir = Join-Path $extDir "geul-lang.geul-language-0.3.2"
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($vsixPath)
+        foreach ($entry in $zip.Entries) {
+            if ($entry.FullName.StartsWith("extension/")) {
+                $rel = $entry.FullName.Substring(10)
+                if ($rel -eq "") { continue }
+                $dest = Join-Path $targetDir $rel
+                $destDir = Split-Path $dest -Parent
+                if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+                if (-not $entry.FullName.EndsWith("/")) {
+                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dest, $true)
                 }
             }
-            $zip.Dispose()
-            Write-Host "       완료 — 직접 설치 (VS Code 재시작 필요)" -ForegroundColor Green
-        } else {
+        }
+        $zip.Dispose()
+        # package.json 존재 확인
+        if (Test-Path (Join-Path $targetDir "package.json")) {
             Write-Host "       완료 (VS Code 재시작 필요)" -ForegroundColor Green
+        } else {
+            Write-Host "       실패: 확장 파일 손상" -ForegroundColor Red
         }
         Remove-Item $vsixPath -Force -ErrorAction SilentlyContinue
     } catch {
