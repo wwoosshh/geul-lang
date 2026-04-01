@@ -1,0 +1,29 @@
+
+Microsoft (R) Windows Debugger Version 10.0.22621.2428 AMD64
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+CommandLine: C:\workspace\한글\예제\stage1.exe C:/workspace/한글/예제/간단.글
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+Deferred                                       srv*
+Symbol search path is: srv*
+Executable search path is: 
+ModLoad: 00000000`00db0000 00000000`04480000   image00000000`00db0000
+ModLoad: 00007ffa`10920000 00007ffa`10b87000   ntdll.dll
+ModLoad: 00007ffa`0f5d0000 00007ffa`0f699000   C:\Windows\System32\KERNEL32.DLL
+ModLoad: 00007ffa`0d200000 00007ffa`0d5f1000   C:\Windows\System32\KERNELBASE.dll
+ModLoad: 00007ffa`106c0000 00007ffa`10769000   C:\Windows\System32\msvcrt.dll
+(a760.708c): Break instruction exception - code 80000003 (first chance)
+ntdll!LdrpDoDebuggerBreak+0x35:
+00007ffa`10a3f51d cc              int     3
+0:000> bp msvcrt!fopen
+0:000> g
+Breakpoint 0 hit
+*** WARNING: Unable to verify timestamp for C:\workspace\한글\예제\stage1.exe
+msvcrt!fopen:
+00007ffa`1070c1a0 41b840000000    mov     r8d,40h
+0:000> da rcx
+000002bd`4b0a147a  "C:/workspace/..../..../......."
+0:000> da rdx
+00000000`00e06f0a  "rb"
