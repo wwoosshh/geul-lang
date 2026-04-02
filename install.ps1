@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "  ===================================" -ForegroundColor Cyan
-Write-Host "   글 프로그래밍 언어 v2.0 설치" -ForegroundColor Cyan
+Write-Host "   글 프로그래밍 언어 v0.5 설치" -ForegroundColor Cyan
 Write-Host "  ===================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -45,6 +45,7 @@ try {
     Invoke-WebRequest -Uri "$baseUrl/native-compiler.exe" -OutFile (Join-Path $binDir $ncName) -UseBasicParsing
     # 영문 복사본 (geulc.exe) — PATH/where 호환
     Copy-Item (Join-Path $binDir $ncName) (Join-Path $binDir "geulc.exe") -Force
+    Write-Host "       버전: v0.5.0" -ForegroundColor Gray
     Write-Host "       완료" -ForegroundColor Green
 } catch {
     Write-Host "       실패: $_" -ForegroundColor Red
@@ -93,14 +94,14 @@ if ($codePath) {
     Write-Host "  [4/4] VS Code 확장 설치 중..." -ForegroundColor White
     $vsixPath = Join-Path $env:TEMP "geul-language.vsix"
     try {
-        Invoke-WebRequest -Uri "$baseUrl/geul-language-0.3.2.vsix" -OutFile $vsixPath -UseBasicParsing
+        Invoke-WebRequest -Uri "$baseUrl/geul-language-0.5.0.vsix" -OutFile $vsixPath -UseBasicParsing
         # 직접 압축 해제로 설치 — VS Code 실행 중에도 안전
         $extDir = Join-Path $env:USERPROFILE ".vscode\extensions"
         # 이전 버전 정리 (현재 버전과 다른 것만)
         Get-ChildItem $extDir -Directory -Filter "geul-lang.geul-language*" -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -ne "geul-lang.geul-language-0.3.2" } |
+            Where-Object { $_.Name -ne "geul-lang.geul-language-0.5.0" } |
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-        $targetDir = Join-Path $extDir "geul-lang.geul-language-0.3.2"
+        $targetDir = Join-Path $extDir "geul-lang.geul-language-0.5.0"
         New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($vsixPath)

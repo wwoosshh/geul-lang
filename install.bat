@@ -17,7 +17,7 @@ if errorlevel 1 (
 )
 
 :: 다운로드 URL (GitHub Releases에 업로드 후 변경)
-set "VSIX_URL=https://github.com/wwoosshh/geul-lang/releases/latest/download/geul-language-0.2.0.vsix"
+set "VSIX_URL=https://github.com/wwoosshh/geul-lang/releases/latest/download/geul-language-0.5.0.vsix"
 set "VSIX_FILE=%TEMP%\geul-language.vsix"
 
 echo  [1/2] 글 확장 다운로드 중...
@@ -49,8 +49,9 @@ echo    2. 새 파일을 만들고 .글 로 저장하세요
 echo    3. 코드를 작성하고 F5를 누르면 실행됩니다
 echo.
 echo  예제:
+echo    포함 "std.gl"
 echo    [시작하기]는 {
-echo        "안녕하세요!\n"을 쓰기다.
+echo        "안녕하세요!\n"을 쓰다.
 echo    }
 echo.
 pause
