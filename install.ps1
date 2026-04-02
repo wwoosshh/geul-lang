@@ -92,37 +92,15 @@ if ($userPath -notlike "*$binDir*") {
 $codePath = Get-Command code -ErrorAction SilentlyContinue
 if ($codePath) {
     Write-Host "  [4/4] VS Code 확장 설치 중..." -ForegroundColor White
-    $vsixPath = Join-Path $env:TEMP "geul-language.vsix"
+    $vsixPath = Join-Path $env:TEMP "geul-language-0.5.0.vsix"
     try {
         Invoke-WebRequest -Uri "$baseUrl/geul-language-0.5.0.vsix" -OutFile $vsixPath -UseBasicParsing
-        # 직접 압축 해제로 설치 — VS Code 실행 중에도 안전
-        $extDir = Join-Path $env:USERPROFILE ".vscode\extensions"
-        # 이전 버전 정리 (현재 버전과 다른 것만)
-        Get-ChildItem $extDir -Directory -Filter "geul-lang.geul-language*" -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -ne "geul-lang.geul-language-0.5.0" } |
-            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-        $targetDir = Join-Path $extDir "geul-lang.geul-language-0.5.0"
-        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $zip = [System.IO.Compression.ZipFile]::OpenRead($vsixPath)
-        foreach ($entry in $zip.Entries) {
-            if ($entry.FullName.StartsWith("extension/")) {
-                $rel = $entry.FullName.Substring(10)
-                if ($rel -eq "") { continue }
-                $dest = Join-Path $targetDir $rel
-                $destDir = Split-Path $dest -Parent
-                if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
-                if (-not $entry.FullName.EndsWith("/")) {
-                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dest, $true)
-                }
-            }
-        }
-        $zip.Dispose()
-        # package.json 존재 확인
-        if (Test-Path (Join-Path $targetDir "package.json")) {
-            Write-Host "       완료 (VS Code 재시작 필요)" -ForegroundColor Green
+        # code --install-extension으로 정식 설치
+        $installResult = & code --install-extension $vsixPath --force 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "       완료 (v0.5.0)" -ForegroundColor Green
         } else {
-            Write-Host "       실패: 확장 파일 손상" -ForegroundColor Red
+            Write-Host "       실패: $installResult" -ForegroundColor Red
         }
         Remove-Item $vsixPath -Force -ErrorAction SilentlyContinue
     } catch {
