@@ -4517,7 +4517,11 @@
         PE_헤더32비트(0).              (* PointerToLinenumbers *)
         PE_헤더16비트(0).              (* NumberOfRelocations *)
         PE_헤더16비트(0).              (* NumberOfLinenumbers *)
-        PE_헤더32비트(3221225600).     (* Characteristics: 0xC0000080 UNINIT|READ|WRITE *)
+        (* Characteristics: 0xC0000080 UNINIT|READ|WRITE — 바이트 단위로 직접 기록 *)
+        PE_헤더바이트(128).
+        PE_헤더바이트(0).
+        PE_헤더바이트(0).
+        PE_헤더바이트(192).
     }
 
     (* 헤더 패딩 *)
