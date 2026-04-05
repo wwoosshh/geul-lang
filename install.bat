@@ -17,7 +17,7 @@ if errorlevel 1 (
 )
 
 :: 다운로드 URL (GitHub Releases에 업로드 후 변경)
-set "VSIX_URL=https://github.com/wwoosshh/geul-lang/releases/latest/download/geul-language-0.5.0.vsix"
+set "VSIX_URL=https://github.com/wwoosshh/geul-lang/releases/latest/download/geul-language-0.6.0.vsix"
 set "VSIX_FILE=%TEMP%\geul-language.vsix"
 
 echo  [1/2] 글 확장 다운로드 중...

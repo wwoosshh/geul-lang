@@ -35,7 +35,7 @@ Write-Host "  OK: $ncC"
 # Step 2
 Write-Host "[2/4] MSVC build -> nc_stage0..." -ForegroundColor Yellow
 $stage0 = Join-Path $outDir "nc_stage0.exe"
-& $cl /nologo /O2 /utf-8 /std:c11 /D_CRT_SECURE_NO_WARNINGS $inc1 $inc2 $inc3 $inc4 /Fe:$stage0 $ncC /link $lib1 $lib2 $lib3 2>&1 | Out-Null
+& $cl /nologo /O2 /utf-8 /std:c11 /D_CRT_SECURE_NO_WARNINGS $inc1 $inc2 $inc3 $inc4 /Fe:$stage0 $ncC /link $lib1 $lib2 $lib3 2>&1 | Write-Host
 if (-not (Test-Path $stage0)) { throw "MSVC build failed" }
 Write-Host "  OK: $stage0 ($([math]::Round((Get-Item $stage0).Length/1024))KB)"
 

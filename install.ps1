@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "  ===================================" -ForegroundColor Cyan
-Write-Host "   글 프로그래밍 언어 v0.5 설치" -ForegroundColor Cyan
+Write-Host "   글 프로그래밍 언어 v0.6 설치" -ForegroundColor Cyan
 Write-Host "  ===================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -45,7 +45,7 @@ try {
     Invoke-WebRequest -Uri "$baseUrl/native-compiler.exe" -OutFile (Join-Path $binDir $ncName) -UseBasicParsing
     # 영문 복사본 (geulc.exe) — PATH/where 호환
     Copy-Item (Join-Path $binDir $ncName) (Join-Path $binDir "geulc.exe") -Force
-    Write-Host "       버전: v0.5.0" -ForegroundColor Gray
+    Write-Host "       버전: v0.6.0" -ForegroundColor Gray
     Write-Host "       완료" -ForegroundColor Green
 } catch {
     Write-Host "       실패: $_" -ForegroundColor Red
@@ -92,13 +92,13 @@ if ($userPath -notlike "*$binDir*") {
 $codePath = Get-Command code -ErrorAction SilentlyContinue
 if ($codePath) {
     Write-Host "  [4/4] VS Code 확장 설치 중..." -ForegroundColor White
-    $vsixPath = Join-Path $env:TEMP "geul-language-0.5.0.vsix"
+    $vsixPath = Join-Path $env:TEMP "geul-language-0.6.0.vsix"
     try {
-        Invoke-WebRequest -Uri "$baseUrl/geul-language-0.5.0.vsix" -OutFile $vsixPath -UseBasicParsing
+        Invoke-WebRequest -Uri "$baseUrl/geul-language-0.6.0.vsix" -OutFile $vsixPath -UseBasicParsing
         # code --install-extension으로 정식 설치
         $installResult = & code --install-extension $vsixPath --force 2>&1
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "       완료 (v0.5.0)" -ForegroundColor Green
+            Write-Host "       완료 (v0.6.0)" -ForegroundColor Green
         } else {
             Write-Host "       실패: $installResult" -ForegroundColor Red
         }
