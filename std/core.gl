@@ -1,0 +1,12 @@
+(*
+ * 기본 표준 라이브러리 (통합 모듈)
+ *
+ * 이 파일 하나만 포함하면 기본 한글 함수를 모두 사용할 수 있다.
+ * 사용법: 포함 "std/core.gl"
+ *)
+
+포함 "std/io.gl"
+포함 "std/string.gl"
+포함 "std/memory.gl"
+포함 "std/system.gl"
+포함 "std/list.gl"

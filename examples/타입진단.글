@@ -1,0 +1,4 @@
+포함 "std.gl"
+[정수 argc를 문자열 참조 argv를 시작하기]는 {
+    "argc=%d\n"을 argc를 쓰다.
+}

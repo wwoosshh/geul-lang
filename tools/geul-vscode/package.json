@@ -1,0 +1,101 @@
+{
+  "name": "geul-language",
+  "displayName": "글 프로그래밍 언어",
+  "description": "한글로 프로그래밍하는 글(Geul) 언어 — 문법 강조, F5 실행, 빌드",
+  "version": "0.5.0",
+  "publisher": "geul-lang",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "activationEvents": [
+    "onLanguage:geul",
+    "onCommand:geul.run",
+    "onCommand:geul.build",
+    "onCommand:geul.check"
+  ],
+  "main": "./extension.js",
+  "icon": "icon.png",
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "geul",
+        "aliases": [
+          "글",
+          "Geul"
+        ],
+        "extensions": [
+          ".글",
+          ".gl"
+        ],
+        "filenamePatterns": [
+          "*.글",
+          "*.gl"
+        ],
+        "firstLine": "^\\s*(포함|\\[시작하기\\])",
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "geul",
+        "scopeName": "source.geul",
+        "path": "./syntaxes/geul.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "geul",
+        "path": "./snippets.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "geul.run",
+        "title": "글: 실행 (F5)"
+      },
+      {
+        "command": "geul.build",
+        "title": "글: 빌드"
+      },
+      {
+        "command": "geul.check",
+        "title": "글: 검사"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "geul.run",
+        "key": "f5",
+        "when": "resourceExtname == .글"
+      },
+      {
+        "command": "geul.build",
+        "key": "ctrl+shift+b",
+        "when": "resourceExtname == .글"
+      }
+    ],
+    "configuration": {
+      "title": "글 언어",
+      "properties": {
+        "geul.compilerPath": {
+          "type": "string",
+          "default": "",
+          "description": "네이티브컴파일러.exe 경로 (비워두면 PATH에서 탐색)"
+        },
+        "geul.toolPath": {
+          "type": "string",
+          "default": "",
+          "description": "글도구.exe 경로 (하위 호환)"
+        }
+      }
+    }
+  }
+}

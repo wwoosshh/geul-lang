@@ -1,0 +1,151 @@
+﻿**********************
+Windows PowerShell 기록 시작
+시작 시간: 20260319173354
+사용자 이름: BOOK-8G2DSUHNS9\s0105
+RunAs 사용자: BOOK-8G2DSUHNS9\s0105
+구성 이름: 
+Machine: BOOK-8G2DSUHNS9 (Microsoft Windows NT 10.0.26200.0)
+호스트 응용 프로그램: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File 벤치마크/실행.ps1
+프로세스 ID: 17592
+PSVersion: 5.1.26100.7920
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.7920
+BuildVersion: 10.0.26100.7920
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+
+═══════════════════════════════════════════════════════════════
+  글 언어 종합 벤치마크 v1.0  |  2026-03-19 17:33:54
+  Microsoft Windows NT 10.0.26200.0 | Intel(R) Core(TM) Ultra 5 226V | 16GB RAM
+═══════════════════════════════════════════════════════════════
+
+  [사용 가능한 언어]
+    [O] C (MSVC) (vcvars 미로드, 전체 경로 사용)
+    [O] 글 (주의: 글도구 내부 cl.exe 호출에 /O2 미적용)
+    [O] Rust
+    [O] Java
+    [O] Python
+
+  [건너뛰는 언어]
+    [X] Go — 미설치
+
+  테스트 데이터 준비 중...
+
+[1/6] 피보나치 (fib(40) 재귀)
+───────────────────────────────────────────────────────────────
+  언어             내부(ms)     외부(ms)   배율(vs C)
+  C                 0.0      319.2        N/A
+  글               353.5      360.0        N/A
+  Rust            209.1      215.7        N/A
+  Java             88.7       88.7        N/A
+  Python         7322.3     7342.7        N/A
+───────────────────────────────────────────────────────────────
+
+[2/6] 정렬 (100만 정수 퀵소트)
+───────────────────────────────────────────────────────────────
+  언어             내부(ms)     외부(ms)   배율(vs C)
+  글              컴파일 실패
+  C                48.9       59.3      1.00x
+  Rust             49.7       59.0      1.02x
+  Java             99.9       99.9      2.04x
+  Python         1295.1     1652.5     26.48x
+───────────────────────────────────────────────────────────────
+
+[3/6] 행렬곱 (500x500 행렬 곱셈)
+───────────────────────────────────────────────────────────────
+  언어             내부(ms)     외부(ms)   배율(vs C)
+  글              컴파일 실패
+  C                29.9       37.1      1.00x
+  Rust             20.5       27.9      0.68x
+  Java             87.7       87.7      2.94x
+  Python        11617.2    11674.2    388.92x
+───────────────────────────────────────────────────────────────
+
+[4/6] 소수판별 (에라토스테네스 체 100만)
+───────────────────────────────────────────────────────────────
+  언어             내부(ms)     외부(ms)   배율(vs C)
+  C                 1.6        8.0      1.00x
+  글                 6.0       12.4      3.79x
+  Rust              1.4        7.4      0.86x
+  Java             88.6       88.6     56.00x
+  Python          143.4      162.5     90.62x
+───────────────────────────────────────────────────────────────
+
+[5/6] 파일처리 (10MB 파일 단어 수 세기)
+───────────────────────────────────────────────────────────────
+  언어             내부(ms)     외부(ms)   배율(vs C)
+  C                12.8       22.4      1.00x
+  글                65.0       75.4      5.06x
+  Rust              9.9       20.4      0.77x
+  Java             87.4       87.4      6.81x
+  Python          455.8      478.6     35.48x
+───────────────────────────────────────────────────────────────
+
+[6/6] 메모리할당 (100만 malloc/free + 연결리스트)
+───────────────────────────────────────────────────────────────
+  언어             내부(ms)     외부(ms)   배율(vs C)
+  C                27.7       33.6      1.00x
+  글                28.0       34.9      1.01x
+  Rust            635.6      635.6     22.98x
+  Java             86.8       86.8      3.14x
+  Python           85.5      106.0      3.09x
+───────────────────────────────────────────────────────────────
+
+[7/8] 컴파일 시간 (글 전용)
+───────────────────────────────────────────────────────────────
+PS>종료 오류(Join-Path): "'주.글' 인수를 허용하는 위치 매개 변수를 찾을 수 없습니다."
+Join-Path : '주.글' 인수를 허용하는 위치 매개 변수를 찾을 수 없습니다.
+위치 C:\workspace\한글\벤치마크\실행.ps1:171 문자:20
++     $selfHostSrc = Join-Path $ProjectRoot "자체호스팅" "주.글"
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Join-Path], ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.JoinPathCommand
+Join-Path : '주.글' 인수를 허용하는 위치 매개 변수를 찾을 수 없습니다.
+위치 C:\workspace\한글\벤치마크\실행.ps1:171 문자:20
++     $selfHostSrc = Join-Path $ProjectRoot "자체호스팅" "주.글"
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Join-Path], ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.JoinPathCommand
+
+>> 종료 오류(Test-Path): "'Path' 매개 변수가 null이므로 인수를 해당 매개 변수에 바인딩할 수 없습니다."
+Test-Path : 'Path' 매개 변수가 null이므로 인수를 해당 매개 변수에 바인딩할 수 없습니다.
+위치 C:\workspace\한글\벤치마크\실행.ps1:172 문자:19
++     if (Test-Path $selfHostSrc) {
++                   ~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathComma
+nd
+Test-Path : 'Path' 매개 변수가 null이므로 인수를 해당 매개 변수에 바인딩할 수 없습니다.
+위치 C:\workspace\한글\벤치마크\실행.ps1:172 문자:19
++     if (Test-Path $selfHostSrc) {
++                   ~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom
+   mand
+
+───────────────────────────────────────────────────────────────
+
+[8/8] 대규모 소스 (글 전용)
+───────────────────────────────────────────────────────────────
+  대상                                 시간(ms)        줄/초
+  생성코드(1008줄,함수1000개)                 546.4       1845
+───────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════
+  종합 요약
+═══════════════════════════════════════════════════════════════
+  글의 강점 (C 대비 2x 이내): 메모리할당 (1.01x)
+  글의 약점 (C 대비 5x 초과): 파일처리 (5.06x)
+  컴파일 속도: 1845줄/초 (1000함수 생성코드 기준)
+
+  참고: 글 벤치마크는 글도구 내부 cl.exe 호출에 /O2 최적화가 미적용됨
+═══════════════════════════════════════════════════════════════
+
+결과 저장됨: C:\workspace\한글\벤치마크\결과\2026-03-19-173354.txt
+**********************
+Windows PowerShell 기록 끝
+종료 시간: 20260319173608
+**********************
