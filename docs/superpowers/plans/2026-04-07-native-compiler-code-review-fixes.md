@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** ✅ 완료 (v0.6.1)
+
 **Goal:** 코드 리뷰에서 발견된 12개 이슈를 우선순위별로 수정하여 네이티브 컴파일러의 정확성과 안정성 향상
 
 **Architecture:** 자체호스팅 글 소스 수정 → 글cc(부트스트랩)로 재컴파일 → 네이티브컴파일러.exe 갱신 → 자체 컴파일 검증

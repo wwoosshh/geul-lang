@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** ✅ 완료 (v0.6.1)
+
 **Goal:** 모든 한글 디렉토리명과 파일명을 ASCII 영문으로 변경하여 UTF-8 경로 깨짐 문제 제거
 
 **Architecture:** 3단계 접근 — (1) 매핑 테이블 확정 (2) 핵심 소스 + 빌드 시스템 먼저 변경 (3) 예제/문서/도구는 후속 정리. 소스 코드 내부의 한글 식별자/키워드는 변경하지 않음 — 파일명과 디렉토리명만 변경.

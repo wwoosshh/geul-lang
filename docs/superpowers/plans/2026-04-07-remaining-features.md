@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** ✅ 완료 (v0.6.3) — A1/A2/A3/A5/B3 5건 해결, B2 미착수
+
 **Goal:** 시스템 프로그래밍 언어 핵심 기능 8건 (A1-A5, B1-B3) 중 즉시+단기 6건 구현
 
 **Architecture:** 쉬운 승리(typedef, const, static) 먼저, 그 다음 높은 임팩트(unsigned, 포인터 산술, union) 순. 각 Task 후 `python3 build.py --install`로 자체빌드 검증.
