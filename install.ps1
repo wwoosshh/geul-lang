@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "  ===================================" -ForegroundColor Cyan
-Write-Host "   글 프로그래밍 언어 v0.6.1 설치" -ForegroundColor Cyan
+Write-Host "   글 프로그래밍 언어 v0.6.2 설치" -ForegroundColor Cyan
 Write-Host "  ===================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -42,7 +42,7 @@ $baseUrl = "https://github.com/wwoosshh/geul-lang/releases/latest/download"
 Write-Host "  [1/3] 네이티브컴파일러 다운로드 중..." -ForegroundColor White
 try {
     Invoke-WebRequest -Uri "$baseUrl/native-compiler.exe" -OutFile (Join-Path $binDir "geulc.exe") -UseBasicParsing
-    Write-Host "       버전: v0.6.1" -ForegroundColor Gray
+    Write-Host "       버전: v0.6.2" -ForegroundColor Gray
     Write-Host "       완료" -ForegroundColor Green
 } catch {
     Write-Host "       실패: $_" -ForegroundColor Red
