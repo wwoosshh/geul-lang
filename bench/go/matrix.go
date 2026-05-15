@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	N := 500
+	N := 200
 	A := make([]float64, N*N)
 	B := make([]float64, N*N)
 	C := make([]float64, N*N)
@@ -30,6 +30,6 @@ func main() {
 
 	elapsed := time.Since(start).Seconds() * 1000
 
-	fmt.Printf("C[0][0]=%.0f C[499][499]=%.0f\n", C[0], C[499*N+499])
+	fmt.Printf("C[0][0]=%.0f C[%d][%d]=%.0f\n", C[0], N-1, N-1, C[(N-1)*N+(N-1)])
 	fmt.Printf("RESULT:%.3f\n", elapsed)
 }

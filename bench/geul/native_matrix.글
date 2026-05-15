@@ -1,7 +1,46 @@
+(* 벤치마크: 행렬곱 200x200 double — 네이티브 컴파일러용 *)
 포함 "std.gl"
+외부 [긴정수 참조 값을 QueryPerformanceCounter]는 -> 정수.
+외부 [긴정수 참조 값을 QueryPerformanceFrequency]는 -> 정수.
+
+실수[40000] A.
+실수[40000] B.
+실수[40000] C.
 
 [시작하기]는 -> 정수 {
-    실수 값은 3.14.
-    "result=%.2f\n"을 값을 쓰기다.
+    긴정수 빈도값 = 0. 긴정수 시작값 = 0. 긴정수 끝값 = 0.
+    정수 N = 200.
+
+    정수 i = 0.
+    (i < N * N)동안 {
+        A[i] = (i % 100) * 1.0.
+        B[i] = ((i * 7) % 100) * 1.0.
+        C[i] = 0.0.
+        i = i + 1.
+    }
+
+    QueryPerformanceFrequency(&빈도값).
+    QueryPerformanceCounter(&시작값).
+
+    정수 ii = 0.
+    (ii < N)동안 {
+        정수 k = 0.
+        (k < N)동안 {
+            실수 a_ik = A[ii * N + k].
+            정수 j = 0.
+            (j < N)동안 {
+                C[ii * N + j] = C[ii * N + j] + a_ik * B[k * N + j].
+                j = j + 1.
+            }
+            k = k + 1.
+        }
+        ii = ii + 1.
+    }
+
+    QueryPerformanceCounter(&끝값).
+    실수 경과는 (끝값 - 시작값) * 1000.0 / (빈도값 * 1.0).
+
+    "C[0][0]=%.0f C[199][199]=%.0f\n"을 C[0]을 C[199 * N + 199]을 쓰기다.
+    "RESULT:%.3f\n"을 경과를 쓰기다.
     반환 0.
 }

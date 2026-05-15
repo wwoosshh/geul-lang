@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 fn main() {
-    let n = 500usize;
+    let n = 200usize;
     let mut a = vec![0.0f64; n * n];
     let mut b = vec![0.0f64; n * n];
     let mut c = vec![0.0f64; n * n];
@@ -13,7 +13,6 @@ fn main() {
 
     let start = Instant::now();
 
-    // ikj loop order for cache efficiency
     for i in 0..n {
         for k in 0..n {
             let a_ik = a[i * n + k];
@@ -25,6 +24,6 @@ fn main() {
 
     let ms = start.elapsed().as_secs_f64() * 1000.0;
 
-    println!("C[0][0]={:.0} C[499][499]={:.0}", c[0], c[499 * n + 499]);
+    println!("C[0][0]={:.0} C[{}][{}]={:.0}", c[0], n-1, n-1, c[(n-1) * n + (n-1)]);
     println!("RESULT:{:.3}", ms);
 }

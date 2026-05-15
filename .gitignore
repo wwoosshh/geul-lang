@@ -4,30 +4,39 @@
 *.pdb
 *.asm
 
-# C 트랜스파일 결과 (부트스트랩 소스만 예외)
-*.c
-!부트스트랩/src/*.c
+# ===== Python 캐시 =====
+__pycache__/
+*.pyc
 
-# ===== 배포 =====
-# 배포 바이너리는 릴리즈에서 관리, 로컬 빌드물은 무시
-배포/*.exe
-배포/merged.글
-배포/nc_stage*.exe
+# ===== C 트랜스파일 결과 =====
+*.c
+!bootstrap/src/*.c
+
+# ===== dist 빌드 결과 =====
+/dist/*
+!/dist/std.gl
+!/dist/verify.gl
 
 # ===== 임시/캐시 =====
 *.tmp
 /c/temp/
 
 # ===== 도구 바이너리 =====
-도구/tcc-0.9.27-win64-bin.zip
-도구/tcc-extract/
-도구/글-vscode/bin/tcc/
+tools/tcc-0.9.27-win64-bin.zip
+tools/tcc-extract/
+tools/geul-vscode/bin/tcc/
 
 # ===== 벤치마크 =====
-벤치마크/결과/testdata.txt
+bench/결과/testdata.txt
 
 # ===== IDE/에디터 =====
 .vscode/
 .claude/
 node_modules/
 *.vsix
+
+# ===== 개인 메모/입력 데이터 =====
+data.txt
+문제점.txt
+작업프롬프트.txt
+bench/results/comparison_latest.json

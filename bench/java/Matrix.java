@@ -1,6 +1,6 @@
 public class Matrix {
     public static void main(String[] args) {
-        int n = 500;
+        int n = 200;
         double[] a = new double[n * n];
         double[] b = new double[n * n];
         double[] c = new double[n * n];
@@ -24,7 +24,7 @@ public class Matrix {
 
         double ms = (System.nanoTime() - start) / 1e6;
 
-        System.out.printf("C[0][0]=%.0f C[499][499]=%.0f%n", c[0], c[499 * n + 499]);
+        System.out.printf("C[0][0]=%.0f C[%d][%d]=%.0f%n", c[0], n - 1, n - 1, c[(n - 1) * n + (n - 1)]);
         System.out.printf("RESULT:%.3f%n", ms);
     }
 }

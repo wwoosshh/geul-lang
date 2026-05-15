@@ -1,9 +1,16 @@
 (* 벤치마크: 에라토스테네스의 체, 1,000,000까지 — 네이티브 컴파일러용 *)
 포함 "std.gl"
+외부 [긴정수 참조 값을 QueryPerformanceCounter]는 -> 정수.
+외부 [긴정수 참조 값을 QueryPerformanceFrequency]는 -> 정수.
 
 [시작하기]는 -> 정수 {
+    긴정수 빈도값 = 0. 긴정수 시작값 = 0. 긴정수 끝값 = 0.
     정수 한계는 1000000.
     문자열 체는 할당(한계 + 1).
+
+    QueryPerformanceFrequency(&빈도값).
+    QueryPerformanceCounter(&시작값).
+
     메모리_채우기(체, 1, 한계 + 1).
     정수 참조 배열은 체.
     배열[0] = 0.
@@ -30,7 +37,11 @@
         번호 = 번호 + 1.
     }
 
+    QueryPerformanceCounter(&끝값).
+    실수 경과는 (끝값 - 시작값) * 1000.0 / (빈도값 * 1.0).
+
     "primes up to 1000000: %d\n"을 개수를 쓰기다.
+    "RESULT:%.3f\n"을 경과를 쓰기다.
     해제(체).
     반환 0.
 }

@@ -1,6 +1,6 @@
 import time
 
-N = 500
+N = 200
 
 A = [0.0] * (N * N)
 B = [0.0] * (N * N)
@@ -22,5 +22,5 @@ for i in range(N):
 end = time.perf_counter()
 ms = (end - start) * 1000
 
-print(f"C[0][0]={C[0]:.0f} C[499][499]={C[499 * N + 499]:.0f}")
+print(f"C[0][0]={C[0]:.0f} C[{N-1}][{N-1}]={C[(N-1) * N + (N-1)]:.0f}")
 print(f"RESULT:{ms:.3f}")
