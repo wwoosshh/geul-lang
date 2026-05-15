@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "  ===================================" -ForegroundColor Cyan
-Write-Host "   글 프로그래밍 언어 v0.7.4 설치" -ForegroundColor Cyan
+Write-Host "   글 프로그래밍 언어 v0.8.0 설치" -ForegroundColor Cyan
 Write-Host "  ===================================" -ForegroundColor Cyan
 Write-Host ""
 
