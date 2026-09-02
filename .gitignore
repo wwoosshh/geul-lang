@@ -1,0 +1,21 @@
+# 빌드 산출물
+*.exe
+*.obj
+*.pdb
+*.o
+build/
+dist/
+
+# 참조 구현 캐시
+__pycache__/
+*.pyc
+.venv/
+
+# 편집기
+.vscode/
+.idea/
+.claude/
+
+# 임시
+*.tmp
+*.log
