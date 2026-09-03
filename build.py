@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""글 2세대 단일 빌드 진입점 (D-08).
+
+  python build.py test [필터]      spec-tests 실행 (컴파일 실패 = 실패, 건너뜀 없음)
+  python build.py check <파일.gl>  문법·의미 검사
+"""
+import os
+import sys
+import io
+import glob
+import shutil
+import subprocess
+import tempfile
+import time
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+ROOT = os.path.dirname(os.path.abspath(__file__))
+GEULC = os.path.join(ROOT, "ref", "geulc.py")
+TESTS = os.path.join(ROOT, "spec-tests")
+
+
+def read(path, default=""):
+    return open(path, encoding="utf-8").read() if os.path.exists(path) else default
+
+
+def run_test(test_dir, verbose):
+    name = os.path.relpath(test_dir, TESTS).replace("\\", "/")
+    main = os.path.join(test_dir, "main.gl")
+    errors_file = os.path.join(test_dir, "expect.errors")
+    tmp = tempfile.mkdtemp(prefix="geul-")
+    try:
+        exe = os.path.join(tmp, "main.exe")
+        t0 = time.time()
+        try:
+            r = subprocess.run([sys.executable, GEULC, main, "-o", exe], capture_output=True, timeout=60, stdin=subprocess.DEVNULL)
+            cout = (r.stdout + r.stderr).decode("utf-8", "replace")
+            crc = r.returncode
+        except subprocess.TimeoutExpired:
+            return name, False, "컴파일 60초 초과"
+        dt = time.time() - t0
+        if os.path.exists(errors_file):
+            wanted = [l for l in read(errors_file).splitlines() if l.strip()]
+            if crc == 0 or os.path.exists(exe):
+                return name, False, f"오류가 나야 하는데 컴파일됨 (rc={crc})"
+            if crc != 1:
+                return name, False, f"종료코드 1이어야 하는데 {crc}\n{cout.strip()}"
+            missing = [w for w in wanted if w not in cout]
+            if missing:
+                return name, False, f"오류 메시지에 {missing} 없음:\n{cout.strip()}"
+            return name, True, f"{dt:.1f}s"
+        if crc != 0 or not os.path.exists(exe):
+            return name, False, f"컴파일 실패 (rc={crc}):\n{cout.strip()[-800:]}"
+        args = [l for l in read(os.path.join(test_dir, "args.txt")).splitlines() if l != ""]
+        stdin_path = os.path.join(test_dir, "stdin.txt")
+        stdin_data = open(stdin_path, "rb").read() if os.path.exists(stdin_path) else b""
+        try:
+            rr = subprocess.run([exe] + args, capture_output=True, timeout=10, input=stdin_data, cwd=tmp)
+        except subprocess.TimeoutExpired:
+            return name, False, "실행 10초 초과"
+        got = rr.stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+        want = read(os.path.join(test_dir, "expect.stdout"))
+        want_code = int(read(os.path.join(test_dir, "expect.code"), "0").strip() or 0)
+        code = rr.returncode & 0xFFFFFFFF
+        if code >= 0x80000000:
+            return name, False, f"실행 크래시 {code:#x}"
+        problems = []
+        if got != want:
+            problems.append(f"출력 불일치\n--- 기대\n{want}--- 실제\n{got}")
+        if code != want_code:
+            problems.append(f"종료코드 {code} (기대 {want_code})")
+        if problems:
+            return name, False, "\n".join(problems)
+        return name, True, f"{dt:.1f}s"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def cmd_test(args):
+    verbose = "-v" in args
+    filters = [a for a in args if not a.startswith("-")]
+    dirs = sorted(d for d in glob.glob(os.path.join(TESTS, "*", "*")) if os.path.isfile(os.path.join(d, "main.gl")))
+    if filters:
+        dirs = [d for d in dirs if any(f in d for f in filters)]
+    passed = failed = 0
+    for d in dirs:
+        name, ok, info = run_test(d, verbose)
+        if ok:
+            passed += 1
+            print(f"  PASS  {name}")
+        else:
+            failed += 1
+            print(f"  FAIL  {name}")
+            for line in info.splitlines():
+                print(f"        {line}")
+    print(f"\n결과: PASS={passed} FAIL={failed} (총 {passed + failed})")
+    return 0 if failed == 0 else 1
+
+
+def cmd_check(args):
+    if not args:
+        print("사용법: build.py check <파일.gl>")
+        return 3
+    return subprocess.call([sys.executable, GEULC, "--check", args[0]])
+
+
+def main(argv):
+    if not argv or argv[0] not in ("test", "check"):
+        print(__doc__)
+        return 3
+    if argv[0] == "test":
+        return cmd_test(argv[1:])
+    return cmd_check(argv[1:])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
