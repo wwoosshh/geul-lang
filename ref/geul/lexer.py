@@ -177,13 +177,14 @@ class Lexer:
             while self.peek().isdigit():
                 digits += self.peek()
                 self.advance()
-            frac_marker = True
-            if self.peek() in "eE" and (self.peek(1).isdigit() or (self.peek(1) == "-" and self.peek(2).isdigit())):
+        # 지수: e[+-]숫자 — 소수부가 없어도 실수 (1e22)
+        if self.peek() in "eE" and (self.peek(1).isdigit() or (self.peek(1) in "+-" and self.peek(2).isdigit())):
+            is_float = True
+            self.advance()
+            if self.peek() in "+-":
                 self.advance()
-                if self.peek() == "-":
-                    self.advance()
-                while self.peek().isdigit():
-                    self.advance()
+            while self.peek().isdigit():
+                self.advance()
         text = self.text[start:self.i]
         if is_float:
             self.tokens.append(Token(FLOAT, text, p, float(text.replace("_", ""))))

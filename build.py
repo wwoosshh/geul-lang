@@ -158,7 +158,7 @@ def cmd_release(args):
     shutil.copy(gen2, os.path.join(dist, "geulc.exe"))
     shutil.copytree(os.path.join(ROOT, "표준"), os.path.join(dist, "표준"))
     os.makedirs(os.path.join(dist, "docs"))
-    for d in ("03-문법-명세-초안.md", "05-덤프-형식.md"):
+    for d in ("03-문법-명세.md", "05-덤프-형식.md", "06-표준-라이브러리.md"):
         shutil.copy(os.path.join(ROOT, "docs", d), os.path.join(dist, "docs", d))
     for f in ("README.md", "LICENSE", "VERSION"):
         shutil.copy(os.path.join(ROOT, f), os.path.join(dist, f))
