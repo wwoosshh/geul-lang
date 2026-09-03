@@ -1101,12 +1101,19 @@ class Sema:
         if base != root:
             cands.append(base)
             cands.append(base + "기")
+        found = []
         for c in cands:
             s = self.scope.lookup(c)
             if isinstance(s, FuncSym):
-                return s
-            if s is None and c in self.generic_funcs:
-                return self.generic_funcs[c]          # 틀: 호출 자리에서 추론해 인스턴스를 만든다
+                found.append((c, s))
+            elif s is None and c in self.generic_funcs:
+                found.append((c, self.generic_funcs[c]))   # 틀: 호출 자리에서 추론해 인스턴스를 만든다
+        if len(found) > 1:
+            names = ", ".join(c for c, _ in found)
+            self.error(pos, f"동사 '{root}다'에 해당하는 함수가 여럿입니다 (찾은 이름: {names}) — "
+                            f"괄호 호출로 하나를 고르세요")
+        if found:
+            return found[0][1]
         self.error(pos, f"동사 '{root}다'에 해당하는 함수가 없습니다 (찾은 이름: {', '.join(cands)})")
 
     # ---------- 보간 ----------
