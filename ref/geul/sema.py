@@ -5,7 +5,7 @@ from . import ast as A
 from . import types as T
 from .diagnostics import CompileError, InternalError
 from .lexer import PARTICLE_SET, object_particle
-from .parser import verb_base
+from .parser import verb_base, BASE_TYPES
 import copy
 
 ROLE_PARTICLE = {"대상": "을/를", "목적지": "에", "출처": "에서", "수단": "로", "동반": "와/과", None: "무표"}
@@ -338,6 +338,9 @@ class Sema:
                 if name.startswith(p.name) and part in PARTICLE_SET:
                     return (msg + f" — 매개변수를 이름 '{p.name}', 조사 '{part}'로 읽었습니다. "
                                   f"이름 전체가 '{name}'라면 '{name}{object_particle(name)}'처럼 역할 조사를 덧붙이세요")
+        if name in BASE_TYPES or isinstance(self.globals.lookup(name), TypeSym):
+            return (msg + f" — '{name}'은(는) 타입 이름입니다. 변환식이라면 "
+                          f"'(x로 {name}){object_particle(name)}'처럼 괄호로 감싸세요")
         return msg
 
     def check_name(self, name, pos):
@@ -750,7 +753,8 @@ class Sema:
                 return sym.type
             if isinstance(sym, FuncSym):
                 return sym.type
-            self.error(e.pos, f"'{e.name}'은(는) 타입 이름이라 값으로 쓸 수 없습니다")
+            self.error(e.pos, f"'{e.name}'은(는) 타입 이름이라 값으로 쓸 수 없습니다 — 변환식이라면 "
+                              f"'(x로 {e.name}){object_particle(e.name)}'처럼 괄호로 감싸세요")
         if isinstance(e, A.Index):
             bt = self.check_expr(e.base, None)
             it = self.check_expr(e.index, T.INT)
@@ -1114,7 +1118,20 @@ class Sema:
                             f"괄호 호출로 하나를 고르세요")
         if found:
             return found[0][1]
-        self.error(pos, f"동사 '{root}다'에 해당하는 함수가 없습니다 (찾은 이름: {', '.join(cands)})")
+        stem = self.verb_stem_hint(root)
+        hint = f" — '{root}'은(는) 활용형으로 보입니다. '{stem}다'처럼 어간을 그대로 쓰세요" if stem else ""
+        self.error(pos, f"동사 '{root}다'에 해당하는 함수가 없습니다 (찾은 이름: {', '.join(cands)}){hint}")
+
+    def verb_stem_hint(self, root):
+        """활용형(어간+어/아/여)으로 보이고 그 어간의 함수가 실제로 있으면 어간을 돌려준다."""
+        if len(root) < 2 or root[-1] not in "어아여":
+            return None
+        stem = root[:-1]
+        for c in (stem + "기", stem):
+            s = self.scope.lookup(c)
+            if isinstance(s, FuncSym) or (s is None and c in self.generic_funcs):
+                return stem
+        return None
 
     # ---------- 보간 ----------
     @staticmethod
