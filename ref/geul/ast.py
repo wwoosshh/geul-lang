@@ -38,6 +38,16 @@ class SliceType(Node):
 
 
 @dataclass
+class ResultType(Node):
+    base: Node
+
+
+@dataclass
+class ResultType(Node):
+    base: Node
+
+
+@dataclass
 class FuncType(Node):
     params: List[Node]
     ret: Optional[Node]
@@ -211,6 +221,16 @@ class Name(Node):
 class Index(Node):
     base: Node
     index: Node
+
+
+@dataclass
+class Try(Node):
+    expr: Node
+
+
+@dataclass
+class Try(Node):
+    expr: Node
 
 
 @dataclass

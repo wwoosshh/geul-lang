@@ -108,6 +108,11 @@ class Sema:
             if node.size <= 0:
                 self.error(node.pos, "배열 크기는 1 이상이어야 합니다")
             return T.ArrayType(elem, node.size)
+        if isinstance(node, A.ResultType):
+            base = self.resolve_type(node.base)
+            if base.is_array():
+                self.error(node.pos, "배열의 결과 타입은 없습니다")
+            return T.ResultType(None if base.is_void() else base)
         if isinstance(node, A.SliceType):
             elem = self.resolve_type(node.elem)
             if elem.is_void():
@@ -371,7 +376,7 @@ class Sema:
             self.check_block(s)
         elif isinstance(s, A.ExprStmt):
             e = self.check_expr(s.expr, None)
-            if not isinstance(s.expr, (A.Call, A.SOVCall)):
+            if not isinstance(s.expr, (A.Call, A.SOVCall, A.Try)):
                 self.error(s.pos, "호출이 아닌 식은 문장이 될 수 없습니다")
         elif isinstance(s, A.Assign):
             self.check_assign(s)
@@ -428,7 +433,7 @@ class Sema:
         elif isinstance(s, A.Return):
             ret = self.func.type.ret
             if s.value is None:
-                if ret is not None:
+                if ret is not None and not (ret.is_result() and ret.value is None):
                     self.error(s.pos, f"'{self.func.name}'은(는) '{ret}' 값을 반환해야 합니다")
             else:
                 if ret is None:
@@ -495,6 +500,9 @@ class Sema:
             return self.wrap_cast(e, target)
         if src.is_array() and target.is_slice() and T.same_type(src.elem, target.elem):
             return self.wrap_cast(e, target)                # 배열 → 조각 (D-17)
+        if target.is_result() and target.value is not None and not src.is_result():
+            inner = self.coerce(e, target.value, pos, what)  # 값 → T 결과 (성공, D-18)
+            return self.wrap_cast(inner, target)
         if src.is_int() and target.is_int():
             if isinstance(e, A.IntLit):
                 self.check_int_range(e.value, target, e.pos)
@@ -545,6 +553,10 @@ class Sema:
         return t
 
     def _check_expr(self, e, expected):
+        if isinstance(e, A.Call) and isinstance(e.callee, A.Name) and e.callee.name == "오류" and self.scope.lookup("오류") is None:
+            return self.check_error_ctor(e, expected)
+        if expected is not None and expected.is_result():
+            expected = expected.value            # 리터럴은 결과의 값 타입을 따른다
         if isinstance(e, A.IntLit):
             if expected is not None and (expected.is_int() or expected.is_float()):
                 if expected.is_int():
@@ -624,6 +636,13 @@ class Sema:
             if isinstance(e.callee, A.Name) and e.callee.name == "가변인자" and self.scope.lookup("가변인자") is None:
                 return self.check_vararg(e)
             return self.check_call(e)
+        if isinstance(e, A.Try):
+            t = self.check_expr(e.expr, None)
+            if not t.is_result():
+                self.error(e.pos, f"'시도'의 대상은 결과 타입이어야 합니다 (현재 '{t}')")
+            if self.func is None or self.func.type.ret is None or not self.func.type.ret.is_result():
+                self.error(e.pos, "'시도'는 결과를 돌려주는 함수 안에서만 쓸 수 있습니다")
+            return t.value if t.value is not None else T.VOID
         if isinstance(e, A.SOVCall):
             return self.check_sov_call(e)
         if isinstance(e, A.Unary):
@@ -684,6 +703,13 @@ class Sema:
 
     def check_binary(self, e, expected):
         op = e.op
+        if op == "혹은":
+            tl = self.check_expr(e.left, None)
+            if not tl.is_result() or tl.value is None:
+                self.error(e.pos, f"'혹은'의 왼쪽은 값이 있는 결과여야 합니다 (현재 '{tl}')")
+            self.check_expr(e.right, tl.value)
+            e.right = self.coerce(e.right, tl.value, e.right.pos, "혹은")
+            return tl.value
         if op in ("그리고", "또는"):
             self.check_cond(e.left)
             self.check_cond(e.right)
@@ -770,6 +796,21 @@ class Sema:
         if not t.is_func():
             self.error(e.callee.pos, f"호출할 수 없는 타입입니다: '{t}'")
         return None, t
+
+    def check_error_ctor(self, e, expected):
+        """오류(코드): 문맥의 결과 타입으로 실패 값을 만든다 (명세 3.8)."""
+        if expected is None or not expected.is_result():
+            self.error(e.pos, "'오류(...)'의 결과 타입을 알 수 없습니다 — 반환·대입·인자 자리에서 쓰세요")
+        if len(e.args) != 1:
+            self.error(e.pos, "'오류'에는 코드 하나가 필요합니다")
+        t = self.check_expr(e.args[0], T.INT)
+        if not t.is_int():
+            self.error(e.args[0].pos, f"오류 코드는 정수여야 합니다 (현재 '{t}')")
+        e.args[0] = self.coerce(e.args[0], T.INT, e.args[0].pos, "오류")
+        e.err_ctor = True
+        e.callee_sym = None
+        e.resolved_args = list(e.args)
+        return expected
 
     def check_vararg(self, e):
         """명세 3.5: 가변 인자 함수 안에서 k 번째 추가 인자를 64비트 원시 값으로 읽는다."""

@@ -13,7 +13,8 @@ class Type:
     def is_array(self): return isinstance(self, ArrayType)
     def is_struct(self): return isinstance(self, StructType)
     def is_slice(self): return isinstance(self, SliceType)
-    def is_agg(self): return self.is_struct() or self.is_slice()      # 값 의미론의 메모리 덩어리 (D-16, D-17)
+    def is_result(self): return isinstance(self, ResultType)
+    def is_agg(self): return self.is_struct() or self.is_slice() or self.is_result()      # 값 의미론의 메모리 덩어리 (D-16, D-17, D-18)
     def is_func(self): return isinstance(self, FuncType)
     def is_void(self): return isinstance(self, VoidType)
     def is_scalar(self): return self.is_int() or self.is_float() or self.is_ptr() or self.is_func()
@@ -101,6 +102,48 @@ class SliceType(Type):
             return ("자료", PtrType(self.elem), 0)
         if name == "길이":
             return ("길이", INT, 8)
+        return None
+
+
+@dataclass(frozen=True)
+class ResultType(Type):
+    """결과 `T 결과`: {정수 오류, T 값}. 오류 0 이 성공. `공허 결과` 는 값이 없다 (8바이트)."""
+    value: Optional[Type]
+    align = 8
+
+    @property
+    def size(self):
+        return 8 if self.value is None else 8 + (self.value.size + 7) // 8 * 8
+
+    def __str__(self):
+        return f"{self.value if self.value is not None else '공허'} 결과"
+
+    def field(self, name):
+        if name == "오류":
+            return ("오류", INT, 0)
+        if name == "값" and self.value is not None:
+            return ("값", self.value, 8)
+        return None
+
+
+@dataclass(frozen=True)
+class ResultType(Type):
+    """결과 `T 결과`: {정수 오류, T 값}. 오류 0 이 성공. `공허 결과` 는 값이 없다 (8바이트)."""
+    value: Optional[Type]
+    align = 8
+
+    @property
+    def size(self):
+        return 8 if self.value is None else 8 + (self.value.size + 7) // 8 * 8
+
+    def __str__(self):
+        return f"{self.value if self.value is not None else '공허'} 결과"
+
+    def field(self, name):
+        if name == "오류":
+            return ("오류", INT, 0)
+        if name == "값" and self.value is not None:
+            return ("값", self.value, 8)
         return None
 
 
@@ -198,6 +241,14 @@ def same_type(a, b):
         return a.count == b.count and same_type(a.elem, b.elem)
     if isinstance(a, SliceType) and isinstance(b, SliceType):
         return same_type(a.elem, b.elem)
+    if isinstance(a, ResultType) and isinstance(b, ResultType):
+        if (a.value is None) != (b.value is None):
+            return False
+        return a.value is None or same_type(a.value, b.value)
+    if isinstance(a, ResultType) and isinstance(b, ResultType):
+        if (a.value is None) != (b.value is None):
+            return False
+        return a.value is None or same_type(a.value, b.value)
     if isinstance(a, FuncType) and isinstance(b, FuncType):
         if len(a.params) != len(b.params) or a.variadic != b.variadic:
             return False

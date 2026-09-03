@@ -174,6 +174,9 @@ class Parser:
             if self.is_kw("참조"):
                 self.next()
                 base = A.PtrType(t.pos, base)
+            elif self.is_kw("결과"):
+                self.next()
+                base = A.ResultType(t.pos, base)     # T 결과 (D-18)
             elif self.is_sym("[") and self.peek(1).kind == INT and self.peek(2).kind == SYM and self.peek(2).text == "]":
                 self.next()
                 n = self.next().value
@@ -477,7 +480,7 @@ class Parser:
             e = self.parse_expr_range(self.i, j)
             self.i = j
             self.expect_end()
-            if not isinstance(e, A.Call):
+            if not (isinstance(e, A.Call) or (isinstance(e, A.Try) and isinstance(e.expr, (A.Call, A.SOVCall)))):
                 self.error(start.pos, "호출이 아닌 식은 문장이 될 수 없습니다")
             return [A.ExprStmt(start.pos, e)]
         if last.kind == KEYWORD and last.text == "이면":
@@ -835,6 +838,10 @@ class Parser:
 
     def parse_ternary(self):
         cond = self.parse_binary(0)
+        while self.is_kw("혹은"):
+            t = self.next()
+            rhs = self.parse_binary(0)
+            cond = A.Binary(t.pos, "혹은", cond, rhs)
         if self.is_sym("?"):
             self.next()
             a = self.parse_ternary()
@@ -872,6 +879,9 @@ class Parser:
             if t.kind == KEYWORD and t.text == "아닌":
                 self.next()
                 return A.Unary(t.pos, "아닌", self.parse_unary())
+            if t.kind == KEYWORD and t.text == "시도":
+                self.next()
+                return A.Try(t.pos, self.parse_unary())
             if t.kind == KEYWORD and t.text == "크기":
                 self.next()
                 self.expect_sym("(")

@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from .diagnostics import CompileError, Pos
 
-KEYWORDS = {
+KEYWORDS = {"결과", "시도", "혹은", 
     "정수", "긴정수", "중간정수", "짧은정수", "작은정수", "부호없는", "실수", "짧은실수", "문자", "문자열", "참거짓", "공허",
     "참조", "참", "거짓", "없음",
     "포함", "외부", "정적", "상수", "별칭", "묶음", "나열", "합침",

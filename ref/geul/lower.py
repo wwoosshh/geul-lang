@@ -182,6 +182,14 @@ class Lowerer:
             self.breaks.pop()
             f.emit("label", name=end)
         elif isinstance(s, A.Return):
+            if s.value is None and self.result_sym is not None:
+                # 공허 결과 함수의 '반환.' = 성공 (오류 0)
+                p = self.result_error_addr()
+                zero = f.new_temp(T.INT)
+                f.emit("const", dst=zero, value=0)
+                f.emit("store", addr=p, src=zero, type=T.INT)
+                f.emit("ret", value=None)
+                return
             if s.value is not None and self.result_sym is not None:
                 v = self.rvalue(s.value)
                 a = f.new_temp(T.PtrType(self.result_sym.type))
@@ -417,7 +425,16 @@ class Lowerer:
             d = f.new_temp(t)
             f.emit("load", dst=d, addr=addr, type=t)
             return d
+        if isinstance(e, A.Try):
+            return self.lower_try(e)
         if isinstance(e, A.Call):
+            if getattr(e, "err_ctor", False):
+                # 오류(코드): 결과 자리에 오류 코드만 넣는다
+                slot = self.new_slot(e.type, "결과")
+                a = self.var_addr(slot)
+                code = self.rvalue(e.args[0])
+                f.emit("store", addr=a, src=code, type=T.INT)
+                return a
             if getattr(e, "vararg", False):
                 idx = self.rvalue(e.args[0])
                 d = f.new_temp(T.INT)
@@ -472,10 +489,59 @@ class Lowerer:
         self.f.emit("cmp", dst=d, cond="ne", a=v, b=zero, type=t)
         return d
 
+    def result_error_addr(self):
+        """현재 함수의 숨은 결과 자리 참조 (오류 필드 = 오프셋 0)."""
+        f = self.f
+        a = f.new_temp(T.PtrType(self.result_sym.type))
+        f.emit("addr_local", dst=a, var=self.result_sym)
+        p = f.new_temp(self.result_sym.type)
+        f.emit("load", dst=p, addr=a, type=self.result_sym.type)
+        return p
+
+    def lower_try(self, e):
+        """시도 r: r 의 오류가 0 이 아니면 그 코드로 현재 함수를 끝낸다; 아니면 값."""
+        f = self.f
+        rt = e.expr.type
+        r = self.rvalue(e.expr)
+        code = f.new_temp(T.INT)
+        f.emit("load", dst=code, addr=r, type=T.INT)
+        zero = f.new_temp(T.INT)
+        f.emit("const", dst=zero, value=0)
+        c = f.new_temp(T.BOOL)
+        f.emit("cmp", dst=c, cond="eq", a=code, b=zero, type=T.INT)
+        ok = f.new_label("성공"); fail = f.new_label("실패")
+        f.emit("br", cond=c, ltrue=ok, lfalse=fail)
+        f.emit("label", name=fail)
+        p = self.result_error_addr()
+        f.emit("store", addr=p, src=code, type=T.INT)
+        f.emit("ret", value=None)
+        f.emit("label", name=ok)
+        if rt.value is None:
+            return None
+        va = f.new_temp(T.PtrType(rt.value))
+        f.emit("gep", dst=va, base=r, offset=8)
+        if rt.value.is_agg() or rt.value.is_array():
+            return va
+        d = f.new_temp(rt.value)
+        f.emit("load", dst=d, addr=va, type=rt.value)
+        return d
+
     def lower_cast(self, e):
         f = self.f
         src_t = T.decay(e.expr.type)
         dst_t = e.type
+        if dst_t.is_result() and not e.expr.type.is_result():
+            # 값 → T 결과 (성공): 오류 0, 값 복사
+            v = self.rvalue(e.expr)
+            slot = self.new_slot(dst_t, "결과")
+            a = self.var_addr(slot)
+            zero = f.new_temp(T.INT)
+            f.emit("const", dst=zero, value=0)
+            f.emit("store", addr=a, src=zero, type=T.INT)
+            va = f.new_temp(T.PtrType(dst_t.value))
+            f.emit("gep", dst=va, base=a, offset=8)
+            self.store_value(va, v, dst_t.value)
+            return a
         if e.expr.type.is_array() and dst_t.is_slice():
             # 배열 → 조각 (D-17): {첫 원소 참조, 개수}
             v = self.rvalue(e.expr)
@@ -539,6 +605,40 @@ class Lowerer:
         f = self.f
         op = e.op
         t = e.type
+        if op == "혹은":
+            # 결과의 오류가 0 이면 값, 아니면 오른쪽
+            r = self.rvalue(e.left)
+            code = f.new_temp(T.INT)
+            f.emit("load", dst=code, addr=r, type=T.INT)
+            zero = f.new_temp(T.INT)
+            f.emit("const", dst=zero, value=0)
+            c = f.new_temp(T.BOOL)
+            f.emit("cmp", dst=c, cond="eq", a=code, b=zero, type=T.INT)
+            la = f.new_label("혹은값"); lb = f.new_label("혹은기본"); end = f.new_label("혹은끝")
+            va = f.new_temp(T.PtrType(t))
+            f.emit("gep", dst=va, base=r, offset=8)
+            if t.is_agg():
+                slot = self.new_slot(t, "혹은")
+                d = self.var_addr(slot)
+                f.emit("br", cond=c, ltrue=la, lfalse=lb)
+                f.emit("label", name=la)
+                f.emit("copy_mem", to=d, frm=va, size=t.size)
+                f.emit("jmp", label=end)
+                f.emit("label", name=lb)
+                f.emit("copy_mem", to=d, frm=self.rvalue(e.right), size=t.size)
+                f.emit("label", name=end)
+                return d
+            d = f.new_temp(t)
+            f.emit("br", cond=c, ltrue=la, lfalse=lb)
+            f.emit("label", name=la)
+            v = f.new_temp(t)
+            f.emit("load", dst=v, addr=va, type=t)
+            f.emit("copy", dst=d, src=v)
+            f.emit("jmp", label=end)
+            f.emit("label", name=lb)
+            f.emit("copy", dst=d, src=self.rvalue(e.right))
+            f.emit("label", name=end)
+            return d
         if op in ("그리고", "또는"):
             d = f.new_temp(T.BOOL)
             rhs = f.new_label("우변"); end = f.new_label("끝")

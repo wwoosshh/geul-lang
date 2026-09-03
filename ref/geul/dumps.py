@@ -12,7 +12,7 @@ NODE_NAMES = {
     "BoolLit": "참거짓", "NullLit": "없음", "Name": "이름", "Index": "색인", "Member": "멤버", "Call": "호출",
     "SOVCall": "SOV호출", "Unary": "단항", "Binary": "이항", "Ternary": "삼항", "Cast": "변환", "SizeOf": "크기",
     "BaseType": "기본타입", "NamedType": "이름타입", "PtrType": "참조타입", "ArrayType": "배열타입", "FuncType": "함수타입",
-    "SliceType": "조각타입", "SliceExpr": "조각",
+    "SliceType": "조각타입", "SliceExpr": "조각", "ResultType": "결과타입", "Try": "시도", "ResultType": "결과타입", "Try": "시도",
 }
 FIELD_NAMES = {
     "includes": "포함", "decls": "선언", "type": "타입", "name": "이름", "init": "초기값", "static": "정적", "const": "상수",
