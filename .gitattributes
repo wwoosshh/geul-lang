@@ -1,3 +1,5 @@
 * text=auto eol=lf
 *.exe binary
 *.png binary
+spec-tests/**/stdin.txt -text
+spec-tests/**/expect.stdout -text

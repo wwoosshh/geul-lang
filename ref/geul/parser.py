@@ -704,6 +704,11 @@ class Parser:
         return stmts
 
     @staticmethod
+    def adjacent(a, b):
+        """토큰 b 가 토큰 a 바로 뒤에 붙어 있는가 (공백 없음)."""
+        return a.pos.line == b.pos.line and b.pos.col == a.pos.col + len(a.text)
+
+    @staticmethod
     def is_chain_verb(text):
         """'-고'/'-서'로 끝나는 동사. 끝이 접사(예: '목록에서'의 '에서')이면 인자다."""
         if len(text) < 2 or text[-1] not in "고서":
@@ -745,8 +750,8 @@ class Parser:
             elif depth == 0 and t.kind == WORD:
                 name, particle = split_particle(t.text)
                 nxt = self.toks[k + 1] if k + 1 < v else None
-                if nxt is not None and nxt.kind == SYM and nxt.text in ("(", "["):
-                    cur.append(t)   # 호출·색인의 이름은 분리하지 않는다 (파일_끝인가(...), 배열이[...])
+                if nxt is not None and nxt.kind == SYM and nxt.text in ("(", "[") and self.adjacent(t, nxt):
+                    cur.append(t)   # 붙여 쓴 호출·색인의 이름은 분리하지 않는다 (파일_끝인가(...), 배열이[...])
                 elif particle is None:
                     cur.append(t)
                 elif particle == "의":
@@ -877,6 +882,9 @@ class Parser:
         e = self.parse_primary()
         while not self.at_limit():
             t = self.tok()
+            prev = self.toks[self.i - 1]
+            if t.kind == SYM and t.text in ("[", "(") and not self.adjacent(prev, t):
+                break       # 띄어 쓴 '('·'[' 는 호출·색인이 아니다
             if t.kind == SYM and t.text == "[":
                 self.next()
                 idx = self.parse_expr_until_sym("]")
