@@ -1,5 +1,4 @@
-"""소스 텍스트 (명세 1절): UTF-8, BOM 제거, NFC 정규화, 줄 끝 정규화."""
-import unicodedata
+"""소스 텍스트 (명세 1절): UTF-8, BOM 제거, 줄 끝 정규화. NFC 는 요구하되 정규화하지 않는다 (결합형 자모는 렉서가 오류로 낸다)."""
 from .diagnostics import CompileError, Pos
 
 
@@ -14,5 +13,4 @@ def load_source(path):
         text = raw.decode("utf-8")
     except UnicodeDecodeError as e:
         raise CompileError(Pos(path, 0, 0), f"UTF-8이 아닙니다 (바이트 {e.start})")
-    text = unicodedata.normalize("NFC", text)
     return text.replace("\r\n", "\n")

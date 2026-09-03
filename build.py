@@ -230,12 +230,16 @@ def cmd_selfhost(args):
                 err = got.stderr.decode("utf-8", "replace")
                 want = [l.strip() for l in open(os.path.join(os.path.dirname(f), "expect.errors"), encoding="utf-8") if l.strip()]
                 missing = [w for w in want if w not in err]
+                ref = subprocess.run([sys.executable, GEULC, f, "-o", os.path.join(build_dir, "neg_ref.exe")], capture_output=True)
+                ref_line = (ref.stdout + ref.stderr).decode("utf-8", "replace").strip().splitlines()[:1]
+                self_line = err.strip().splitlines()[:1]
                 nn += 1
-                if got.returncode != 1 or missing:
+                if got.returncode != 1 or missing or ref_line != self_line:
                     failed += 1
                     print(f"  DIFF  {os.path.relpath(f, ROOT)} (self rc={got.returncode}) 기대 메시지 없음: {missing}")
-                    print("        self stderr:", err.strip()[:200])
-            print(f"[{name}] 부정 테스트 {nn}개 확인")
+                    print("        ref :", ref_line)
+                    print("        self:", self_line)
+            print(f"[{name}] 부정 테스트 {nn}개: 오류 줄(파일:줄:열: 메시지) 동일 확인")
     return 0 if failed == 0 else 1
 
 

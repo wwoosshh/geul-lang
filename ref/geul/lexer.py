@@ -39,8 +39,14 @@ class Token:
 
 
 def is_hangul(ch):
+    """완성형 음절과 호환 자모. 결합형 자모(NFD)는 이름 글자가 아니다 — 명세 2.1."""
     o = ord(ch)
-    return 0xAC00 <= o <= 0xD7A3 or 0x1100 <= o <= 0x11FF or 0x3130 <= o <= 0x318F
+    return 0xAC00 <= o <= 0xD7A3 or 0x3130 <= o <= 0x318F
+
+
+def is_conjoining_jamo(ch):
+    o = ord(ch)
+    return 0x1100 <= o <= 0x11FF or 0xA960 <= o <= 0xA97F or 0xD7B0 <= o <= 0xD7FF
 
 
 def is_latin_start(ch):
@@ -98,6 +104,8 @@ class Lexer:
             p = self.pos()
             if ch.isdigit():
                 self.lex_number(p)
+            elif is_conjoining_jamo(ch):
+                self.error(p, "한글이 NFC 로 정규화되어 있지 않습니다 (결합형 자모) — 소스를 NFC 로 저장하세요")
             elif is_hangul(ch) or is_latin_start(ch):
                 self.lex_word(p)
             elif ch == '"':

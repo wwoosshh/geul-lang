@@ -1,0 +1,16 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 수용 테스트 (참조 구현)
+        run: python build.py test
+      - name: 자체호스팅 교차 검증 (토큰·AST·IR 덤프, exe 바이트, 고정점)
+        run: python build.py selfhost
+      - name: 수용 테스트 (글로 쓴 컴파일러)
+        run: python build.py test --self
