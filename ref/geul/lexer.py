@@ -57,6 +57,14 @@ def is_name_char(ch):
     return is_hangul(ch) or is_latin_start(ch) or ch.isdigit()
 
 
+def object_particle(word):
+    """낱말 뒤에 붙일 목적격 조사: 받침이 있으면 '을', 없으면 '를' (한글이 아니면 '를')."""
+    ch = word[-1] if word else ""
+    if "\uac00" <= ch <= "\ud7a3" and (ord(ch) - 0xAC00) % 28 != 0:
+        return "을"
+    return "를"
+
+
 def split_particle(word):
     """단어 끝에서 가장 긴 접사를 뗀다. (어근, 접사) 또는 (단어, None)."""
     for p in sorted(PARTICLES, key=len, reverse=True):

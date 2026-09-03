@@ -4,10 +4,11 @@
 from . import ast as A
 from . import types as T
 from .diagnostics import CompileError, InternalError
+from .lexer import PARTICLE_SET, object_particle
 from .parser import verb_base
 import copy
 
-ROLE_PARTICLE = {"대상": "을/를", "목적지": "에", "출처": "에서", "수단": "로", "동반": "와/과", None: "(무표)"}
+ROLE_PARTICLE = {"대상": "을/를", "목적지": "에", "출처": "에서", "수단": "로", "동반": "와/과", None: "무표"}
 
 
 class Sym:
@@ -327,6 +328,17 @@ class Sema:
         self.globals.declare(d.name, sym, d.pos)
         self.unit.globals.append(sym)
         return sym
+
+    def unknown_name(self, name):
+        """이름을 찾지 못했다. 조사 분리 때문이면 그렇게 말해 준다 (D-21)."""
+        msg = f"선언되지 않은 이름입니다: '{name}'"
+        if self.func is not None:
+            for p in self.func.params:
+                part = name[len(p.name):]
+                if name.startswith(p.name) and part in PARTICLE_SET:
+                    return (msg + f" — 매개변수를 이름 '{p.name}', 조사 '{part}'로 읽었습니다. "
+                                  f"이름 전체가 '{name}'라면 '{name}{object_particle(name)}'처럼 역할 조사를 덧붙이세요")
+        return msg
 
     def check_name(self, name, pos):
         if name in ("증가", "감소", "증가하다", "감소하다"):
@@ -730,7 +742,7 @@ class Sema:
         if isinstance(e, A.Name):
             sym = self.scope.lookup(e.name)
             if sym is None:
-                self.error(e.pos, f"선언되지 않은 이름입니다: '{e.name}'")
+                self.error(e.pos, self.unknown_name(e.name))
             e.sym = sym
             if isinstance(sym, VarSym):
                 return sym.type

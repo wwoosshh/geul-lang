@@ -2,7 +2,7 @@
 from . import ast as A
 from .diagnostics import CompileError
 from .lexer import (WORD, IDENT, KEYWORD, PARTICLE, INT, FLOAT, CHAR, STRING, SYM, END, EOF,
-                    split_particle, ROLE_OF, is_hangul)
+                    split_particle, object_particle, ROLE_OF, is_hangul)
 
 BASE_TYPES = {"정수", "긴정수", "중간정수", "짧은정수", "작은정수", "실수", "짧은실수", "문자", "문자열", "참거짓", "공허"}
 INT_TYPES = {"정수", "긴정수", "중간정수", "짧은정수", "작은정수"}
@@ -273,7 +273,8 @@ class Parser:
                     particle = self.next().text
                 role = ROLE_OF.get(particle) if particle else None
                 if role in ("주제", "의", "비교", "주어"):
-                    self.error(pt.pos, f"매개변수에 쓸 수 없는 조사 '{particle}'")
+                    self.error(pt.pos, f"매개변수에 쓸 수 없는 조사 '{particle}' — 이름 전체가 "
+                                       f"'{pt.text}'라면 '{pt.text}{object_particle(pt.text)}'처럼 역할 조사를 덧붙이세요")
                 params.append(A.Param(pt.pos, ptype, pname, role))
                 continue
             name = self.name_token("함수 이름")
