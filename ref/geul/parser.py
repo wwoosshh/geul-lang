@@ -709,9 +709,103 @@ class Parser:
         self.expect_sym("}")
         return A.Switch(kw.pos, subject, cases, default)
 
+    # ----- 범위 반복 (명세 3.6) -----
+    RANGE_FROM = ("부터",)
+    RANGE_TO = ("전까지", "까지")
+
+    @staticmethod
+    def range_suffix(t, sufs):
+        """토큰이 접미 자체이거나 그것으로 끝나면 (접미, 앞부분 또는 None)."""
+        if t.kind != WORD:
+            return None
+        for s in sufs:
+            if t.text == s:
+                return (s, None)
+        for s in sufs:
+            if t.text.endswith(s) and len(t.text) > len(s):
+                return (s, t.text[: -len(s)])
+        return None
+
+    def find_until_sym_opt(self, s, a):
+        """a 부터 최상위 기호 s 를 찾는다. 없으면 None (오류를 내지 않는다)."""
+        depth = 0
+        j = a
+        while j < len(self.toks):
+            t = self.toks[j]
+            if t.kind == SYM and t.text in "([":
+                depth += 1
+            elif t.kind == SYM and t.text in ")]":
+                if depth == 0 and t.text == s:
+                    return j
+                depth -= 1
+            elif depth == 0 and t.kind == SYM and t.text == s:
+                return j
+            elif t.kind in (EOF, END):
+                return None
+            j += 1
+        return None
+
+    def find_range_from(self, a, b):
+        """a..b 에서 최상위 '부터' 자리를 찾는다. 없으면 None."""
+        depth = 0
+        for k in range(a, b):
+            t = self.toks[k]
+            if t.kind == SYM and t.text in "([":
+                depth += 1
+            elif t.kind == SYM and t.text in ")]":
+                depth -= 1
+            elif depth == 0 and self.range_suffix(t, self.RANGE_FROM):
+                return k
+        return None
+
+    def cut_range_marker(self, k, sufs):
+        """토큰 k 에서 접미를 뗀다. 앞부분이 있으면 이름 토큰으로 바꿔 둔다.
+           반환 (접미, 식이 끝나는 인덱스)."""
+        from .lexer import Token, KEYWORDS
+        s, head = self.range_suffix(self.toks[k], sufs)
+        if head is None:
+            return s, k
+        kind = IDENT if not any(is_hangul(c) for c in head) else (KEYWORD if head in KEYWORDS else WORD)
+        self.toks[k] = Token(kind, head, self.toks[k].pos)
+        return s, k + 1
+
+    def parse_range_for(self, kw, close, k):
+        """반복 (정수 i는 0부터 n 전까지) 를 세 절 반복으로 편다."""
+        if not self.is_type_start():
+            self.error(self.tok().pos, "범위 반복에는 '정수 i는' 처럼 변수 선언이 필요합니다"
+                       f" — {self.describe(self.tok())}이(가) 있습니다")
+        pos = self.tok().pos
+        vtype = self.parse_type()
+        nt = self.tok()
+        if not (nt.kind == WORD and (nt.text.endswith("는") or nt.text.endswith("은")) and len(nt.text) > 1):
+            self.error(nt.pos, "범위 반복의 변수 뒤에는 '는' 이 필요합니다"
+                       f" — {self.describe(nt)}이(가) 있습니다")
+        name = nt.text[:-1]
+        self.next()
+        _from, start_end = self.cut_range_marker(k, self.RANGE_FROM)
+        start = self.parse_expr_range(self.i, start_end)
+        last = self.toks[close - 1]
+        if close - 1 <= k or self.range_suffix(last, self.RANGE_TO) is None:
+            self.error(last.pos, "범위 반복의 끝에는 '까지' 또는 '전까지' 가 필요합니다"
+                       f" — {self.describe(last)}이(가) 있습니다")
+        to, end_end = self.cut_range_marker(close - 1, self.RANGE_TO)
+        end = self.parse_expr_range(k + 1, end_end)
+        self.i = close
+        self.expect_sym(")")
+        init = A.VarDecl(pos, vtype, name, start)
+        cond = A.Binary(pos, "<=" if to == "까지" else "<", A.Name(pos, name), end)
+        step = A.Assign(pos, A.Name(pos, name), "+=", A.IntLit(pos, 1))
+        body = self.parse_block()
+        return A.For(kw.pos, init, cond, step, body)
+
     def parse_for(self):
         kw = self.next()
         self.expect_sym("(")
+        close = self.find_until_sym_opt(")", self.i)
+        if close is not None:
+            k = self.find_range_from(self.i, close)
+            if k is not None:
+                return self.parse_range_for(kw, close, k)
         init = None
         if not self.is_sym(":"):
             if self.is_type_start() or self.is_kw("상수"):
