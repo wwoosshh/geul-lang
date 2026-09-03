@@ -17,9 +17,16 @@
 
 ## 현재 상태
 
-**설계 단계. 코드는 없습니다.**
-설계 결정 D-01~D-11은 2026-09-03에 확정됐고, 문법 명세 판 1과 수용 테스트 34개가 있습니다.
-다음은 `corpus/v1`을 2세대 문법으로 고쳐 수용 테스트로 옮기는 일이고, 그 뒤에 `ref/`의 Python 참조 구현을 시작합니다.
+**2단계(참조 구현) 진행 중.** 설계 결정 D-01~D-11 확정(2026-09-03), 문법 명세 판 1, 수용 테스트 77개.
+`ref/`의 Python 참조 컴파일러가 77개 전부를 통과합니다 (`python build.py test`).
+남은 것: `corpus/v1/projects` 6개 변환(표준입력 필요), 표준 라이브러리 확장(함수마다 테스트), 3단계 자체호스팅 준비.
+
+```
+python build.py test            # 수용 테스트 전체
+python ref/geulc.py 파일.gl     # 파일.exe 생성
+python ref/geulc.py --check 파일.gl
+```
+요구사항: Python 3.12 (개발자만). 생성된 exe 는 msvcrt.dll·kernel32.dll·shell32.dll 만 쓴다.
 
 ## 폴더
 
@@ -29,9 +36,11 @@
 | `docs/01-1세대-교훈.md` | 1세대의 결정 → 결과 → 2세대의 결정 |
 | `docs/02-설계결정-기록.md` | 결정 기록(ADR). 미결 항목은 여기서 확정한다 |
 | `docs/03-문법-명세-초안.md` | 문법 명세 초안. 확정/미결 표시 |
-| `spec-tests/` | 명세 수용 테스트 (형식은 `spec-tests/README.md`) |
+| `spec-tests/` | 명세 수용 테스트 77개 (형식은 `spec-tests/README.md`) |
+| `표준/` | 표준 라이브러리 (`기본.gl` 자동 포함) |
+| `build.py` | 단일 빌드 진입점: `test`, `check` |
 | `corpus/v1/` | 1세대 예제·테스트·프로젝트. 참고용이며 2세대 문법에 맞게 다시 쓴다 |
-| `ref/` | 참조 구현 (2단계에서 시작) |
+| `ref/` | Python 참조 컴파일러 (`geulc.py`, `geul/` 패키지: lexer·parser·sema·ir·lower·x64·codegen·pe·runtime) |
 
 ## 진행 순서
 
