@@ -43,10 +43,15 @@ class Asm:
     def modrm(self, mod, reg, rm):
         self.emit((mod << 6) | ((reg & 7) << 3) | (rm & 7))
 
-    def mem(self, reg, base, disp):
-        """[base+disp32] 형태 ModRM (+SIB). base 가 None 이면 [rip+disp32] (disp 는 나중에 채움)."""
+    def mem(self, reg, base, disp, index=None, scale=1):
+        """[base+disp32] 또는 [base+index*scale+disp32] 형태 ModRM (+SIB). base 가 None 이면 [rip+disp32]."""
         if base is None:
             self.modrm(0, reg, 5)
+            self.emit32(disp)
+            return
+        if index is not None:
+            self.modrm(2, reg, 4)
+            self.emit(({1: 0, 2: 1, 4: 2, 8: 3}[scale] << 6) | ((index & 7) << 3) | (base & 7))
             self.emit32(disp)
             return
         if (base & 7) == 4:
@@ -79,36 +84,41 @@ class Asm:
     def mov_rr(self, dst, src):
         self.rex(1, src, 0, dst); self.emit(0x89); self.modrm(3, src, dst)
 
-    def load(self, r, base, disp, bits=64, signed=True):
-        """r <- [base+disp], 64비트로 확장."""
+    def load(self, r, base, disp, bits=64, signed=True, index=None, scale=1):
+        """r <- [base+disp] (또는 [base+index*scale+disp]), 64비트로 확장."""
+        x = index if index is not None else 0
+        b = base if base is not None else 0
         if bits == 64:
-            self.rex(1, r, 0, base if base is not None else 0); self.emit(0x8B); self.mem(r, base, disp)
+            self.rex(1, r, x, b); self.emit(0x8B); self.mem(r, base, disp, index, scale)
         elif bits == 32:
             if signed:
-                self.rex(1, r, 0, base or 0); self.emit(0x63); self.mem(r, base, disp)
+                self.rex(1, r, x, b); self.emit(0x63); self.mem(r, base, disp, index, scale)
             else:
-                self.rex(0, r, 0, base or 0); self.emit(0x8B); self.mem(r, base, disp)
+                self.rex(0, r, x, b); self.emit(0x8B); self.mem(r, base, disp, index, scale)
         elif bits == 16:
-            self.rex(1, r, 0, base or 0); self.emit(0x0F, 0xBF if signed else 0xB7); self.mem(r, base, disp)
+            self.rex(1, r, x, b); self.emit(0x0F, 0xBF if signed else 0xB7); self.mem(r, base, disp, index, scale)
         elif bits == 8:
-            self.rex(1, r, 0, base or 0); self.emit(0x0F, 0xBE if signed else 0xB6); self.mem(r, base, disp)
+            self.rex(1, r, x, b); self.emit(0x0F, 0xBE if signed else 0xB6); self.mem(r, base, disp, index, scale)
         else:
             raise ValueError(bits)
 
-    def store(self, base, disp, r, bits=64):
+    def store(self, base, disp, r, bits=64, index=None, scale=1):
+        x = index if index is not None else 0
+        b = base if base is not None else 0
         if bits == 64:
-            self.rex(1, r, 0, base or 0); self.emit(0x89); self.mem(r, base, disp)
+            self.rex(1, r, x, b); self.emit(0x89); self.mem(r, base, disp, index, scale)
         elif bits == 32:
-            self.rex(0, r, 0, base or 0); self.emit(0x89); self.mem(r, base, disp)
+            self.rex(0, r, x, b); self.emit(0x89); self.mem(r, base, disp, index, scale)
         elif bits == 16:
-            self.emit(0x66); self.rex(0, r, 0, base or 0); self.emit(0x89); self.mem(r, base, disp)
+            self.emit(0x66); self.rex(0, r, x, b); self.emit(0x89); self.mem(r, base, disp, index, scale)
         elif bits == 8:
-            self.rex(0, r, 0, base or 0, force=(r >= 4)); self.emit(0x88); self.mem(r, base, disp)
+            self.rex(0, r, x, b, force=(r >= 4)); self.emit(0x88); self.mem(r, base, disp, index, scale)
         else:
             raise ValueError(bits)
 
-    def lea(self, r, base, disp):
-        self.rex(1, r, 0, base or 0); self.emit(0x8D); self.mem(r, base, disp)
+    def lea(self, r, base, disp, index=None, scale=1):
+        x = index if index is not None else 0
+        self.rex(1, r, x, base or 0); self.emit(0x8D); self.mem(r, base, disp, index, scale)
 
     def movsx_rr(self, dst, src, bits):
         """dst <- 부호 확장(src 의 하위 bits)."""
@@ -148,16 +158,18 @@ class Asm:
         ext = {"shl": 4, "shr": 5, "sar": 7}[op]
         self.rex(1, 0, 0, r); self.emit(0xC1); self.modrm(3, ext, r); self.emit(n & 63)
 
-    def store_imm(self, base, disp, v, bits=64):
+    def store_imm(self, base, disp, v, bits=64, index=None, scale=1):
         """[base+disp] <- imm (bits 크기)"""
+        x = index if index is not None else 0
+        b = base or 0
         if bits == 64:
-            self.rex(1, 0, 0, base or 0); self.emit(0xC7); self.mem(0, base, disp); self.emit32(v)
+            self.rex(1, 0, x, b); self.emit(0xC7); self.mem(0, base, disp, index, scale); self.emit32(v)
         elif bits == 32:
-            self.rex(0, 0, 0, base or 0); self.emit(0xC7); self.mem(0, base, disp); self.emit32(v)
+            self.rex(0, 0, x, b); self.emit(0xC7); self.mem(0, base, disp, index, scale); self.emit32(v)
         elif bits == 16:
-            self.emit(0x66); self.rex(0, 0, 0, base or 0); self.emit(0xC7); self.mem(0, base, disp); self.emit(v & 0xFF, (v >> 8) & 0xFF)
+            self.emit(0x66); self.rex(0, 0, x, b); self.emit(0xC7); self.mem(0, base, disp, index, scale); self.emit(v & 0xFF, (v >> 8) & 0xFF)
         else:
-            self.rex(0, 0, 0, base or 0); self.emit(0xC6); self.mem(0, base, disp); self.emit(v & 0xFF)
+            self.rex(0, 0, x, b); self.emit(0xC6); self.mem(0, base, disp, index, scale); self.emit(v & 0xFF)
 
     def cqo(self):
         self.emit(0x48, 0x99)

@@ -17,6 +17,10 @@
 상수 정수 R9 = 9.
 상수 정수 R10 = 10.
 상수 정수 R11 = 11.
+상수 정수 R12 = 12.
+상수 정수 R13 = 13.
+상수 정수 R14 = 14.
+상수 정수 R15 = 15.
 상수 정수 XMM0 = 0.
 상수 정수 XMM1 = 1.
 상수 정수 기준없음 = -1.
@@ -107,6 +111,17 @@
     바이트32내기(disp).
 }
 
+(* [base+index*scale+disp32] 형태 ModRM + SIB *)
+[정수 reg를 정수 base를 정수 index를 정수 scale를 정수 disp를 MEM색인]는 {
+    MODRM(2, reg, 4).
+    정수 sb = 0.
+    scale == 2이면 { sb = 1. }
+    아니면 scale == 4이면 { sb = 2. }
+    아니면 scale == 8이면 { sb = 3. }
+    바이트내기((sb << 6) | ((index & 7) << 3) | (base & 7)).
+    바이트32내기(disp).
+}
+
 [정수 종류를 문자열 대상을 정수 색인을 RIP고정]는 {
     고정 참조 f = 안정배열_새원소(외부고정들).
     f→위치 = 코드위치() - 4. f→종류 = 종류. f→대상 = 대상. f→색인 = 색인.
@@ -172,6 +187,43 @@
 
 [정수 r를 정수 base를 정수 disp를 LEA]는 {
     REX(1, r, 0, 기준레지(base), 0). 바이트내기(141). MEM(r, base, disp).
+}
+
+(* r <- [base+index*scale+disp], 64비트로 확장 *)
+[정수 r를 정수 base를 정수 index를 정수 scale를 정수 disp를 정수 비트를 정수 부호를 LOAD색인]는 {
+    비트 == 64이면 { REX(1, r, index, base, 0). 바이트내기(139). MEM색인(r, base, index, scale, disp). 반환. }
+    비트 == 32이면 {
+        부호이면 { REX(1, r, index, base, 0). 바이트내기(99). MEM색인(r, base, index, scale, disp). }
+        아니면 { REX(0, r, index, base, 0). 바이트내기(139). MEM색인(r, base, index, scale, disp). }
+        반환.
+    }
+    비트 == 16이면 {
+        REX(1, r, index, base, 0). 바이트내기(15).
+        부호이면 { 바이트내기(191). } 아니면 { 바이트내기(183). }
+        MEM색인(r, base, index, scale, disp).
+        반환.
+    }
+    REX(1, r, index, base, 0). 바이트내기(15).
+    부호이면 { 바이트내기(190). } 아니면 { 바이트내기(182). }
+    MEM색인(r, base, index, scale, disp).
+}
+
+[정수 base를 정수 index를 정수 scale를 정수 disp를 정수 r를 정수 비트를 STORE색인]는 {
+    비트 == 64이면 { REX(1, r, index, base, 0). 바이트내기(137). MEM색인(r, base, index, scale, disp). 반환. }
+    비트 == 32이면 { REX(0, r, index, base, 0). 바이트내기(137). MEM색인(r, base, index, scale, disp). 반환. }
+    비트 == 16이면 { 바이트내기(102). REX(0, r, index, base, 0). 바이트내기(137). MEM색인(r, base, index, scale, disp). 반환. }
+    REX(0, r, index, base, r >= 4). 바이트내기(136). MEM색인(r, base, index, scale, disp).
+}
+
+[정수 r를 정수 base를 정수 index를 정수 scale를 정수 disp를 LEA색인]는 {
+    REX(1, r, index, base, 0). 바이트내기(141). MEM색인(r, base, index, scale, disp).
+}
+
+[정수 base를 정수 index를 정수 scale를 정수 disp를 정수 v를 정수 비트를 STORE즉시색인]는 {
+    비트 == 64이면 { REX(1, 0, index, base, 0). 바이트내기(199). MEM색인(0, base, index, scale, disp). 바이트32내기(v). 반환. }
+    비트 == 32이면 { REX(0, 0, index, base, 0). 바이트내기(199). MEM색인(0, base, index, scale, disp). 바이트32내기(v). 반환. }
+    비트 == 16이면 { 바이트내기(102). REX(0, 0, index, base, 0). 바이트내기(199). MEM색인(0, base, index, scale, disp). 바이트내기(v & 255). 바이트내기((v >> 8) & 255). 반환. }
+    REX(0, 0, index, base, 0). 바이트내기(198). MEM색인(0, base, index, scale, disp). 바이트내기(v & 255).
 }
 
 [정수 dst를 정수 src를 정수 비트를 MOVSX]는 {
