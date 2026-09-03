@@ -1,0 +1,23 @@
+========================================
+  Build System v1.0
+========================================
+
+Config files created
+
+Project:  hello_test
+Output:   hello_out.exe
+Compiler: C:\workspace\geul\dist\compiler.exe
+Sources:  1
+
+[1] Checking sources
+  OK  hello.gl
+[2] Building
+  CMD: C:\workspace\geul\dist\compiler.exe hello.gl -출력 hello_out.exe
+
+[3] system() returned 1
+    (Unicode path issue in cmd.exe)
+    Command generation: OK
+
+========================================
+  All build steps OK!
+========================================

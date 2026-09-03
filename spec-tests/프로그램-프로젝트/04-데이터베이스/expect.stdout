@@ -1,0 +1,53 @@
+========================================
+  Mini Database Engine v1.0
+========================================
+
+[1] 테이블 생성
+컬럼: 3개
+
+[2] 데이터 삽입
+6개 행 삽입
+
+[3] SELECT *
+name | age | city
+------------------------------------
+Kim | 25 | Seoul
+Lee | 30 | Busan
+Park | 22 | Seoul
+Choi | 35 | Daegu
+Jung | 28 | Seoul
+Kang | 31 | Busan
+(6개 행)
+
+[4] SELECT * WHERE city = Seoul
+name | age | city
+Kim | 25 | Seoul
+Park | 22 | Seoul
+Jung | 28 | Seoul
+(3개 일치)
+
+[5] SELECT * WHERE age = 30
+name | age | city
+Lee | 30 | Busan
+(1개 일치)
+
+[6] 파일 저장
+test.db 저장 OK
+
+[7] DELETE WHERE city = Daegu
+1개 삭제
+name | age | city
+------------------------------------
+Kim | 25 | Seoul
+Lee | 30 | Busan
+Park | 22 | Seoul
+Jung | 28 | Seoul
+Kang | 31 | Busan
+(5개 행)
+
+[8] 삭제 후 저장
+test_after.db 저장 OK
+
+========================================
+  All tests passed!
+========================================

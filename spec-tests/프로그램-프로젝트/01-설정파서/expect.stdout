@@ -1,0 +1,19 @@
+=== INI Parser v1.0 ===
+파싱: 10개
+--- 설정 (10개) ---
+[server] host = 127.0.0.1
+[server] port = 8080
+[server] max_conn = 100
+[database] host = localhost
+[database] port = 5432
+[database] name = mydb
+[database] user = admin
+[log] level = debug
+[log] path = /var/log/app.log
+[log] max_size = 10485760
+server.host = 127.0.0.1
+server.port = 8080
+db.name = mydb
+server=3 db=4 log=3
+output.ini 저장 완료
+=== 완료 ===

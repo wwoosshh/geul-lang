@@ -1,0 +1,41 @@
+========================================
+  File Search Tool v1.0
+========================================
+
+테스트 파일 생성 완료
+
+[1] 'hello' (대소문자 구분)
+search_test.txt:3: hello again, world!
+=> 1건
+
+[2] 'hello' (대소문자 무시)
+search_test.txt:1: Hello World
+search_test.txt:3: hello again, world!
+search_test.txt:5: The HELLO keyword appears here.
+=> 3건
+
+[3] 'test'
+search_test.txt:2: This is a test file.
+search_test.txt:6: Final line with test data.
+search_test.txt:7: Multiple test words on test line.
+=> 3건
+
+[4] 여러 파일에서 'Hello'
+search_test.txt:1: Hello World
+search_test2.txt:2: Hello from file 2!
+=> 전체 2건
+
+[5] 'xyz123' (없는 패턴)
+=> 일치 없음 OK
+
+[6] 패턴 매칭 단위 테스트
+  World in 'Hello World' = 6 OK
+  xyz in 'abcdef' = -1 OK
+  hello in 'HELLO' (ignore) = 0 OK
+  aaaa in 'aaa' = -1 OK
+
+  단위 테스트: 4/4 통과
+
+========================================
+  All tests passed!
+========================================

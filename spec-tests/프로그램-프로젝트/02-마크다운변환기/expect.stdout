@@ -1,0 +1,30 @@
+=== Markdown -> HTML Converter ===
+test.md 생성 완료
+test.html 변환 완료
+
+--- 생성된 HTML ---
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Document</title></head>
+<body>
+<h1>Hello World</h1>
+<h2>Sub Heading</h2>
+<p>This is <strong>bold</strong> and <em>italic</em> text.</p>
+<p>Here is <code>inline code</code> example.</p>
+<p>Visit <a href="https://google.com">Google</a> for search.</p>
+<blockquote><p>This is a blockquote.</p></blockquote>
+<ul>
+<li>First item</li>
+<li>Second item</li>
+<li>Third item</li>
+</ul>
+<hr>
+<pre><code>function hello() {
+  return 42;
+}
+</code></pre>
+<h3>Features</h3>
+<p>Simple &amp; clean <strong>HTML</strong> output with &lt;special&gt; chars.</p>
+</body>
+</html>
+--- 끝 ---
+=== 완료 ===
