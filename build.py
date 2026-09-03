@@ -126,6 +126,36 @@ def selfhost_inputs(negative=False):
     return files
 
 
+def pe_imports(path):
+    """PE32+ 임포트 디렉터리에서 DLL 이름 목록."""
+    import struct
+    b = open(path, "rb").read()
+    pe = struct.unpack_from("<I", b, 0x3C)[0]
+    nsec = struct.unpack_from("<H", b, pe + 6)[0]
+    opt = pe + 24
+    imp_rva, imp_size = struct.unpack_from("<II", b, opt + 112 + 8 * 1)
+    secs = []
+    for k in range(nsec):
+        off = opt + 240 + 40 * k
+        vsize, va, rsize, raw = struct.unpack_from("<IIII", b, off + 8)
+        secs.append((va, max(vsize, rsize), raw))
+    def rva2off(rva):
+        for va, size, raw in secs:
+            if va <= rva < va + size:
+                return raw + (rva - va)
+        raise ValueError(rva)
+    out = []
+    d = rva2off(imp_rva)
+    while True:
+        ilt, _, _, name_rva, iat = struct.unpack_from("<IIIII", b, d)
+        if name_rva == 0:
+            break
+        o = rva2off(name_rva)
+        out.append(b[o:b.index(b"\0", o)].decode("ascii"))
+        d += 20
+    return sorted(out)
+
+
 def selfhost_exe_stage(exe, build_dir):
     """4단계: 긍정 테스트마다 참조 컴파일러와 글로 쓴 컴파일러로 exe 를 만들어 바이트를 비교한다."""
     failed = 0
@@ -156,6 +186,11 @@ def selfhost_exe_stage(exe, build_dir):
             k = next((i for i in range(min(len(a), len(b))) if a[i] != b[i]), min(len(a), len(b)))
             print(f"  DIFF  {rel}: 바이트 불일치, 첫 차이 오프셋 0x{k:X} (ref {len(a)}B, self {len(b)}B) ref={a[k:k+8].hex()} self={b[k:k+8].hex()}")
     print(f"[컴파일러] exe 바이트 비교 {n}개, 불일치 {failed}개")
+    dlls = pe_imports(exe)
+    print(f"[컴파일러] 임포트 DLL: {dlls}")
+    if any(d.lower().startswith(("msvcr", "ucrt", "api-ms-win-crt")) for d in dlls):
+        print("[컴파일러] C 런타임 DLL 을 임포트합니다 — 런타임 독립 위반")
+        failed += 1
     # 고정점: self1(ref 가 만든 글 컴파일러) → self2 → self3 이 모두 같은 바이트여야 한다
     import hashlib
     src = os.path.join(ROOT, "self", "컴파일러.gl")

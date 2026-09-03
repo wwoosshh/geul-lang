@@ -1,15 +1,26 @@
-(* 표준 라이브러리 — 시간. 포함 "표준/시간.gl" *)
+(* 표준 라이브러리 — 시간. 포함 "표준/시간.gl" (kernel32 만) *)
 
-외부 "time"  [공허 참조 대상을 time]는 -> 정수.
-외부 "clock" [경과틱]는 -> 중간정수.
+외부 "GetSystemTimeAsFileTime" [공허 참조 대상에 GetSystemTimeAsFileTime]는.
+외부 "GetTickCount64" [GetTickCount64]는 -> 정수.
 외부 "QueryPerformanceCounter"   [정수 참조 값을 QueryPerformanceCounter]는 -> 중간정수.
 외부 "QueryPerformanceFrequency" [정수 참조 값을 QueryPerformanceFrequency]는 -> 중간정수.
 외부 "Sleep" [중간정수 밀리초를 잠자기]는.
 
 상수 정수 초당틱 = 1000.
+정수 시작틱 = -1.
 
+(* 1970-01-01 UTC 기준 초 *)
 [현재시각]는 -> 정수 {
-    반환 time(없음).
+    정수 파일시각 = 0.
+    GetSystemTimeAsFileTime(&파일시각).
+    반환 (파일시각 - 116444736000000000) / 10000000.
+}
+
+(* 프로그램 시작(첫 호출) 이후 밀리초 *)
+[경과틱]는 -> 중간정수 {
+    정수 지금 = GetTickCount64().
+    시작틱 < 0이면 { 시작틱 = 지금. }
+    반환 지금 - 시작틱.
 }
 
 (* 고해상도 시각을 밀리초 단위 실수로 *)

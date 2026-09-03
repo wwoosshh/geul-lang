@@ -18,7 +18,8 @@ RUNTIME_EXTERNS = {
     "CommandLineToArgvW": T.FuncType((T.VOIDPTR, T.VOIDPTR), T.VOIDPTR),
     "WideCharToMultiByte": T.FuncType((U32, U32, T.VOIDPTR, I32, T.VOIDPTR, I32, T.VOIDPTR, T.VOIDPTR), I32),
     "LocalFree": T.FuncType((T.VOIDPTR,), T.VOIDPTR),
-    "malloc": T.FuncType((T.INT,), T.VOIDPTR),
+    "GetProcessHeap": T.FuncType((), T.VOIDPTR),
+    "HeapAlloc": T.FuncType((T.VOIDPTR, U32, T.INT), T.VOIDPTR),
     "ExitProcess": T.FuncType((U32,), None),
 }
 
@@ -58,7 +59,8 @@ def build_startup(mod):
     f.emit("cast", dst=argc, kind="sext", src=argc32)
     n1 = f.new_temp(T.INT); f.emit("bin", dst=n1, bop="add", a=argc, b=const(1))
     nbytes = f.new_temp(T.INT); f.emit("bin", dst=nbytes, bop="mul", a=n1, b=const(8))
-    argv = call("malloc", [nbytes], T.VOIDPTR)
+    heap = call("GetProcessHeap", [], T.VOIDPTR)
+    argv = call("HeapAlloc", [heap, const(0, U32), nbytes], T.VOIDPTR)
     i = f.new_temp(T.INT)
     f.emit("const", dst=i, value=0)
     top = f.new_label("루프"); body = f.new_label("몸"); done = f.new_label("끝")
@@ -71,7 +73,7 @@ def build_startup(mod):
     zero = const(0, T.VOIDPTR)
     n = call("WideCharToMultiByte", [const(65001, U32), const(0, U32), w, const(-1, I32), zero, const(0, I32), zero, zero], I32)
     n64 = f.new_temp(T.INT); f.emit("cast", dst=n64, kind="sext", src=n)
-    buf = call("malloc", [n64], T.VOIDPTR)
+    buf = call("HeapAlloc", [heap, const(0, U32), n64], T.VOIDPTR)
     call("WideCharToMultiByte", [const(65001, U32), const(0, U32), w, const(-1, I32), buf, n, zero, zero], I32)
     aslot = f.new_temp(T.PtrType(T.VOIDPTR)); f.emit("index_addr", dst=aslot, base=argv, idx=i, size=8)
     f.emit("store", addr=aslot, src=buf, type=T.VOIDPTR)
@@ -101,6 +103,8 @@ def build_startup(mod):
     else:
         f.emit("call", dst=None, callee=entry.name, extern=False, args=args, sig=T.FuncType(tuple(t for _, t in entry.params), None), nfixed=len(args))
         code32 = const(0, U32)
+    # 표준 라이브러리의 출력 버퍼를 비운다 (표준/기본.gl 이 항상 포함되므로 언제나 있다)
+    f.emit("call", dst=None, callee="__글_출력비우기", extern=False, args=[], sig=T.FuncType((), None), nfixed=0)
     call("SetConsoleOutputCP", [saved], I32)
     call("ExitProcess", [code32], None)
     f.emit("ret", value=None)

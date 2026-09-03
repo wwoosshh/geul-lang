@@ -207,6 +207,8 @@ KERNEL32 = {
     "GetLastError", "VirtualAlloc", "VirtualFree", "HeapAlloc", "HeapFree", "GetProcessHeap", "SetConsoleCP",
     "GetConsoleCP", "GetFileSizeEx", "SetFilePointerEx", "DeleteFileW", "GetEnvironmentVariableW",
     "GetCurrentDirectoryW", "CreateDirectoryW", "FindFirstFileW", "FindNextFileW", "FindClose",
+    "HeapReAlloc", "GetFileType", "ReadConsoleW", "WriteConsoleW", "CreateProcessW", "WaitForSingleObject",
+    "GetExitCodeProcess", "GetSystemTimeAsFileTime", "FlushFileBuffers", "SetEndOfFile", "GetFileAttributesW",
 }
 SHELL32 = {"CommandLineToArgvW"}
 
