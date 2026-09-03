@@ -202,6 +202,7 @@ class Sema:
             self.error(self.program.pos, "'시작하기' 함수가 없습니다")
         self.unit.entry = entry
         self.unit.index = self.index
+        self.report_same_role()
         self.unit.risky = self.risky
         return self.unit
 
@@ -1136,6 +1137,23 @@ class Sema:
             self.error(a.pos, f"'{fsym.name}' 호출에 남는 인자가 있습니다 ({ROLE_PARTICLE.get(r)})")
         self.marked_slots = marked
         return ordered + [a for r, a in leftover]
+
+    def report_same_role(self):
+        """격으로는 구별할 수 없는 자리 (D-32): 같은 역할·같은 타입이 둘 이상.
+        조사를 붙여도 풀리지 않으므로 오류가 아니라 알림이다. --dump-risky 에서만 낸다."""
+        if not self.risky_report_only:
+            return
+        for fs in self.unit.functions:
+            groups = {}
+            for p in fs.params:
+                if p.role is None:
+                    continue
+                groups.setdefault((p.role, str(p.rtype)), []).append(p.name)
+            for (role, tname), names in groups.items():
+                if len(names) >= 2:
+                    self.risky.append(f"주의 {self.loc(fs.decl.pos)} {fs.name} "
+                                      f"{', '.join(names)} ({ROLE_PARTICLE.get(role)} {tname})")
+                    break
 
     def risk_pair(self, params, marked):
         """바꿔 써도 컴파일되는 첫 짝 (i, j): 같은 타입, 다른 역할, 둘 다 무표."""
