@@ -592,6 +592,8 @@ class Sema:
             e.field = f
             return f[1]
         if isinstance(e, A.Call):
+            if isinstance(e.callee, A.Name) and e.callee.name == "가변인자" and self.scope.lookup("가변인자") is None:
+                return self.check_vararg(e)
             return self.check_call(e)
         if isinstance(e, A.SOVCall):
             return self.check_sov_call(e)
@@ -730,6 +732,21 @@ class Sema:
         if not t.is_func():
             self.error(e.callee.pos, f"호출할 수 없는 타입입니다: '{t}'")
         return None, t
+
+    def check_vararg(self, e):
+        """명세 3.5: 가변 인자 함수 안에서 k 번째 추가 인자를 64비트 원시 값으로 읽는다."""
+        if self.func is None or not self.func.type.variadic:
+            self.error(e.pos, "'가변인자'는 가변 인자 함수(...) 안에서만 쓸 수 있습니다")
+        if len(e.args) != 1:
+            self.error(e.pos, "'가변인자'에는 색인 하나가 필요합니다")
+        t = self.check_expr(e.args[0], T.INT)
+        if not t.is_int():
+            self.error(e.args[0].pos, f"'가변인자'의 색인은 정수여야 합니다 (현재 '{t}')")
+        e.args[0] = self.coerce(e.args[0], T.INT, e.args[0].pos, "가변인자")
+        e.vararg = True
+        e.callee_sym = None
+        e.resolved_args = list(e.args)
+        return T.INT
 
     def check_call(self, e):
         fsym, ftype = self.callee_of(e)

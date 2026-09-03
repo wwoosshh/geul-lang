@@ -269,10 +269,8 @@ class Parser:
 
     def parse_function(self):
         pos, name, params, ret, variadic = self.parse_function_header()
-        if variadic:
-            self.error(pos, "가변 인자 함수 정의는 지원하지 않습니다 (외부 선언에서만 '...' 허용)")
         body = self.parse_block()
-        return A.FuncDecl(pos, name, params, ret, body)
+        return A.FuncDecl(pos, name, params, ret, body, variadic=variadic)
 
     def parse_extern(self):
         kw = self.next()

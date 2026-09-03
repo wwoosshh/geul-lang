@@ -33,8 +33,9 @@ def inst(_op, **kw):
 
 
 class IRFunction:
-    def __init__(self, name, params, ret, is_entry=False):
+    def __init__(self, name, params, ret, is_entry=False, variadic=False):
         self.name = name              # 링크 이름 (라벨)
+        self.variadic = variadic      # 정의된 가변 인자 함수: 프롤로그가 레지스터 인자 4개를 모두 홈 슬롯에 둔다
         self.params = params          # [(VarSym, Type)]
         self.ret = ret                # Type | None
         self.locals = []              # [VarSym] (local/param 슬롯)
@@ -121,6 +122,8 @@ def dump_inst(i):
         return d + f"논리부정 {_t(i.a)} : {i.type}"
     if op == "cast":
         return d + f"변환 {i.kind} {_t(i.src)}"
+    if op == "vararg":
+        return d + f"가변인자 {_t(i.idx)}"
     if op == "call":
         args = ", ".join(_t(a) for a in i.args)
         callee = i.callee if isinstance(i.callee, str) else _t(i.callee)

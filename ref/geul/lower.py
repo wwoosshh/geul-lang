@@ -30,7 +30,7 @@ class Lowerer:
         return self.mod
 
     def lower_function(self, fs):
-        f = IRFunction(fs.name, [(p.sym, p.rtype) for p in fs.params], fs.type.ret, is_entry=(fs is self.unit.entry))
+        f = IRFunction(fs.name, [(p.sym, p.rtype) for p in fs.params], fs.type.ret, is_entry=(fs is self.unit.entry), variadic=fs.type.variadic)
         self.f = f
         for p in fs.params:
             f.locals.append(p.sym)
@@ -283,6 +283,11 @@ class Lowerer:
             f.emit("load", dst=d, addr=addr, type=t)
             return d
         if isinstance(e, A.Call):
+            if getattr(e, "vararg", False):
+                idx = self.rvalue(e.args[0])
+                d = f.new_temp(T.INT)
+                f.emit("vararg", dst=d, idx=idx)
+                return d
             return self.lower_call(e, e.resolved_args, discard)
         if isinstance(e, A.SOVCall):
             return self.lower_call(e, e.resolved_args, discard, surface=[a for a, _ in e.args])

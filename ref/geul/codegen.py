@@ -86,9 +86,11 @@ class FuncGen:
             remaining -= 4096
         if remaining:
             a.sub_rsp(remaining)
-        # 레지스터 매개변수를 홈 슬롯에 저장
-        for i, (sym, t) in enumerate(f.params[:4]):
-            if t.is_float():
+        # 레지스터 매개변수를 홈 슬롯에 저장 (가변 인자 함수는 4개 모두 — 가변인자(k) 가 홈 슬롯을 읽는다)
+        nspill = 4 if f.variadic else min(4, len(f.params))
+        for i in range(nspill):
+            t = f.params[i][1] if i < len(f.params) else None
+            if t is not None and t.is_float():
                 a.movsd_store(RBP, 16 + 8 * i, i, self.fbits(t))
             else:
                 a.store(RBP, 16 + 8 * i, ARG_REGS[i])
@@ -196,6 +198,15 @@ class FuncGen:
             self.store_temp(i.dst, RAX)
         elif op == "cast":
             self.gen_cast(i)
+        elif op == "vararg":
+            # [rbp + 16 + 8*(고정 매개변수 수 + idx)]
+            self.load_temp(RCX, i.idx)
+            a.mov_imm(RDX, 8)
+            a.imul(RCX, RDX)
+            a.lea(RAX, RBP, 16 + 8 * len(self.f.params))
+            a.alu("add", RAX, RCX)
+            a.load(RAX, RAX, 0, 64)
+            self.store_temp(i.dst, RAX)
         elif op == "call":
             self.gen_call(i)
         elif op == "ret":
