@@ -16,10 +16,22 @@ def resolve_include(name, from_dir, std_dir, pos):
     raise CompileError(pos, f"포함할 파일을 찾을 수 없습니다: {name}")
 
 
+def scan_includes(toks):
+    """토큰열에서 최상위 '포함 "..."' 를 찾는다 (파싱 전에 포함 파일을 먼저 처리하기 위해)."""
+    from .lexer import KEYWORD, STRING
+    out = []
+    for k, t in enumerate(toks[:-1]):
+        if t.kind == KEYWORD and t.text == "포함" and toks[k + 1].kind == STRING:
+            out.append((t.pos, toks[k + 1].value))
+    return out
+
+
 def load_program(path, std_dir, auto_std=True):
-    """포함을 재귀 처리해 선언 목록을 하나로 합친다. 같은 파일은 한 번만."""
+    """포함을 재귀 처리해 선언 목록을 하나로 합친다. 같은 파일은 한 번만.
+    포함 파일은 먼저 파싱되므로 그 파일이 선언한 타입 이름을 뒤 파일이 쓸 수 있다."""
     seen = set()
     decls = []
+    type_names = set()
 
     def visit(p, pos):
         ap = os.path.normcase(os.path.abspath(p))
@@ -28,9 +40,9 @@ def load_program(path, std_dir, auto_std=True):
         seen.add(ap)
         text = load_source(p)
         toks = tokenize(text, p)
-        prog = parse(toks, p)
-        for ipos, name in prog.includes:
+        for ipos, name in scan_includes(toks):
             visit(resolve_include(name, os.path.dirname(os.path.abspath(p)), std_dir, ipos), ipos)
+        prog = parse(toks, p, type_names)
         decls.extend(prog.decls)
 
     if auto_std:

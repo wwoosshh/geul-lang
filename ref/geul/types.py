@@ -29,7 +29,7 @@ class IntType(Type):
     def align(self): return self.bits // 8
 
     def __str__(self):
-        return self.name or ("" if self.signed else "부호없는 ") + {8: "작은정수", 16: "짧은정수", 64: "정수"}.get(self.bits, f"i{self.bits}")
+        return self.name or ("" if self.signed else "부호없는 ") + {8: "작은정수", 16: "짧은정수", 32: "중간정수", 64: "정수"}.get(self.bits, f"i{self.bits}")
 
     def min_value(self):
         return -(1 << (self.bits - 1)) if self.signed else 0
@@ -142,12 +142,14 @@ class StructType(Type):
 
 INT = IntType(64, True, "정수")
 LONG = IntType(64, True, "긴정수")
+MEDIUM = IntType(32, True, "중간정수")
 SHORT = IntType(16, True, "짧은정수")
 BYTE = IntType(8, True, "작은정수")
 CHAR = IntType(8, True, "문자")
 BOOL = IntType(8, False, "참거짓")
 UINT = IntType(64, False, "부호없는 정수")
 ULONG = IntType(64, False, "부호없는 긴정수")
+UMEDIUM = IntType(32, False, "부호없는 중간정수")
 USHORT = IntType(16, False, "부호없는 짧은정수")
 UBYTE = IntType(8, False, "부호없는 작은정수")
 DOUBLE = FloatType(64)
@@ -157,8 +159,8 @@ STRING = PtrType(CHAR)
 VOIDPTR = PtrType(VOID)
 
 BASE_BY_NAME = {
-    ("정수", False): INT, ("긴정수", False): LONG, ("짧은정수", False): SHORT, ("작은정수", False): BYTE,
-    ("정수", True): UINT, ("긴정수", True): ULONG, ("짧은정수", True): USHORT, ("작은정수", True): UBYTE,
+    ("정수", False): INT, ("긴정수", False): LONG, ("중간정수", False): MEDIUM, ("짧은정수", False): SHORT, ("작은정수", False): BYTE,
+    ("정수", True): UINT, ("긴정수", True): ULONG, ("중간정수", True): UMEDIUM, ("짧은정수", True): USHORT, ("작은정수", True): UBYTE,
     ("실수", False): DOUBLE, ("짧은실수", False): FLOAT, ("문자", False): CHAR, ("문자열", False): STRING,
     ("참거짓", False): BOOL, ("공허", False): VOID,
 }

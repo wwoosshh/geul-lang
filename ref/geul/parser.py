@@ -4,8 +4,8 @@ from .diagnostics import CompileError
 from .lexer import (WORD, IDENT, KEYWORD, PARTICLE, INT, FLOAT, CHAR, STRING, SYM, END, EOF,
                     split_particle, ROLE_OF, is_hangul)
 
-BASE_TYPES = {"정수", "긴정수", "짧은정수", "작은정수", "실수", "짧은실수", "문자", "문자열", "참거짓", "공허"}
-INT_TYPES = {"정수", "긴정수", "짧은정수", "작은정수"}
+BASE_TYPES = {"정수", "긴정수", "중간정수", "짧은정수", "작은정수", "실수", "짧은실수", "문자", "문자열", "참거짓", "공허"}
+INT_TYPES = {"정수", "긴정수", "중간정수", "짧은정수", "작은정수"}
 ASSIGN_OPS = {"=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>="}
 COMPARE_VERBS = {"크거나같": ">=", "작거나같": "<=", "크": ">", "작": "<", "같": "==", "다르": "!="}
 BINARY_PREC = [
@@ -29,12 +29,12 @@ def verb_base(root):
 
 
 class Parser:
-    def __init__(self, tokens, filename):
+    def __init__(self, tokens, filename, type_names=None):
         self.toks = tokens
         self.file = filename
         self.i = 0
         self.limit = len(tokens)      # 식 파싱 상한 (배타)
-        self.type_names = set()
+        self.type_names = type_names if type_names is not None else set()   # 포함 파일과 공유
 
     # ---------- 토큰 유틸 ----------
     def peek(self, k=0):
@@ -535,8 +535,8 @@ class Parser:
             self.error(last.pos, f"조건문의 끝에 '{ending}'이 필요합니다 — {self.describe(last)}이(가) 있습니다")
         if extra is not None:
             # '맞음이면', 'b이면': 마지막 단어의 앞부분을 이름 토큰으로 바꿔 식에 포함한다
-            from .lexer import Token
-            kind = IDENT if not any(is_hangul(c) for c in extra) else WORD
+            from .lexer import Token, KEYWORDS
+            kind = IDENT if not any(is_hangul(c) for c in extra) else (KEYWORD if extra in KEYWORDS else WORD)
             saved = self.toks[last_index]
             self.toks[last_index] = Token(kind, extra, last.pos)
             try:
@@ -705,7 +705,10 @@ class Parser:
 
     @staticmethod
     def is_chain_verb(text):
-        return len(text) >= 2 and text[-1] in "고서" and not text.endswith("보고")
+        """'-고'/'-서'로 끝나는 동사. 끝이 접사(예: '목록에서'의 '에서')이면 인자다."""
+        if len(text) < 2 or text[-1] not in "고서":
+            return False
+        return split_particle(text)[1] is None
 
     def make_sov_stmt(self, a, v, root, verb_tok):
         args = self.parse_sov_args(a, v)
@@ -741,7 +744,10 @@ class Parser:
                     groups.append((cur, t.text, t.pos)); cur = []
             elif depth == 0 and t.kind == WORD:
                 name, particle = split_particle(t.text)
-                if particle is None:
+                nxt = self.toks[k + 1] if k + 1 < v else None
+                if nxt is not None and nxt.kind == SYM and nxt.text in ("(", "["):
+                    cur.append(t)   # 호출·색인의 이름은 분리하지 않는다 (파일_끝인가(...), 배열이[...])
+                elif particle is None:
                     cur.append(t)
                 elif particle == "의":
                     cur.append(t)   # 식 파서가 '의' 를 처리
@@ -1006,5 +1012,5 @@ class Parser:
         self.error(self.toks[start].pos, "괄호가 닫히지 않았습니다")
 
 
-def parse(tokens, filename):
-    return Parser(tokens, filename).parse_program()
+def parse(tokens, filename, type_names=None):
+    return Parser(tokens, filename, type_names).parse_program()

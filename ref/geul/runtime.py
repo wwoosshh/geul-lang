@@ -8,8 +8,8 @@ from . import types as T
 from .ir import IRFunction, dll_for
 from .sema import VarSym
 
-I32 = T.IntType(32, True)
-U32 = T.IntType(32, False)
+I32 = T.MEDIUM
+U32 = T.UMEDIUM
 
 RUNTIME_EXTERNS = {
     "GetConsoleOutputCP": T.FuncType((), U32),
