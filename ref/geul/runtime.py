@@ -47,6 +47,10 @@ def build_startup(mod):
         f.emit("const", dst=d, value=v)
         return d
 
+    # 처리되지 않은 예외를 잡는 최상위 처리기 (D-26)
+
+    f.emit("call", dst=None, callee="__글_예외설치", extern=False, args=[], sig=T.FuncType((), None), nfixed=0)
+
     saved = call("GetConsoleOutputCP", [], U32)
     call("SetConsoleOutputCP", [const(65001, U32)], I32)
     cmd = call("GetCommandLineW", [], T.VOIDPTR)

@@ -72,6 +72,12 @@ def run_test(test_dir, verbose):
             problems.append(f"출력 불일치\n--- 기대\n{want}--- 실제\n{got}")
         if code != want_code:
             problems.append(f"종료코드 {code} (기대 {want_code})")
+        errs = read(os.path.join(test_dir, "expect.stderr"), "")
+        if errs:
+            got_err = rr.stderr.decode("utf-8", "replace").replace("\r\n", "\n")
+            missing = [l for l in errs.splitlines() if l.strip() and l.strip() not in got_err]
+            if missing:
+                problems.append(f"표준오류에 없음: {missing}\n--- 실제\n{got_err}")
         if problems:
             return name, False, "\n".join(problems)
         return name, True, f"{dt:.1f}s"
