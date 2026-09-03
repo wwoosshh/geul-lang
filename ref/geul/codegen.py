@@ -7,16 +7,16 @@ Win64 호출 규약: rcx rdx r8 r9 / xmm0-3, 섀도 32B, 5번째부터 스택, r
   저장의 값, 반환값이면 const 명령을 내지 않고 즉시값으로 쓴다.
 - 지역 직접 접근: 한 번만 쓰이는 addr_local 이 바로 적재/저장의 주소면 [rbp+슬롯] 을 직접 쓴다.
 
-레지스터 할당 (D-20, 2단계). 정수·참조 값(실수 제외)을 RBX RSI RDI R12-R15 에 둔다:
+레지스터 할당 (D-20, 2단계). 정수·참조 값을 RBX RSI RDI R12-R15, 실수 값을 XMM6-XMM15 에 둔다:
 - 후보: 즉시값·직접 접근·RAX 전달·접기가 아닌 임시값, 그리고 주소가 새지 않는(모든 지역주소가 같은 타입의 직접
   적재/저장) 스칼라 지역·매개변수 (가변 인자 함수의 매개변수 제외).
 - 생존 구간: 기본 블록 단위 역방향 자료 흐름으로 생존 집합을 구하고, 변수마다 [처음 닿는 위치, 마지막 위치].
 - 선형 스캔: 시작 위치(같으면 변수 번호) 순서로, 끝 < 시작인 구간만 만료. 빈 레지스터가 없으면 끝이 가장 먼
   활성 구간이 지금 것보다 멀 때만 그 자리를 빼앗는다. 레지스터 없는 값은 슬롯에 산다.
-- 프롤로그가 쓰는 레지스터를 push 하고 지역 슬롯은 그 아래에 놓는다.
+- 프롤로그가 쓰는 정수 레지스터를 push 하고 XMM 은 16바이트씩 저장하며, 지역 슬롯은 그 아래에 놓는다.
 내보내기 규칙 (결정적):
 - 결과 레지스터: 값에 레지스터가 있으면 거기, RAX 전달 값이 레지스터 지역에 바로 저장되면 그 지역의 레지스터,
-  아니면 RAX. 계산은 결과 레지스터에서 한다 (나눗셈·호출·가변인자·실수→정수는 RAX).
+  아니면 RAX. 계산은 결과 레지스터에서 한다 (나눗셈·호출·가변인자·실수→정수는 RAX). 실수는 결과 XMM 에서 하고 없으면 XMM0.
 - 원본 읽기: 별칭(레지스터 지역의 전달되는 직접 적재는 그 레지스터 자체) → 레지스터 → RAX(전달) → 슬롯에서
   스크래치로 적재. 첫 피연산자의 스크래치는 RAX(적재하면 RAX 전달 상태가 된다), 둘째는 RCX.
 - 접기: 적재·저장의 주소로만 쓰이는 오프셋·원소주소(크기 1·2·4·8 또는 상수 색인)는 메모리 피연산자에 접는다.
@@ -58,6 +58,7 @@ OPERANDS = {
     "lnot": ("a",), "cast": ("src",), "ret": ("value",), "vararg": ("idx",), "copy_mem": ("to", "frm"),
 }
 ALLOC_REGS = [RBX, RSI, RDI, R12, R13, R14, R15]     # 피호출자 보존, 이 순서로 배정
+XMM_REGS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]           # XMM6-XMM15: 피호출자 보존, 실수 값
 CC_OF = {"eq": "e", "ne": "ne", "lt": "l", "le": "le", "gt": "g", "ge": "ge", "ult": "b", "ule": "be", "ugt": "a", "uge": "ae"}
 
 
@@ -78,15 +79,17 @@ class FuncGen:
         self.forwarded = set()      # RAX 로만 흐르는 임시값 (레지스터 후보 아님)
         self.fold = {}              # Temp -> 명령 (적재·저장의 주소로 접히는 오프셋·원소주소)
         self.local_ok = set()       # 레지스터 후보 지역
-        self.reg = {}               # VarSym or Temp -> 레지스터
+        self.reg = {}               # VarSym or Temp -> 레지스터 (정수·참조)
         self.nsaved = 0             # 프롤로그가 저장하는 레지스터 수 (ALLOC_REGS 의 앞부분)
+        self.xreg = {}              # VarSym or Temp -> XMM 레지스터 (실수)
+        self.nxmm = 0               # 프롤로그가 저장하는 XMM 수 (XMM_REGS 의 앞부분)
         self.alias = {}             # Temp -> VarSym (레지스터 지역의 전달되는 직접 적재)
         self.pre_stored = None      # 결과를 저장 대상 레지스터에 바로 계산한 임시값
         self.pending_cc = None      # 분기로 이어질 비교의 조건 코드
         self.pending_cond = None
 
     def layout(self):
-        cur = 8 * self.nsaved       # 저장된 레지스터들 아래부터
+        cur = 8 * self.nsaved + 16 * self.nxmm      # 저장된 레지스터들(정수 push, XMM 16바이트) 아래부터
         # 매개변수: 홈 슬롯 [rbp+16+8i] 에 저장해 두고 그대로 쓴다
         for i, (sym, t) in enumerate(self.f.params):
             self.slots[sym] = 16 + 8 * i
@@ -192,7 +195,10 @@ class FuncGen:
 
     # ---------- 레지스터 할당 (D-20) ----------
     def scalar_ok(self, t):
-        return t.is_int() or t.is_ptr() or t.is_func()
+        return t.is_int() or t.is_ptr() or t.is_func() or t.is_float()
+
+    def xmm_save_disp(self, k):
+        return -(8 * self.nsaved + 16 * (k + 1))
 
     def analyze_alloc(self):
         insts = self.f.insts
@@ -231,7 +237,7 @@ class FuncGen:
         self.local_ok = ok
 
     def cand_temp(self, t):
-        return (isinstance(t, Temp) and not t.type.is_float() and t not in self.imm_only
+        return (isinstance(t, Temp) and t not in self.imm_only
                 and t not in self.direct and t not in self.forwarded and t not in self.fold)
 
     def inst_def(self, i):
@@ -343,10 +349,29 @@ class FuncGen:
                     touch(vid[dd], k)
                 for v in self.inst_uses(i):
                     touch(vid[v], k)
-        # 선형 스캔
-        order = sorted([v for v in range(nv) if start[v] >= 0], key=lambda v: (start[v], v))
+        # 선형 스캔: 정수·참조는 ALLOC_REGS, 실수는 XMM_REGS 에서 따로
+        for is_float, pool in ((False, ALLOC_REGS), (True, XMM_REGS)):
+            order = sorted([v for v in range(nv) if start[v] >= 0 and vars_[v].type.is_float() == is_float],
+                           key=lambda v: (start[v], v))
+            assign = self.linear_scan(order, start, end, len(pool))
+            for v, r in assign.items():
+                if is_float:
+                    self.xreg[vars_[v]] = pool[r]
+                else:
+                    self.reg[vars_[v]] = pool[r]
+            n = (max(assign.values()) + 1) if assign else 0
+            if is_float:
+                self.nxmm = n
+            else:
+                self.nsaved = n
+        # 별칭: 레지스터 지역의 전달되는 직접 적재는 그 레지스터 자체다 (정수·참조만)
+        for i in insts:
+            if i.op == "load" and i.dst in self.forwarded and i.addr in self.direct and self.direct[i.addr] in self.reg:
+                self.alias[i.dst] = self.direct[i.addr]
+
+    def linear_scan(self, order, start, end, npool):
         active = []                 # (end, vid, reg) 오름차순
-        free = list(range(len(ALLOC_REGS)))
+        free = list(range(npool))
         assign = {}
         for v in order:
             s = start[v]
@@ -371,13 +396,7 @@ class FuncGen:
                     assign[v] = spill[2]
                     active.append((end[v], v, spill[2]))
                     active.sort()
-        for v, r in assign.items():
-            self.reg[vars_[v]] = ALLOC_REGS[r]
-        self.nsaved = (max(assign.values()) + 1) if assign else 0
-        # 별칭: 레지스터 지역의 전달되는 직접 적재는 그 레지스터 자체다
-        for i in insts:
-            if i.op == "load" and i.dst in self.forwarded and i.addr in self.direct and self.direct[i.addr] in self.reg:
-                self.alias[i.dst] = self.direct[i.addr]
+        return assign
 
     # ---------- 도우미: 값의 위치 ----------
     def holder(self, t):
@@ -400,7 +419,10 @@ class FuncGen:
         r = self.holder(t)
         if r is not None:
             return r
-        self.a.load(scratch, RBP, self.slot(t))
+        if t in self.xreg:
+            self.a.movq_rx(scratch, self.xreg[t], self.fbits(t.type))     # 실수 비트를 정수 레지스터로
+        else:
+            self.a.load(scratch, RBP, self.slot(t))
         if scratch == RAX:
             self.rax_temp = t
         return scratch
@@ -409,11 +431,49 @@ class FuncGen:
         """r <- t"""
         s = self.holder(t)
         if s is None:
-            self.a.load(r, RBP, self.slot(t))
+            if t in self.xreg:
+                self.a.movq_rx(r, self.xreg[t], self.fbits(t.type))
+            else:
+                self.a.load(r, RBP, self.slot(t))
             if r == RAX:
                 self.rax_temp = t
         elif s != r:
             self.a.mov_rr(r, s)
+
+    # ----- 실수 값 (XMM) -----
+    def fload(self, x, t, bits):
+        """XMM x <- 실수 t"""
+        xs = self.xreg.get(t)
+        if xs is not None:
+            if xs != x:
+                self.a.movaps(x, xs)
+        elif self.rax_temp is t:
+            self.a.movq_xr(x, RAX)
+        else:
+            self.a.movsd_load(x, RBP, self.slot(t), bits)
+
+    def fsrc(self, t, scratch, bits):
+        """실수 t 를 담은 XMM. 없으면 scratch 로 가져온다."""
+        xs = self.xreg.get(t)
+        if xs is not None:
+            return xs
+        self.fload(scratch, t, bits)
+        return scratch
+
+    def fdst(self, d):
+        return self.xreg.get(d, XMM0)
+
+    def fresult(self, d, x, bits):
+        """실수 d 의 값이 XMM x 에 있다."""
+        xd = self.xreg.get(d)
+        if xd is not None:
+            if xd != x:
+                self.a.movaps(xd, x)
+        elif d in self.forwarded:
+            self.a.movq_rx(RAX, x, bits)         # 바로 다음 저장이 RAX 비트를 쓴다
+            self.rax_temp = d
+        else:
+            self.a.movsd_store(RBP, self.slot(d), x, bits)
 
     def two_srcs(self, a, b, sa, sb):
         """a, b 를 담은 레지스터 둘. a 의 적재가 RAX 에 든 b 를 덮지 않게 b 를 먼저 옮긴다."""
@@ -444,6 +504,8 @@ class FuncGen:
         if r == RAX:
             if d in self.reg:
                 self.a.mov_rr(self.reg[d], RAX)
+            elif d in self.xreg:
+                self.a.movq_xr(self.xreg[d], RAX)
             elif d not in self.forwarded:
                 self.a.store(RBP, self.slot(d), RAX)
             self.rax_temp = d
@@ -501,6 +563,8 @@ class FuncGen:
             remaining -= 4096
         if remaining:
             a.sub_rsp(remaining)
+        for k, x in enumerate(XMM_REGS[:self.nxmm]):
+            a.movups_store(RBP, self.xmm_save_disp(k), x)
         # 레지스터 매개변수: 홈 슬롯에 저장 (가변 인자 함수는 4개 모두 — 가변인자(k) 가 홈 슬롯을 읽는다),
         # 레지스터에 사는 매개변수는 바로 옮긴다
         nspill = 4 if f.variadic else min(4, len(f.params))
@@ -509,14 +573,18 @@ class FuncGen:
             t = f.params[i][1] if i < len(f.params) else None
             if sym is not None and sym in self.reg:
                 a.mov_rr(self.reg[sym], ARG_REGS[i])
+            elif sym is not None and sym in self.xreg:
+                a.movaps(self.xreg[sym], i)
             elif t is not None and t.is_float():
                 a.movsd_store(RBP, 16 + 8 * i, i, self.fbits(t))
             else:
                 a.store(RBP, 16 + 8 * i, ARG_REGS[i])
         for i in range(4, len(f.params)):
-            sym = f.params[i][0]
+            sym, t = f.params[i]
             if sym in self.reg:
                 a.load(self.reg[sym], RBP, 16 + 8 * i)
+            elif sym in self.xreg:
+                a.movsd_load(self.xreg[sym], RBP, 16 + 8 * i, self.fbits(t))
         self.rax_temp = None
         self.pre_stored = None
         self.pending_cc = None
@@ -526,6 +594,8 @@ class FuncGen:
 
     def epilogue(self):
         a = self.a
+        for k, x in enumerate(XMM_REGS[:self.nxmm]):
+            a.movups_load(x, RBP, self.xmm_save_disp(k))
         if self.nsaved:
             a.lea(RSP, RBP, -8 * self.nsaved)
             for r in reversed(ALLOC_REGS[:self.nsaved]):
@@ -568,8 +638,7 @@ class FuncGen:
                 a.mov_imm(RAX, struct.unpack("<I", struct.pack("<f", i.value))[0])
             else:
                 a.mov_imm(RAX, struct.unpack("<Q", struct.pack("<d", i.value))[0])
-            a.store(RBP, self.slot(i.dst), RAX)
-            self.rax_temp = i.dst
+            self.finish_in(k, i.dst, RAX)       # XMM 레지스터면 movq, 아니면 슬롯 (전달되면 RAX 로만)
         elif op == "str":
             rd = self.dst_reg(i.dst)
             a.lea_rip(rd, "str", i.index)
@@ -590,9 +659,15 @@ class FuncGen:
                 a.lea_rip(rd, "func", i.name)
             self.finish_in(k, i.dst, rd)
         elif op == "copy":
-            rd = self.dst_reg(i.dst)
-            self.load_into(rd, i.src)
-            self.finish_in(k, i.dst, rd)
+            if i.dst.type.is_float():
+                bits = self.fbits(i.dst.type)
+                xd = self.fdst(i.dst)
+                self.fload(xd, i.src, bits)
+                self.fresult(i.dst, xd, bits)
+            else:
+                rd = self.dst_reg(i.dst)
+                self.load_into(rd, i.src)
+                self.finish_in(k, i.dst, rd)
         elif op == "load":
             self.gen_load(k, i)
         elif op == "store":
@@ -669,7 +744,7 @@ class FuncGen:
             if i.value is not None:
                 t = i.value.type
                 if t.is_float():
-                    a.movsd_load(XMM0, RBP, self.slot(i.value), self.fbits(t))
+                    self.fload(XMM0, i.value, self.fbits(t))
                 elif i.value in self.imm_only:
                     a.mov_imm(RAX, self.imm_only[i.value])
                 else:
@@ -695,9 +770,15 @@ class FuncGen:
                     a.mov_rr(rd, self.reg[var])
                 self.finish_in(k, d, rd)
                 return
+            if var in self.xreg:
+                self.fresult(d, self.xreg[var], self.fbits(t))
+                return
             base, index, scale, disp = RBP, None, 1, self.slot(var)
         else:
             base, index, scale, disp = self.addr_parts(i.addr, RAX, RCX)
+        if t.is_float() and d in self.xreg:
+            a.movsd_load(self.xreg[d], base, disp, self.fbits(t), index, scale)
+            return
         rd = self.dst_reg(d)
         if t.is_float():
             a.load(rd, base, disp, self.fbits(t), False, index, scale)
@@ -725,11 +806,16 @@ class FuncGen:
                     if rs != rv:
                         a.mov_rr(rv, rs)
                 return
+            if var in self.xreg:
+                self.fload(self.xreg[var], i.src, bits)
+                return
             base, index, scale, disp = RBP, None, 1, self.slot(var)
         else:
             base, index, scale, disp = self.addr_parts(i.addr, RCX, R8)
         if i.src in self.imm_only:
             a.store_imm(base, disp, self.imm_only[i.src], bits, index, scale)
+        elif i.src in self.xreg:
+            a.movsd_store(base, disp, self.xreg[i.src], bits, index, scale)
         else:
             rs = self.src_reg(i.src, RDX)
             a.store(base, disp, rs, bits, index, scale)
@@ -741,10 +827,13 @@ class FuncGen:
         op = i.bop
         if op.startswith("f"):
             bits = self.fbits(t)
-            a.movsd_load(XMM0, RBP, self.slot(i.a), bits)
-            a.movsd_load(XMM1, RBP, self.slot(i.b), bits)
-            a.fop(op[1:], XMM0, XMM1, bits)
-            a.movsd_store(RBP, self.slot(d), XMM0, bits)
+            xd = self.fdst(d)
+            xb = self.fsrc(i.b, XMM1, bits)
+            if xb == xd:
+                xd = XMM0                           # b 가 결과 레지스터에 산다: XMM0 에서 계산
+            self.fload(xd, i.a, bits)
+            a.fop(op[1:], xd, xb, bits)
+            self.fresult(d, xd, bits)
             return
         rd = self.dst_reg(d)
         if i.b in self.imm_only:
@@ -807,21 +896,21 @@ class FuncGen:
         d = i.dst
         if cond.startswith("f"):
             bits = self.fbits(t)
-            a.movsd_load(XMM0, RBP, self.slot(i.a), bits)
-            a.movsd_load(XMM1, RBP, self.slot(i.b), bits)
+            xa = self.fsrc(i.a, XMM0, bits)
+            xb = self.fsrc(i.b, XMM1, bits)
             c = cond[1:]
             if c == "eq":
-                a.ucomis(XMM0, XMM1, bits); a.setcc("e", RAX); a.setcc("np", RCX)
+                a.ucomis(xa, xb, bits); a.setcc("e", RAX); a.setcc("np", RCX)
                 a.movzx_rr(RAX, RAX, 8); a.movzx_rr(RCX, RCX, 8); a.alu("and", RAX, RCX)
             elif c == "ne":
-                a.ucomis(XMM0, XMM1, bits); a.setcc("ne", RAX); a.setcc("p", RCX)
+                a.ucomis(xa, xb, bits); a.setcc("ne", RAX); a.setcc("p", RCX)
                 a.movzx_rr(RAX, RAX, 8); a.movzx_rr(RCX, RCX, 8); a.alu("or", RAX, RCX)
             else:
                 if c in ("lt", "le"):
-                    a.ucomis(XMM1, XMM0, bits)
+                    a.ucomis(xb, xa, bits)
                     a.setcc("a" if c == "lt" else "ae", RAX)
                 else:
-                    a.ucomis(XMM0, XMM1, bits)
+                    a.ucomis(xa, xb, bits)
                     a.setcc("a" if c == "gt" else "ae", RAX)
                 a.movzx_rr(RAX, RAX, 8)
             self.finish_in(k, d, RAX)
@@ -861,13 +950,14 @@ class FuncGen:
             self.finish_in(k, i.dst, rd)
         elif kind in ("sitofp", "uitofp"):
             bits = self.fbits(dt)
+            xd = self.fdst(i.dst)
             self.load_into(RAX, i.src)
             if kind == "uitofp":
                 # 최상위 비트가 켜져 있으면 반으로 나눠 변환 후 두 배
                 l_neg = f".{self.f.name}.u2f{i.dst.id}"; l_end = l_neg + "e"
                 a.test(RAX, RAX)
                 a.jcc("l", l_neg)
-                a.cvtsi2f(XMM0, RAX, bits)
+                a.cvtsi2f(xd, RAX, bits)
                 a.jmp(l_end)
                 a.label(l_neg)
                 a.mov_rr(RCX, RAX)
@@ -875,27 +965,29 @@ class FuncGen:
                 a.alu("and", RCX, RDX)           # rcx = v & 1
                 a.emit(0x48, 0xD1, 0xE8)         # shr rax, 1
                 a.alu("or", RAX, RCX)            # rax = (v >> 1) | (v & 1)
-                a.cvtsi2f(XMM0, RAX, bits)
-                a.fop("add", XMM0, XMM0, bits)
+                a.cvtsi2f(xd, RAX, bits)
+                a.fop("add", xd, xd, bits)
                 a.label(l_end)
             else:
-                a.cvtsi2f(XMM0, RAX, bits)
-            a.movsd_store(RBP, self.slot(i.dst), XMM0, bits)
+                a.cvtsi2f(xd, RAX, bits)
             self.rax_temp = None
+            self.fresult(i.dst, xd, bits)
         elif kind == "fptosi":
             bits = self.fbits(st)
-            a.movsd_load(XMM0, RBP, self.slot(i.src), bits)
-            a.cvttf2si(RAX, XMM0, bits)
+            xs = self.fsrc(i.src, XMM0, bits)
+            a.cvttf2si(RAX, xs, bits)
             self.normalize(RAX, dt)
             self.finish_in(k, i.dst, RAX)
         elif kind == "fpext":
-            a.movsd_load(XMM0, RBP, self.slot(i.src), 32)
-            a.cvtss2sd(XMM0, XMM0)
-            a.movsd_store(RBP, self.slot(i.dst), XMM0, 64)
+            xd = self.fdst(i.dst)
+            xs = self.fsrc(i.src, XMM0, 32)
+            a.cvtss2sd(xd, xs)
+            self.fresult(i.dst, xd, 64)
         elif kind == "fptrunc":
-            a.movsd_load(XMM0, RBP, self.slot(i.src), 64)
-            a.cvtsd2ss(XMM0, XMM0)
-            a.movsd_store(RBP, self.slot(i.dst), XMM0, 32)
+            xd = self.fdst(i.dst)
+            xs = self.fsrc(i.src, XMM0, 64)
+            a.cvtsd2ss(xd, xs)
+            self.fresult(i.dst, xd, 32)
         else:
             raise InternalError(f"변환 {kind}")
 
@@ -940,7 +1032,7 @@ class FuncGen:
         for j in range(min(4, len(args))):
             t = args[j].type
             if t.is_float():
-                a.movsd_load(j, RBP, self.slot(args[j]), self.fbits(t))
+                self.fload(j, args[j], self.fbits(t))
                 if sig.variadic:
                     self.load_into(ARG_REGS[j], args[j])
             else:
@@ -957,7 +1049,7 @@ class FuncGen:
         if i.dst is not None:
             t = i.dst.type
             if t.is_float():
-                a.movsd_store(RBP, self.slot(i.dst), XMM0, self.fbits(t))
+                self.fresult(i.dst, XMM0, self.fbits(t))
             else:
                 self.normalize(RAX, t)
                 self.finish_in(k, i.dst, RAX)

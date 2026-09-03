@@ -23,6 +23,8 @@
 상수 정수 R15 = 15.
 상수 정수 XMM0 = 0.
 상수 정수 XMM1 = 1.
+(* XMM6-XMM15 는 피호출자 보존: 실수 값 할당 (D-20) *)
+(* XMM6-XMM15 는 피호출자 보존: 실수 값 할당 (D-20) *)
 상수 정수 기준없음 = -1.
 
 (* 고정 종류 *)
@@ -333,6 +335,30 @@
     REX(w, reg, 0, 기준레지(base), 0). 바이트내기(15). 바이트내기(opcode). MEM(reg, base, disp).
 }
 
+(* [base+index*scale+disp] 메모리 피연산자를 쓰는 SSE *)
+[정수 prefix를 정수 opcode를 정수 reg를 정수 base를 정수 index를 정수 scale를 정수 disp를 SSE색인]는 {
+    prefix != 0이면 { 바이트내기(prefix). }
+    REX(0, reg, index, base, 0). 바이트내기(15). 바이트내기(opcode). MEM색인(reg, base, index, scale, disp).
+}
+
+(* dst <- src (XMM 128비트 복사) *)
+[정수 dst를 정수 src를 MOVAPS]는 { SSE(0, 40, dst, src, 0, 0, 0). }
+[정수 x를 정수 base를 정수 disp를 MOVUPS_LOAD]는 { SSE(0, 16, x, -1, base, disp, 0). }
+[정수 base를 정수 disp를 정수 x를 MOVUPS_STORE]는 { SSE(0, 17, x, -1, base, disp, 0). }
+
+(* x <- r (정수 레지스터의 비트를 XMM 으로) *)
+[정수 x를 정수 r를 MOVQ_XR]는 {
+    바이트내기(102). REX(1, x, 0, r, 0). 바이트내기(15). 바이트내기(110). MODRM(3, x, r).
+}
+
+(* r <- x 의 하위 비트 (32 이면 영 확장) *)
+[정수 r를 정수 x를 정수 비트를 MOVQ_RX]는 {
+    바이트내기(102).
+    비트 == 64이면 { REX(1, x, 0, r, 0). } 아니면 { REX(0, x, 0, r, 0). }
+    바이트내기(15). 바이트내기(126). MODRM(3, x, r).
+}
+
+
 [정수 비트를 F접두]는 -> 정수 {
     비트 == 64이면 { 반환 242. }
     반환 243.
@@ -340,6 +366,8 @@
 
 [정수 x를 정수 base를 정수 disp를 정수 비트를 MOVSD_LOAD]는 { SSE(F접두(비트), 16, x, -1, base, disp, 0). }
 [정수 base를 정수 disp를 정수 x를 정수 비트를 MOVSD_STORE]는 { SSE(F접두(비트), 17, x, -1, base, disp, 0). }
+[정수 x를 정수 base를 정수 index를 정수 scale를 정수 disp를 정수 비트를 MOVSD_LOAD색인]는 { SSE색인(F접두(비트), 16, x, base, index, scale, disp). }
+[정수 base를 정수 index를 정수 scale를 정수 disp를 정수 x를 정수 비트를 MOVSD_STORE색인]는 { SSE색인(F접두(비트), 17, x, base, index, scale, disp). }
 
 [문자열 op를 정수 x를 정수 y를 정수 비트를 FOP]는 {
     정수 code = 88.

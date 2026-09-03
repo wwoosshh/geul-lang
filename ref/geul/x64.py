@@ -234,19 +234,30 @@ class Asm:
         self.rex(1, r, 0, 0); self.emit(0x8B); self.modrm(0, r, 5); self.emit32(0); self.rip_fixup(kind, target)
 
     # ---------- SSE ----------
-    def sse(self, prefix, opcode, reg, rm_reg=None, base=None, disp=0, w=0):
+    def sse(self, prefix, opcode, reg, rm_reg=None, base=None, disp=0, w=0, index=None, scale=1):
         if prefix:
             self.emit(prefix)
         if rm_reg is not None:
             self.rex(w, reg, 0, rm_reg); self.emit(0x0F, opcode); self.modrm(3, reg, rm_reg)
         else:
-            self.rex(w, reg, 0, base or 0); self.emit(0x0F, opcode); self.mem(reg, base, disp)
+            x = index if index is not None else 0
+            self.rex(w, reg, x, base or 0); self.emit(0x0F, opcode); self.mem(reg, base, disp, index, scale)
 
-    def movsd_load(self, x, base, disp, bits=64):
-        self.sse(0xF2 if bits == 64 else 0xF3, 0x10, x, base=base, disp=disp)
+    def movsd_load(self, x, base, disp, bits=64, index=None, scale=1):
+        self.sse(0xF2 if bits == 64 else 0xF3, 0x10, x, base=base, disp=disp, index=index, scale=scale)
 
-    def movsd_store(self, base, disp, x, bits=64):
-        self.sse(0xF2 if bits == 64 else 0xF3, 0x11, x, base=base, disp=disp)
+    def movsd_store(self, base, disp, x, bits=64, index=None, scale=1):
+        self.sse(0xF2 if bits == 64 else 0xF3, 0x11, x, base=base, disp=disp, index=index, scale=scale)
+
+    def movaps(self, dst, src):
+        """dst <- src (XMM 128비트 복사)"""
+        self.sse(None, 0x28, dst, rm_reg=src)
+
+    def movups_load(self, x, base, disp):
+        self.sse(None, 0x10, x, base=base, disp=disp)
+
+    def movups_store(self, base, disp, x):
+        self.sse(None, 0x11, x, base=base, disp=disp)
 
     def fop(self, op, x, y, bits=64):
         code = {"add": 0x58, "sub": 0x5C, "mul": 0x59, "div": 0x5E}[op]
@@ -270,8 +281,9 @@ class Asm:
     def movq_xr(self, x, r):
         self.emit(0x66); self.rex(1, x, 0, r); self.emit(0x0F, 0x6E); self.modrm(3, x, r)
 
-    def movq_rx(self, r, x):
-        self.emit(0x66); self.rex(1, x, 0, r); self.emit(0x0F, 0x7E); self.modrm(3, x, r)
+    def movq_rx(self, r, x, bits=64):
+        """r <- x 의 하위 bits (32 이면 영 확장 movd)"""
+        self.emit(0x66); self.rex(1 if bits == 64 else 0, x, 0, r); self.emit(0x0F, 0x7E); self.modrm(3, x, r)
 
     # ---------- 고정 ----------
     def resolve_labels(self):
