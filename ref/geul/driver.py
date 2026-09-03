@@ -93,7 +93,7 @@ def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None):
         return dump_file(src, std_dir, dump)
     program = load_program(src, std_dir)
     from . import sema
-    unit = sema.analyze(program)
+    unit = sema.analyze(program, risky_report_only=(dump == "risky"))
     if dump == "calls":
         print(chr(10).join(unit.index))
         return EXIT_OK

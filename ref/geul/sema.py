@@ -99,6 +99,7 @@ class Sema:
         self.pending = []
         self.index = []           # 호출 색인 (D-24): 정의·호출을 의미 분석 순서로 기록
         self.risky = []           # 바꿔 쓰기 위험 (D-29)
+        self.risky_report_only = False   # --dump-risky: 오류 대신 목록만 (D-30)
 
     def error(self, pos, msg):
         raise CompileError(pos, msg)
@@ -1154,8 +1155,13 @@ class Sema:
             return
         i, j = pair
         a, b = params[i], params[j]
-        self.risky.append(f"위험 {self.loc(e.pos)} {fsym.name} "
-                          f"{a.name}({ROLE_PARTICLE.get(a.role)}) {b.name}({ROLE_PARTICLE.get(b.role)})")
+        if self.risky_report_only:
+            self.risky.append(f"위험 {self.loc(e.pos)} {fsym.name} "
+                              f"{a.name}({ROLE_PARTICLE.get(a.role)}) {b.name}({ROLE_PARTICLE.get(b.role)})")
+            return
+        self.error(e.pos, f"'{fsym.name}' 호출에서 두 인자를 바꿔 써도 컴파일됩니다: "
+                          f"'{a.name}'({ROLE_PARTICLE.get(a.role)}), '{b.name}'({ROLE_PARTICLE.get(b.role)}) — "
+                          f"둘 중 하나에 역할 조사를 붙여 구별하세요")
 
     def check_sov_call(self, e):
         fsym = self.resolve_verb(e.verb, e.pos)
@@ -1277,5 +1283,7 @@ class Sema:
         return "".join(out), names
 
 
-def analyze(program):
-    return Sema(program).analyze()
+def analyze(program, risky_report_only=False):
+    s = Sema(program)
+    s.risky_report_only = risky_report_only
+    return s.analyze()
