@@ -30,10 +30,19 @@ class Lowerer:
         return self.mod
 
     def lower_function(self, fs):
-        f = IRFunction(fs.name, [(p.sym, p.rtype) for p in fs.params], fs.type.ret, is_entry=(fs is self.unit.entry), variadic=fs.type.variadic)
+        params = [(p.sym, p.rtype) for p in fs.params]
+        ret = fs.type.ret
+        self.result_sym = None
+        self.copy_counter = 0
+        if ret is not None and ret.is_struct():
+            # 묶음 값 반환 (D-16): 호출자가 준 자리를 채운다 — 숨은 첫 매개변수
+            self.result_sym = VarSym("__결과", T.PtrType(ret), "param", None)
+            params = [(self.result_sym, T.PtrType(ret))] + params
+            ret = None
+        f = IRFunction(fs.name, params, ret, is_entry=(fs is self.unit.entry), variadic=fs.type.variadic)
         self.f = f
-        for p in fs.params:
-            f.locals.append(p.sym)
+        for sym, _ in params:
+            f.locals.append(sym)
         for v in fs.locals:
             f.locals.append(v)
         self.loops = []
@@ -55,7 +64,7 @@ class Lowerer:
             if s.init is not None:
                 v = self.rvalue(s.init)
                 addr = self.var_addr(s.sym)
-                f.emit("store", addr=addr, src=v, type=s.sym.type)
+                self.store_value(addr, v, s.sym.type)
         elif isinstance(s, A.Block):
             self.lower_block(s)
         elif isinstance(s, A.ExprStmt):
@@ -65,6 +74,9 @@ class Lowerer:
             t = s.target.type
             if s.op == "=":
                 v = self.rvalue(s.value)
+                if t.is_struct():
+                    self.store_value(addr, v, t)
+                    return
             else:
                 cur = f.new_temp(t)
                 f.emit("load", dst=cur, addr=addr, type=t)
@@ -170,6 +182,15 @@ class Lowerer:
             self.breaks.pop()
             f.emit("label", name=end)
         elif isinstance(s, A.Return):
+            if s.value is not None and self.result_sym is not None:
+                v = self.rvalue(s.value)
+                a = f.new_temp(T.PtrType(self.result_sym.type))
+                f.emit("addr_local", dst=a, var=self.result_sym)
+                p = f.new_temp(self.result_sym.type)
+                f.emit("load", dst=p, addr=a, type=self.result_sym.type)
+                f.emit("copy_mem", to=p, frm=v, size=self.result_sym.type.target.size)
+                f.emit("ret", value=None)
+                return
             v = self.rvalue(s.value) if s.value is not None else None
             f.emit("ret", value=v)
         elif isinstance(s, A.Break):
@@ -188,12 +209,32 @@ class Lowerer:
 
     # ---------- 주소 ----------
     def var_addr(self, sym):
+        if sym.kind == "param" and sym.type.is_struct():
+            a = self.f.new_temp(T.PtrType(T.PtrType(sym.type)))
+            self.f.emit("addr_local", dst=a, var=sym)
+            p = self.f.new_temp(T.PtrType(sym.type))
+            self.f.emit("load", dst=p, addr=a, type=T.PtrType(sym.type))
+            return p
         t = self.f.new_temp(T.PtrType(sym.type))
         if sym.kind in ("local", "param"):
             self.f.emit("addr_local", dst=t, var=sym)
         else:
             self.f.emit("addr_global", dst=t, var=sym)
         return t
+
+    def store_value(self, addr, v, t):
+        """t 타입 값을 addr 에 둔다: 묶음은 메모리 복사, 나머지는 저장."""
+        if t.is_struct():
+            self.f.emit("copy_mem", to=addr, frm=v, size=t.size)
+        else:
+            self.f.emit("store", addr=addr, src=v, type=t)
+
+    def new_slot(self, t, hint):
+        """호출자 쪽 임시 묶음 자리 (지역 변수)."""
+        self.copy_counter += 1
+        sym = VarSym(f"__{hint}{self.copy_counter}", t, "local", None)
+        self.f.locals.append(sym)
+        return sym
 
     def lvalue(self, e):
         """식의 주소 (참조 타입 임시값)."""
@@ -213,11 +254,7 @@ class Lowerer:
             f.emit("index_addr", dst=t, base=base, idx=idx64, size=elem.size)
             return t
         if isinstance(e, A.Member):
-            bt = e.base.type
-            if bt.is_ptr():
-                base = self.rvalue(e.base)
-            else:
-                base = self.lvalue(e.base)
+            base = self.rvalue(e.base)          # 참조면 그 값, 묶음이면 그 주소
             name, ftype, off = e.field
             t = f.new_temp(T.PtrType(ftype))
             f.emit("gep", dst=t, base=base, offset=off)
@@ -469,6 +506,17 @@ class Lowerer:
         vals = [None] * len(args)
         for i in order:
             vals[i] = self.rvalue(args[i])
+        for i in range(len(args)):
+            if i < len(ftype.params) and ftype.params[i].is_struct():
+                slot = self.new_slot(ftype.params[i], "복사")
+                addr = self.var_addr(slot)
+                f.emit("copy_mem", to=addr, frm=vals[i], size=ftype.params[i].size)
+                vals[i] = addr
+        result_addr = None
+        if ftype.ret is not None and ftype.ret.is_struct():
+            slot = self.new_slot(ftype.ret, "반환")
+            result_addr = self.var_addr(slot)
+            vals = [result_addr] + vals
         if fsym is not None:
             callee = fsym.link_name if fsym.is_extern else fsym.name
             is_extern = fsym.is_extern
@@ -476,10 +524,11 @@ class Lowerer:
             callee = self.rvalue(e.callee)
             is_extern = False
         f.max_call_args = max(f.max_call_args, len(vals))
+        if result_addr is not None:
+            f.emit("call", dst=None, callee=callee, extern=is_extern, args=vals, sig=ftype, nfixed=len(ftype.params))
+            return result_addr
         dst = None
-        if ftype.ret is not None and not discard:
-            dst = f.new_temp(ftype.ret)
-        elif ftype.ret is not None:
+        if ftype.ret is not None:
             dst = f.new_temp(ftype.ret)
         f.emit("call", dst=dst, callee=callee, extern=is_extern, args=vals, sig=ftype, nfixed=len(ftype.params))
         if dst is None:

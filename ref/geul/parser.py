@@ -904,7 +904,14 @@ class Parser:
                 e = self.member_chain(e)
             elif t.kind == SYM and t.text == "->":
                 self.next()
-                e = A.Member(t.pos, e, self.member_name(), True)
+                mt = self.tok()
+                if self.at_limit() or mt.kind not in (WORD, IDENT):
+                    self.error(mt.pos, f"멤버 이름이 필요합니다 — {self.describe(mt)}이(가) 있습니다")
+                self.next()
+                if mt.kind == WORD and mt.text.endswith("의") and len(mt.text) > 1:
+                    e = self.member_chain(A.Member(t.pos, e, mt.text[:-1], True))     # p→a의 b: 이름은 '의'로 끝날 수 없으므로 모호하지 않다
+                else:
+                    e = A.Member(t.pos, e, mt.text, True)
             elif t.kind == SYM and t.text == "(":
                 self.next()
                 args = []

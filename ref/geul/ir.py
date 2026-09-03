@@ -124,6 +124,8 @@ def dump_inst(i):
         return d + f"변환 {i.kind} {_t(i.src)}"
     if op == "vararg":
         return d + f"가변인자 {_t(i.idx)}"
+    if op == "copy_mem":
+        return f"    복사메모리 {_t(i.to)} <- {_t(i.frm)} : {i.size}"
     if op == "call":
         args = ", ".join(_t(a) for a in i.args)
         callee = i.callee if isinstance(i.callee, str) else _t(i.callee)

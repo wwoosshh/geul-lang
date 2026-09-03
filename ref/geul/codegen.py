@@ -41,7 +41,7 @@ SHIFT_OPS = ("shl", "lshr", "ashr")
 OPERANDS = {
     "br": ("cond",), "copy": ("src",), "load": ("addr",), "store": ("addr", "src"), "gep": ("base",),
     "index_addr": ("base", "idx"), "bin": ("a", "b"), "cmp": ("a", "b"), "neg": ("a",), "not": ("a",),
-    "lnot": ("a",), "cast": ("src",), "ret": ("value",), "vararg": ("idx",),
+    "lnot": ("a",), "cast": ("src",), "ret": ("value",), "vararg": ("idx",), "copy_mem": ("to", "frm"),
 }
 
 
@@ -58,6 +58,7 @@ class FuncGen:
         self.imm_only = {}          # Temp -> 상수값 (const 명령을 내지 않는다)
         self.direct = {}            # Temp -> VarSym (addr_local 명령을 내지 않는다)
         self.rax_temp = None        # 지금 RAX 에 든 임시값
+        self.copy_labels = 0
 
     def layout(self):
         cur = 0
@@ -356,6 +357,8 @@ class FuncGen:
             self.finish(k, i.dst)
         elif op == "call":
             self.gen_call(k, i)
+        elif op == "copy_mem":
+            self.gen_copy_mem(i)
         elif op == "ret":
             if i.value is not None:
                 t = i.value.type
@@ -512,6 +515,35 @@ class FuncGen:
             a.movsd_store(RBP, self.slot(i.dst), XMM0, 32)
         else:
             raise InternalError(f"변환 {kind}")
+
+    def gen_copy_mem(self, i):
+        """[to] <- [frm], size 바이트. 128 바이트까지는 펼치고, 그 위는 8바이트 루프 (RSI/RDI 를 쓰지 않는다)."""
+        a = self.a
+        n = i.size
+        self.load_temp(RCX, i.frm)
+        self.load_temp(RDX, i.to)
+        off = 0
+        if n > 128:
+            self.copy_labels += 1
+            lbl = f".{self.f.name}.cp{self.copy_labels}"
+            a.mov_imm(R8, n // 8)
+            a.label(lbl)
+            a.load(RAX, RCX, 0)
+            a.store(RDX, 0, RAX)
+            a.alu_imm("add", RCX, 8)
+            a.alu_imm("add", RDX, 8)
+            a.alu_imm("sub", R8, 1)
+            a.jcc("ne", lbl)
+            n = n % 8
+        while off + 8 <= n:
+            a.load(RAX, RCX, off)
+            a.store(RDX, off, RAX)
+            off += 8
+        while off < n:
+            a.load(RAX, RCX, off, 8, False)
+            a.store(RDX, off, RAX, 8)
+            off += 1
+        self.rax_temp = None
 
     def gen_call(self, k, i):
         a = self.a

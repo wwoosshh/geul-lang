@@ -192,8 +192,10 @@ class Sema:
         ret = self.resolve_type(d.ret) if d.ret is not None else None
         if ret is not None and ret.is_void():
             ret = None
-        if ret is not None and (ret.is_array() or ret.is_struct()):
-            self.error(d.pos, "함수는 배열·묶음을 값으로 반환할 수 없습니다")
+        if ret is not None and ret.is_array():
+            self.error(d.pos, "함수는 배열을 값으로 반환할 수 없습니다")
+        if d.body is None and ((ret is not None and ret.is_struct()) or any(t.is_struct() for t in ptypes)):
+            self.error(d.pos, "외부 함수는 묶음을 값으로 주고받을 수 없습니다 (참조로)")
         ftype = T.FuncType(tuple(ptypes), ret, d.variadic)
         self.check_name(d.name, d.pos)
         if d.name == "시작하기":
@@ -347,8 +349,8 @@ class Sema:
         else:
             sym = VarSym(d.name, t, "local", d.pos, const=d.const)
             if d.init is not None:
-                if t.is_array() or t.is_struct():
-                    self.error(d.pos, "배열·묶음 변수는 초기화식을 가질 수 없습니다")
+                if t.is_array():
+                    self.error(d.pos, "배열 변수는 초기화식을 가질 수 없습니다")
                 self.check_expr(d.init, t)
                 d.init = self.coerce(d.init, t, d.init.pos, "초기화")
             self.func.locals.append(sym)
