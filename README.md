@@ -56,3 +56,16 @@ python ref/geulc.py --check 파일.gl
 ## 1세대
 
 [../geul-lang](../geul-lang) (v0.8.0). 감사 보고서와 재현 케이스는 그쪽 세션 기록을 참조.
+
+## 설치와 사용
+
+배포물 `geul-<버전>-windows-x64.zip` 을 풀면 `geulc.exe` 와 `표준/` 이 나란히 있다. 그대로 쓴다.
+
+```bash
+geulc 안녕.gl
+```
+
+`안녕.exe` 가 만들어진다. `-o <출력.exe>` 로 이름을 정하고, `--version`·`--help` 가 있다. 표준 라이브러리는 실행 파일 옆의 `표준/` 에서 찾으며, `GEUL_ROOT` 환경변수로 다른 위치를 줄 수 있다. 만들어진 실행 파일은 Windows x64 에서 kernel32 만 필요로 한다.
+
+배포물은 `python build.py release` 가 만든다: 참조 구현이 만든 `geulc` 로 다시 `geulc` 를 만들어 바이트가 같을 때만 묶는다.
+

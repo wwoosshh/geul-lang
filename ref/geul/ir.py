@@ -209,6 +209,7 @@ KERNEL32 = {
     "GetCurrentDirectoryW", "CreateDirectoryW", "FindFirstFileW", "FindNextFileW", "FindClose",
     "HeapReAlloc", "GetFileType", "ReadConsoleW", "WriteConsoleW", "CreateProcessW", "WaitForSingleObject",
     "GetExitCodeProcess", "GetSystemTimeAsFileTime", "FlushFileBuffers", "SetEndOfFile", "GetFileAttributesW",
+    "GetModuleFileNameW",
 }
 SHELL32 = {"CommandLineToArgvW"}
 

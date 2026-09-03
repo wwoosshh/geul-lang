@@ -4,6 +4,7 @@
   python build.py test [필터] [--self]  spec-tests 실행 (컴파일 실패 = 실패, 건너뜀 없음; --self: 글로 쓴 컴파일러 build/self_컴파일러.exe 로)
   python build.py check <파일.gl>  문법·의미 검사
   python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 컴파일러 — 마지막은 exe 바이트 비교 + 고정점)
+  python build.py release          배포물 만들기: dist/geul-<버전>-windows-x64/ (자기 컴파일한 geulc.exe + 표준/ + 문서) 와 zip
 """
 import os
 import sys
@@ -105,6 +106,104 @@ def cmd_test(args):
                 print(f"        {line}")
     print(f"\n결과: PASS={passed} FAIL={failed} (총 {passed + failed})")
     return 0 if failed == 0 else 1
+
+
+def read_version():
+    return open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read().strip()
+
+
+def check_version_file():
+    """self/버전.gl 의 컴파일러_버전 은 VERSION 과 같아야 한다."""
+    v = read_version()
+    src = read(os.path.join(ROOT, "self", "버전.gl"))
+    if f'"{v}"' not in src:
+        print(f"self/버전.gl 의 버전이 VERSION({v})과 다릅니다 — self/버전.gl 을 고치세요")
+        return False
+    return True
+
+
+def cmd_release(args):
+    """배포물: ref 가 만든 geulc 로 다시 geulc 를 만들어(자기 컴파일) 바이트가 같은지 확인한 뒤 묶는다."""
+    import hashlib, zipfile
+    if not check_version_file():
+        return 1
+    version = read_version()
+    build_dir = os.path.join(ROOT, "build", "release")
+    os.makedirs(build_dir, exist_ok=True)
+    env = dict(os.environ, GEUL_ROOT=ROOT)
+    src = os.path.join(ROOT, "self", "컴파일러.gl")
+    gen1 = os.path.join(build_dir, "geulc1.exe")
+    gen2 = os.path.join(build_dir, "geulc.exe")
+    for x in (gen1, gen2):
+        if os.path.exists(x):
+            os.remove(x)
+    r = subprocess.run([sys.executable, GEULC, src, "-o", gen1], capture_output=True)
+    if r.returncode != 0:
+        print("1세대 빌드 실패:", (r.stdout + r.stderr).decode("utf-8", "replace")[:500])
+        return 1
+    r = subprocess.run([gen1, src, "-o", gen2], capture_output=True, stdin=subprocess.DEVNULL, timeout=300, env=env)
+    if r.returncode != 0 or not os.path.exists(gen2):
+        print("자기 컴파일 실패:", r.stderr.decode("utf-8", "replace")[:500])
+        return 1
+    h1 = hashlib.sha256(open(gen1, "rb").read()).hexdigest()
+    h2 = hashlib.sha256(open(gen2, "rb").read()).hexdigest()
+    if h1 != h2:
+        print("자기 컴파일 결과가 참조 구현의 결과와 다릅니다 — 배포 중단")
+        return 1
+    name = f"geul-{version}-windows-x64"
+    dist = os.path.join(ROOT, "dist", name)
+    if os.path.exists(dist):
+        shutil.rmtree(dist)
+    os.makedirs(dist)
+    shutil.copy(gen2, os.path.join(dist, "geulc.exe"))
+    shutil.copytree(os.path.join(ROOT, "표준"), os.path.join(dist, "표준"))
+    os.makedirs(os.path.join(dist, "docs"))
+    for d in ("03-문법-명세-초안.md", "05-덤프-형식.md"):
+        shutil.copy(os.path.join(ROOT, "docs", d), os.path.join(dist, "docs", d))
+    for f in ("README.md", "LICENSE", "VERSION"):
+        shutil.copy(os.path.join(ROOT, f), os.path.join(dist, f))
+    os.makedirs(os.path.join(dist, "예제"))
+    for ex in ("01-안녕", "02-계산", "08-보간-종합"):
+        srcdir = os.path.join(TESTS, "프로그램-예제", ex)
+        if os.path.isdir(srcdir):
+            shutil.copy(os.path.join(srcdir, "main.gl"), os.path.join(dist, "예제", ex + ".gl"))
+    # 연기 시험: 배포 디렉터리의 geulc 로, GEUL_ROOT 없이, 다른 디렉터리에서 컴파일·실행
+    tmp = tempfile.mkdtemp(prefix="geul-release-")
+    try:
+        hello = os.path.join(tmp, "안녕.gl")
+        open(hello, "w", encoding="utf-8", newline=chr(10)).write('[시작하기]는 -> 정수 {' + chr(10) + '    "안녕, 글 %s\n"을 "배포판"을 쓰다.' + chr(10) + '    반환 0.' + chr(10) + '}' + chr(10))
+        clean_env = {k: v for k, v in os.environ.items() if k != "GEUL_ROOT"}
+        r = subprocess.run([os.path.join(dist, "geulc.exe"), hello], capture_output=True, cwd=tmp, env=clean_env, timeout=120)
+        exe = os.path.join(tmp, "안녕.exe")
+        if r.returncode != 0 or not os.path.exists(exe):
+            print("연기 시험 실패 (컴파일):", r.stderr.decode("utf-8", "replace")[:300])
+            return 1
+        rr = subprocess.run([exe], capture_output=True, cwd=tmp, timeout=30)
+        out = rr.stdout.decode("utf-8", "replace").replace(chr(13), "")
+        if rr.returncode != 0 or out != "안녕, 글 배포판" + chr(10):
+            print("연기 시험 실패 (실행):", rr.returncode, repr(out))
+            return 1
+        rv = subprocess.run([os.path.join(dist, "geulc.exe"), "--version"], capture_output=True, cwd=tmp, env=clean_env, timeout=30)
+        ver_line = rv.stdout.decode("utf-8", "replace").strip()
+        if version not in ver_line:
+            print("연기 시험 실패 (--version):", repr(ver_line))
+            return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    zpath = os.path.join(ROOT, "dist", name + ".zip")
+    if os.path.exists(zpath):
+        os.remove(zpath)
+    with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+        for base, _, files in os.walk(dist):
+            for f in files:
+                full = os.path.join(base, f)
+                z.write(full, os.path.relpath(full, os.path.dirname(dist)))
+    sha = hashlib.sha256(open(zpath, "rb").read()).hexdigest()
+    open(zpath + ".sha256", "w", encoding="utf-8", newline=chr(10)).write(f"{sha}  {name}.zip" + chr(10))
+    print(f"배포물: {os.path.relpath(dist, ROOT)}  ({os.path.getsize(gen2)}B geulc.exe, sha256 {h2[:16]}…)")
+    print(f"zip: {os.path.relpath(zpath, ROOT)}  sha256 {sha[:16]}…")
+    print(f"연기 시험 통과: GEUL_ROOT 없이 안녕.gl 컴파일·실행, --version = {ver_line}")
+    return 0
 
 
 def cmd_check(args):
@@ -216,6 +315,8 @@ def selfhost_exe_stage(exe, build_dir):
 
 
 def cmd_selfhost(args):
+    if not check_version_file():
+        return 1
     """자체호스팅 단계별 교차 검증. 지금은 1단계(렉서): self/렉서.gl 을 ref 로 빌드해 토큰 덤프를 비교한다."""
     build_dir = os.path.join(ROOT, "build")
     os.makedirs(build_dir, exist_ok=True)
@@ -279,13 +380,15 @@ def cmd_selfhost(args):
 
 
 def main(argv):
-    if not argv or argv[0] not in ("test", "check", "selfhost"):
+    if not argv or argv[0] not in ("test", "check", "selfhost", "release"):
         print(__doc__)
         return 3
     if argv[0] == "test":
         return cmd_test(argv[1:])
     if argv[0] == "selfhost":
         return cmd_selfhost(argv[1:])
+    if argv[0] == "release":
+        return cmd_release(argv[1:])
     return cmd_check(argv[1:])
 
 

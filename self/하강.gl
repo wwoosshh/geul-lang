@@ -729,6 +729,7 @@ IR함수 참조 F = 없음.
     커널[n] = "HeapReAlloc". n += 1. 커널[n] = "GetFileType". n += 1. 커널[n] = "ReadConsoleW". n += 1. 커널[n] = "WriteConsoleW". n += 1.
     커널[n] = "CreateProcessW". n += 1. 커널[n] = "WaitForSingleObject". n += 1. 커널[n] = "GetExitCodeProcess". n += 1.
     커널[n] = "GetSystemTimeAsFileTime". n += 1. 커널[n] = "FlushFileBuffers". n += 1. 커널[n] = "SetEndOfFile". n += 1. 커널[n] = "GetFileAttributesW". n += 1.
+    커널[n] = "GetModuleFileNameW". n += 1.
     반복 (정수 k = 0: k < n: k += 1) {
         문자열_같은가(링크, 커널[k])이면 { 반환 "kernel32.dll". }
     }
