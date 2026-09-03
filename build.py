@@ -3,7 +3,7 @@
 
   python build.py test [필터]      spec-tests 실행 (컴파일 실패 = 실패, 건너뜀 없음)
   python build.py check <파일.gl>  문법·의미 검사
-  python build.py selfhost         자체호스팅 단계별 교차 검증 (self/*.gl 을 ref 로 빌드해 덤프 비교)
+  python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (self/*.gl 을 ref 로 빌드해 덤프 비교; 단계: 토큰덤프 구문덤프 IR덤프)
 """
 import os
 import sys
@@ -104,7 +104,11 @@ def cmd_check(args):
     return subprocess.call([sys.executable, GEULC, "--check", args[0]])
 
 
-def selfhost_inputs():
+def selfhost_inputs(negative=False):
+    """negative=True 면 부정 테스트(expect.errors)만: 자체 구현이 같은 종료 코드로 끝나고 기대 메시지를 내는지 본다."""
+    if negative:
+        return sorted(d for d in glob.glob(os.path.join(TESTS, "*", "*", "main.gl"))
+                      if os.path.exists(os.path.join(os.path.dirname(d), "expect.errors")))
     files = sorted(d for d in glob.glob(os.path.join(TESTS, "*", "*", "main.gl"))
                    if not os.path.exists(os.path.join(os.path.dirname(d), "expect.errors")))
     files += sorted(glob.glob(os.path.join(ROOT, "표준", "*.gl")))
@@ -116,7 +120,9 @@ def cmd_selfhost(args):
     """자체호스팅 단계별 교차 검증. 지금은 1단계(렉서): self/렉서.gl 을 ref 로 빌드해 토큰 덤프를 비교한다."""
     build_dir = os.path.join(ROOT, "build")
     os.makedirs(build_dir, exist_ok=True)
-    stages = [("토큰덤프", "--dump-tokens"), ("구문덤프", "--dump-ast")]
+    stages = [("토큰덤프", "--dump-tokens"), ("구문덤프", "--dump-ast"), ("IR덤프", "--dump-ir")]
+    if args:
+        stages = [st for st in stages if st[0] in args]
     failed = 0
     for name, opt in stages:
         src = os.path.join(ROOT, "self", f"{name}.gl")
@@ -148,6 +154,21 @@ def cmd_selfhost(args):
                 if got.stderr:
                     print("        self stderr:", got.stderr.decode("utf-8", "replace").strip()[:200])
         print(f"[{name}] 비교 {n}개, 불일치 {failed}개")
+        if name == "IR덤프":
+            # 부정 테스트: 종료 코드 1 + expect.errors 의 메시지 조각이 자체 구현의 stderr 에도 있어야 한다
+            nn = 0
+            for f in selfhost_inputs(negative=True):
+                env = dict(os.environ, GEUL_ROOT=ROOT)
+                got = subprocess.run([exe, f], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
+                err = got.stderr.decode("utf-8", "replace")
+                want = [l.strip() for l in open(os.path.join(os.path.dirname(f), "expect.errors"), encoding="utf-8") if l.strip()]
+                missing = [w for w in want if w not in err]
+                nn += 1
+                if got.returncode != 1 or missing:
+                    failed += 1
+                    print(f"  DIFF  {os.path.relpath(f, ROOT)} (self rc={got.returncode}) 기대 메시지 없음: {missing}")
+                    print("        self stderr:", err.strip()[:200])
+            print(f"[{name}] 부정 테스트 {nn}개 확인")
     return 0 if failed == 0 else 1
 
 

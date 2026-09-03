@@ -450,6 +450,8 @@ class Parser:
             elif t.kind == SYM and t.text in ")]":
                 depth -= 1
             elif depth == 0 and t.kind == KEYWORD and (t.text in self.STMT_KEYWORDS or t.text in BASE_TYPES):
+                if t.text in BASE_TYPES and self._after_cast_particle(k):
+                    continue            # '값으로 실수' 같은 변환의 대상 타입
                 self.error(t.pos, f"문장 끝에 '.' 필요 — '{t.text}' 앞에서 문장이 끝나야 합니다")
         if kind == "block":
             return [self.parse_conditional(j)]
@@ -479,6 +481,15 @@ class Parser:
         if last.kind == KEYWORD and last.text == "이면":
             self.error(last.pos, "조건문 뒤에는 '{' 블록이 와야 합니다")
         self.error(start.pos, f"문장이 아닙니다 — {self.describe(start)}(으)로 시작해서 {self.describe(last)}(으)로 끝납니다")
+
+    def _after_cast_particle(self, k):
+        """토큰 k 의 앞이 변환 조사(로/으로)인가: 접사 토큰이거나 로/으로로 끝나는 단어, 또는 그 뒤의 '부호없는'."""
+        p = self.toks[k - 1]
+        if p.kind == KEYWORD and p.text == "부호없는":
+            p = self.toks[k - 2]
+        if p.kind == PARTICLE and p.text in ("로", "으로"):
+            return True
+        return p.kind == WORD and (p.text.endswith("로") or p.text.endswith("으로")) and len(p.text) > 1
 
     def find_top_level_assign(self, a, b):
         depth = 0

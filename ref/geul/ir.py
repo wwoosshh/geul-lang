@@ -59,15 +59,102 @@ class IRFunction:
         return i
 
     def dump(self):
-        lines = [f"함수 {self.name}({', '.join(f'{s.name}: {t}' for s, t in self.params)}) -> {self.ret}"]
+        """docs/05-덤프-형식.md 의 IR 덤프."""
+        ret = str(self.ret) if self.ret is not None else "공허"
+        lines = [f"함수 {self.name}({', '.join(f'{s.name}: {t}' for s, t in self.params)}) -> {ret}"]
+        params = {s for s, _ in self.params}
         for s in self.locals:
-            lines.append(f"    지역 {s.name}: {s.type}")
+            if s not in params:
+                lines.append(f"  지역 {s.name}: {s.type}")
         for i in self.insts:
-            if i.op == "label":
-                lines.append(f"  {i.name}:")
-            else:
-                lines.append(f"    {i!r}")
+            lines.append(dump_inst(i))
         return "\n".join(lines)
+
+
+def _t(x):
+    return f"%{x.id}"
+
+
+def _fbits(value, bits):
+    import struct
+    if bits == 32:
+        return "0x%08X" % struct.unpack("<I", struct.pack("<f", value))[0]
+    return "0x%016X" % struct.unpack("<Q", struct.pack("<d", value))[0]
+
+
+def dump_inst(i):
+    op = i.op
+    if op == "label":
+        return f"  {i.name}:"
+    d = f"    {_t(i.dst)}: {i.dst.type} = " if getattr(i, "dst", None) is not None else "    "
+    if op == "const":
+        return d + f"상수 {i.value}"
+    if op == "fconst":
+        return d + f"실수상수 {_fbits(i.value, i.dst.type.bits)}"
+    if op == "str":
+        return d + f"문자열 #{i.index}"
+    if op == "addr_local":
+        return d + f"지역주소 {i.var.name}"
+    if op == "addr_global":
+        return d + f"전역주소 {i.var.name}"
+    if op == "func_addr":
+        return d + ("외부함수주소 " if i.extern else "함수주소 ") + i.name
+    if op == "copy":
+        return d + f"복사 {_t(i.src)}"
+    if op == "load":
+        return d + f"적재 {_t(i.addr)}"
+    if op == "store":
+        return f"    저장 {_t(i.addr)} <- {_t(i.src)} : {i.type}"
+    if op == "gep":
+        return d + f"오프셋 {_t(i.base)} + {i.offset}"
+    if op == "index_addr":
+        return d + f"원소주소 {_t(i.base)} + {_t(i.idx)} * {i.size}"
+    if op == "bin":
+        return d + f"이항 {i.bop} {_t(i.a)} {_t(i.b)}"
+    if op == "cmp":
+        return d + f"비교 {i.cond} {_t(i.a)} {_t(i.b)} : {i.type}"
+    if op == "neg":
+        return d + f"부호반전 {_t(i.a)}"
+    if op == "not":
+        return d + f"비트반전 {_t(i.a)}"
+    if op == "lnot":
+        return d + f"논리부정 {_t(i.a)} : {i.type}"
+    if op == "cast":
+        return d + f"변환 {i.kind} {_t(i.src)}"
+    if op == "call":
+        args = ", ".join(_t(a) for a in i.args)
+        callee = i.callee if isinstance(i.callee, str) else _t(i.callee)
+        return d + ("외부호출 " if i.extern else "호출 ") + f"{callee}({args})"
+    if op == "jmp":
+        return f"    점프 {i.label}"
+    if op == "br":
+        return f"    분기 {_t(i.cond)} ? {i.ltrue} : {i.lfalse}"
+    if op == "ret":
+        return f"    반환 {_t(i.value)}" if i.value is not None else "    반환"
+    return f"    {i!r}"
+
+
+def escape_bytes(b):
+    """문자열 풀 덤프용 정규 이스케이프."""
+    out = []
+    for ch in b[:-1]:   # 끝의 NUL 제외
+        if ch == 10: out.append("\\n")
+        elif ch == 9: out.append("\\t")
+        elif ch == 13: out.append("\\r")
+        elif ch == 0: out.append("\\0")
+        elif ch == 92: out.append("\\\\")
+        elif ch == 34: out.append('\\"')
+        else: out.append(chr(ch) if ch < 128 else None)
+    # 비ASCII 바이트는 UTF-8 로 그대로 (None 자리를 원본 바이트로 채운다)
+    res = bytearray()
+    k = 0
+    for ch in b[:-1]:
+        piece = out[k]; k += 1
+        if piece is None:
+            res.append(ch)
+        else:
+            res += piece.encode("utf-8")
+    return res.decode("utf-8", "replace")
 
 
 class IRModule:
@@ -90,11 +177,21 @@ class IRModule:
     def dump(self):
         out = []
         for name, (dll, ft) in self.externs.items():
-            out.append(f"외부 {dll}!{name}: {ft}")
+            out.append(f"외부 {dll} {name}: {ft}")
         for g in self.globals:
-            out.append(f"전역 {g.name}: {g.type} = {g.init!r}")
+            init = g.init
+            if init is None:
+                s = "없음"
+            elif isinstance(init, tuple):
+                s = f"문자열 #{g.init_index}"
+            elif g.type.is_float():
+                s = "실수상수 " + _fbits(float(init), g.type.bits)
+            else:
+                s = str(int(init))
+            out.append(f"전역 {g.name}: {g.type} = {s}")
         for i, s in enumerate(self.strings):
-            out.append(f"문자열 #{i} = {s!r}")
+            out.append(f'문자열 #{i} "{escape_bytes(s)}"')
+        out.append(f"진입 {self.entry}")
         for f in self.functions:
             out.append(f.dump())
         return "\n".join(out)

@@ -22,6 +22,8 @@ class Lowerer:
             self.mod.externs[fs.link_name] = (dll_for(fs.link_name), fs.type)
         for g in self.unit.globals:
             self.mod.globals.append(g)
+            if isinstance(g.init, tuple) and g.init[0] == "str":
+                g.init_index = self.mod.intern_string(g.init[1])    # 문자열 풀 순서를 결정적으로: 전역 초기값이 먼저
         for fs in self.unit.functions:
             self.mod.functions.append(self.lower_function(fs))
         self.mod.entry = self.unit.entry.name
