@@ -98,6 +98,7 @@ class Sema:
         self.type_params = {}
         self.pending = []
         self.index = []           # 호출 색인 (D-24): 정의·호출을 의미 분석 순서로 기록
+        self.risky = []           # 바꿔 쓰기 위험 (D-29)
 
     def error(self, pos, msg):
         raise CompileError(pos, msg)
@@ -200,6 +201,7 @@ class Sema:
             self.error(self.program.pos, "'시작하기' 함수가 없습니다")
         self.unit.entry = entry
         self.unit.index = self.index
+        self.unit.risky = self.risky
         return self.unit
 
     # ---------- 제네릭 (D-19) ----------
@@ -1030,6 +1032,8 @@ class Sema:
         e.callee_sym = fsym
         written = e.callee.name if isinstance(e.callee, (A.Name, A.TypeApply)) else "(식)"
         self.index.append(f"호출 {self.loc(e.pos)} 이름 {written} -> {fsym.name if fsym else '(간접)'}")
+        if fsym is not None and isinstance(fsym, FuncSym):
+            self.record_risk(e, fsym, fsym.params, set())
         args = list(e.args)
         e.resolved_args = self.bind_args(e, ftype, args, fsym, prechecked=getattr(e, "prechecked", False))
         return ftype.ret if ftype.ret is not None else T.VOID
@@ -1052,6 +1056,8 @@ class Sema:
             e.callee_sym = fsym
         args = self.normalize_roles(e, fsym, params, e.args, generic or ftype.variadic)
         self.index.append(f"호출 {self.loc(e.pos)} 이름 {written} -> {fsym.name}")
+        if not generic:
+            self.record_risk(e, fsym, params, self.marked_slots)
         if generic:
             for a in args:
                 self.check_expr(a, None)
@@ -1110,9 +1116,11 @@ class Sema:
         for a, role in pairs:
             by_role.setdefault(role, []).append(a)
         ordered = [None] * len(params)
+        marked = set()
         for i, p in enumerate(params):
             if p.role is not None and by_role.get(p.role):
                 ordered[i] = by_role[p.role].pop(0)
+                marked.add(i)
         unmarked = by_role.get(None, [])
         for i, p in enumerate(params):
             if ordered[i] is None and unmarked:
@@ -1125,7 +1133,29 @@ class Sema:
         if leftover and not variadic:
             r, a = leftover[0]
             self.error(a.pos, f"'{fsym.name}' 호출에 남는 인자가 있습니다 ({ROLE_PARTICLE.get(r)})")
+        self.marked_slots = marked
         return ordered + [a for r, a in leftover]
+
+    def risk_pair(self, params, marked):
+        """바꿔 써도 컴파일되는 첫 짝 (i, j): 같은 타입, 다른 역할, 둘 다 무표."""
+        for i in range(len(params)):
+            if i in marked or params[i].role is None:
+                continue
+            for j in range(i + 1, len(params)):
+                if j in marked or params[j].role is None:
+                    continue
+                if params[j].role != params[i].role and T.same_type(params[i].rtype, params[j].rtype):
+                    return i, j
+        return None
+
+    def record_risk(self, e, fsym, params, marked):
+        pair = self.risk_pair(params, marked)
+        if pair is None:
+            return
+        i, j = pair
+        a, b = params[i], params[j]
+        self.risky.append(f"위험 {self.loc(e.pos)} {fsym.name} "
+                          f"{a.name}({ROLE_PARTICLE.get(a.role)}) {b.name}({ROLE_PARTICLE.get(b.role)})")
 
     def check_sov_call(self, e):
         fsym = self.resolve_verb(e.verb, e.pos)
@@ -1137,6 +1167,8 @@ class Sema:
             ftype = fsym.type
         args = self.normalize_roles(e, fsym, params, e.args, generic or ftype.variadic)
         self.index.append(f"호출 {self.loc(e.pos)} 동사 {e.verb} -> {fsym.name}")
+        if not generic:
+            self.record_risk(e, fsym, params, self.marked_slots)
         if generic:
             for a in args:
                 self.check_expr(a, None)

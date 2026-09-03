@@ -97,6 +97,9 @@ def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None):
     if dump == "calls":
         print(chr(10).join(unit.index))
         return EXIT_OK
+    if dump == "risky":
+        print(chr(10).join(unit.risky))
+        return EXIT_OK
     if check:
         return EXIT_OK
     from . import lower

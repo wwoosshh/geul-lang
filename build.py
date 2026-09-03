@@ -408,7 +408,17 @@ def selfhost_calls_stage(exe):
                     print(f"        줄 {k + 1}: ref={a!r}\n                self={b!r}")
                     break
     print(f"[컴파일러] 호출 색인 비교 {n}개, 불일치 {bad}개")
-    return bad
+    bad2 = 0
+    for f in selfhost_inputs():
+        want = subprocess.run([sys.executable, GEULC, f, "--dump-risky"], capture_output=True)
+        got = subprocess.run([exe, f, "--dump-risky"], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
+        w = want.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
+        g = got.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
+        if w != g:
+            bad2 += 1
+            print(f"  DIFF  {os.path.relpath(f, ROOT)} 위험 보고")
+    print(f"[컴파일러] 위험 보고 비교 {n}개, 불일치 {bad2}개")
+    return bad + bad2
 
 
 def main(argv):

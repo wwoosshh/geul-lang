@@ -22,6 +22,7 @@ USAGE = """사용법: geulc <소스.gl> [-o <출력.exe>] [--check] [--dump-ir] 
   --dump-tokens 토큰 덤프 (docs/05-덤프-형식.md)
   --dump-ast    구문 트리 덤프 (파일 하나, 포함 파일의 타입 이름만 반영)
   --dump-calls  호출 색인: 정의와 호출부 (docs/05-덤프-형식.md)
+  --dump-risky  바꿔 쓰기 위험: 역할 조사를 안 붙인 호출부
   --version     버전 표시
   --help        이 도움말
 """
@@ -57,6 +58,8 @@ def main(argv):
             dump = "tokens"
         elif a == "--dump-calls":
             dump = "calls"
+        elif a == "--dump-risky":
+            dump = "risky"
         elif a == "--dump-ast":
             dump = "ast"
         elif a == "-o":
