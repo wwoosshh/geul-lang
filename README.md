@@ -1,5 +1,7 @@
 # 글 (geul) 2세대
 
+저장소: [github.com/wwoosshh/geul-lang](https://github.com/wwoosshh/geul-lang) 의 브랜치 `v2`. 1세대는 `main`에 있다. CI(`.github/workflows/ci.yml`)가 windows-latest 에서 수용 테스트, 자체호스팅 교차 검증, 글 컴파일러로 스위트 실행을 돈다.
+
 한글 키워드와 한국어 어순(SOV)으로 프로그래밍하는 언어 **글**의 두 번째 설계입니다.
 목표는 1세대와 같습니다. 과정이 다릅니다.
 
