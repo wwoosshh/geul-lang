@@ -161,7 +161,7 @@ class Lexer:
 
     def lex_number(self, p):
         start = self.i
-        if self.peek() == "0" and self.peek(1) in "xX":
+        if self.peek() == "0" and self.peek(1) in ("x", "X"):
             self.advance(2)
             digits = ""
             while self.peek() and (self.peek().isdigit() or self.peek().lower() in "abcdef"):

@@ -1087,9 +1087,7 @@ class Sema:
                     a.raw = ""
                     self.check_expr(a, pt)
                     out.append(self.coerce(a, pt, a.pos, "인자"))
-                    for nm in names:
-                        self.check_expr(nm, None)
-                        out.append(self.promote_vararg(nm))
+                    out.extend(names)
                     return out
                 if not prechecked:
                     self.check_expr(a, pt)
@@ -1257,6 +1255,7 @@ class Sema:
     def expand_interpolation(self, lit):
         """원문 raw 를 서식 문자열과 이름 목록으로."""
         raw = lit.raw
+        exprs = list(getattr(lit, "interp", []))
         out = []
         names = []
         i = 1
@@ -1275,13 +1274,14 @@ class Sema:
                 j = raw.find("}", i)
                 if j < 0:
                     self.error(lit.pos, "보간 '{'가 닫히지 않았습니다")
-                name = raw[i + 1:j].strip()
-                sym = self.scope.lookup(name)
-                if not isinstance(sym, (VarSym, ConstSym)):
-                    self.error(lit.pos, f"보간에 쓸 수 없는 이름입니다: '{name}'")
-                t = T.decay(sym.type)
+                text = raw[i + 1:j].strip()
+                if not exprs:
+                    self.error(lit.pos, "보간 '{'가 닫히지 않았습니다")
+                node = exprs.pop(0)
+                nt = self.check_expr(node, None)
+                t = T.decay(nt)
                 if t.is_int():
-                    if t is T.CHAR or (t.bits == 8 and t.signed and sym.type.name == "문자"):
+                    if t is T.CHAR or (t.bits == 8 and t.signed and getattr(nt, "name", "") == "문자"):
                         fmt = "%c"
                     else:
                         fmt = "%llu" if not t.signed and t.bits == 64 else "%lld"
@@ -1290,10 +1290,9 @@ class Sema:
                 elif t.is_ptr() and T.same_type(t.target, T.CHAR):
                     fmt = "%s"
                 else:
-                    self.error(lit.pos, f"'{name}'의 타입 '{t}'은(는) 보간할 수 없습니다")
+                    self.error(lit.pos, f"'{text}'의 타입 '{t}'은(는) 보간할 수 없습니다")
                 out.append(fmt)
-                n = A.Name(lit.pos, name)
-                names.append(n)
+                names.append(self.promote_vararg(node))
                 i = j + 1
                 continue
             out.append(c)

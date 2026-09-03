@@ -989,6 +989,35 @@ class Parser:
         finally:
             self.toks, self.i, self.limit = saved
 
+    def parse_interp_exprs(self, tok):
+        """문자열 리터럴 안의 '{식}' 들을 파싱한다 (명세 3.9). 위치는 리터럴의 것으로 맞춘다."""
+        from .lexer import tokenize
+        from .diagnostics import Pos
+        raw = tok.text
+        out = []
+        i = 1
+        while i < len(raw) - 1:
+            c = raw[i]
+            if c == "\\":
+                i += 2
+                continue
+            if c == "{":
+                j = raw.find("}", i)
+                if j < 0:
+                    self.error(tok.pos, "보간 '{'가 닫히지 않았습니다")
+                inner = raw[i + 1:j]
+                base = tok.pos.col + i + 1        # '{' 다음 글자의 열 (열은 글자 기준)
+                sub = [st for st in tokenize(inner, tok.pos.file) if st.kind != EOF]
+                for st in sub:
+                    st.pos = Pos(tok.pos.file, tok.pos.line, base + st.pos.col - 1)
+                if not sub:
+                    self.error(tok.pos, "보간이 비어 있습니다")
+                out.append(self.parse_expr_tokens(sub))
+                i = j + 1
+                continue
+            i += 1
+        return out
+
     def parse_expr_range(self, a, b):
         saved_i, saved_limit = self.i, self.limit
         self.i, self.limit = a, b
@@ -1225,7 +1254,10 @@ class Parser:
         if t.kind == CHAR:
             self.next(); return A.CharLit(t.pos, t.value)
         if t.kind == STRING:
-            self.next(); return A.StringLit(t.pos, t.value, t.text)
+            self.next()
+            lit = A.StringLit(t.pos, t.value, t.text)
+            lit.interp = self.parse_interp_exprs(t)
+            return lit
         if t.kind == KEYWORD:
             if t.text == "참":
                 self.next(); return A.BoolLit(t.pos, True)
