@@ -33,6 +33,11 @@ class ArrayType(Node):
 
 
 @dataclass
+class SliceType(Node):
+    elem: Node
+
+
+@dataclass
 class FuncType(Node):
     params: List[Node]
     ret: Optional[Node]
@@ -206,6 +211,13 @@ class Name(Node):
 class Index(Node):
     base: Node
     index: Node
+
+
+@dataclass
+class SliceExpr(Node):
+    base: Node
+    lo: Optional[Node]
+    hi: Optional[Node]
 
 
 @dataclass

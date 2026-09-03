@@ -12,6 +12,7 @@ NODE_NAMES = {
     "BoolLit": "참거짓", "NullLit": "없음", "Name": "이름", "Index": "색인", "Member": "멤버", "Call": "호출",
     "SOVCall": "SOV호출", "Unary": "단항", "Binary": "이항", "Ternary": "삼항", "Cast": "변환", "SizeOf": "크기",
     "BaseType": "기본타입", "NamedType": "이름타입", "PtrType": "참조타입", "ArrayType": "배열타입", "FuncType": "함수타입",
+    "SliceType": "조각타입", "SliceExpr": "조각",
 }
 FIELD_NAMES = {
     "includes": "포함", "decls": "선언", "type": "타입", "name": "이름", "init": "초기값", "static": "정적", "const": "상수",
@@ -20,7 +21,7 @@ FIELD_NAMES = {
     "delta": "증분", "cond": "조건", "then": "참블록", "elifs": "아니면조건", "else_": "아니면블록", "step": "증감",
     "subject": "대상", "cases": "경우", "default": "기본", "base": "바탕", "index": "색인", "arrow": "화살표",
     "callee": "피호출", "args": "인자", "verb": "동사", "operand": "피연산자", "left": "좌", "right": "우", "a": "참값",
-    "b": "거짓값", "unsigned": "부호없는", "elem": "원소", "size": "크기", "role": "역할", "raw": "원문",
+    "b": "거짓값", "unsigned": "부호없는", "elem": "원소", "size": "크기", "role": "역할", "raw": "원문", "lo": "시작", "hi": "끝",
     "target": "대상",
 }
 PTR_TARGET_LABEL = "대상타입"

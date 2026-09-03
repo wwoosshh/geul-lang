@@ -179,6 +179,10 @@ class Parser:
                 n = self.next().value
                 self.next()
                 base = A.ArrayType(t.pos, base, n)
+            elif self.is_sym("[") and self.peek(1).kind == SYM and self.peek(1).text == "]":
+                self.next()
+                self.next()
+                base = A.SliceType(t.pos, base)          # 조각 T[] (D-17)
             else:
                 return base
 
@@ -896,9 +900,16 @@ class Parser:
                 break       # 띄어 쓴 '('·'[' 는 호출·색인이 아니다
             if t.kind == SYM and t.text == "[":
                 self.next()
-                idx = self.parse_expr_until_sym("]")
-                self.expect_sym("]")
-                e = A.Index(t.pos, e, idx)
+                if self.bracket_has_range():
+                    lo = None if self.is_sym(":") else self.parse_expr_until_sym(":")
+                    self.expect_sym(":")
+                    hi = None if self.is_sym("]") else self.parse_expr_until_sym("]")
+                    self.expect_sym("]")
+                    e = A.SliceExpr(t.pos, e, lo, hi)     # x[i:j] (D-17)
+                else:
+                    idx = self.parse_expr_until_sym("]")
+                    self.expect_sym("]")
+                    e = A.Index(t.pos, e, idx)
             elif t.kind == PARTICLE and t.text == "의":
                 self.next()
                 e = self.member_chain(e)
@@ -1020,6 +1031,26 @@ class Parser:
         if t.kind == PARTICLE:
             self.error(t.pos, f"식이 필요합니다 — 조사 '{t.text}'이(가) 있습니다")
         self.error(t.pos, f"식이 필요합니다 — {self.describe(t)}이(가) 있습니다")
+
+    def bracket_has_range(self):
+        """현재 위치(여는 '[' 다음)부터 짝 ']' 까지 깊이 0 에 ':' 가 있는가 (삼항의 ':' 는 '?' 뒤라 제외)."""
+        depth = 0
+        saw_q = False
+        j = self.i
+        while j < self.limit:
+            tk = self.toks[j]
+            if tk.kind == SYM and tk.text in ("(", "["):
+                depth += 1
+            elif tk.kind == SYM and tk.text in (")", "]"):
+                if depth == 0:
+                    return False
+                depth -= 1
+            elif depth == 0 and tk.kind == SYM and tk.text == "?":
+                saw_q = True
+            elif depth == 0 and tk.kind == SYM and tk.text == ":" and not saw_q:
+                return True
+            j += 1
+        return False
 
     def find_matching_paren(self, start):
         depth = 0

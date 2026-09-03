@@ -108,6 +108,11 @@ class Sema:
             if node.size <= 0:
                 self.error(node.pos, "배열 크기는 1 이상이어야 합니다")
             return T.ArrayType(elem, node.size)
+        if isinstance(node, A.SliceType):
+            elem = self.resolve_type(node.elem)
+            if elem.is_void():
+                self.error(node.pos, "조각의 원소 타입은 '공허'일 수 없습니다")
+            return T.SliceType(elem)
         if isinstance(node, A.FuncType):
             params = tuple(T.decay(self.resolve_type(p)) for p in node.params)
             ret = self.resolve_type(node.ret) if node.ret is not None else None
@@ -194,8 +199,8 @@ class Sema:
             ret = None
         if ret is not None and ret.is_array():
             self.error(d.pos, "함수는 배열을 값으로 반환할 수 없습니다")
-        if d.body is None and ((ret is not None and ret.is_struct()) or any(t.is_struct() for t in ptypes)):
-            self.error(d.pos, "외부 함수는 묶음을 값으로 주고받을 수 없습니다 (참조로)")
+        if d.body is None and ((ret is not None and ret.is_agg()) or any(t.is_agg() for t in ptypes)):
+            self.error(d.pos, "외부 함수는 묶음·조각을 값으로 주고받을 수 없습니다 (참조로)")
         ftype = T.FuncType(tuple(ptypes), ret, d.variadic)
         self.check_name(d.name, d.pos)
         if d.name == "시작하기":
@@ -488,6 +493,8 @@ class Sema:
             return e
         if src.is_array() and target.is_ptr() and (T.same_type(src.elem, target.target) or target.target.is_void()):
             return self.wrap_cast(e, target)
+        if src.is_array() and target.is_slice() and T.same_type(src.elem, target.elem):
+            return self.wrap_cast(e, target)                # 배열 → 조각 (D-17)
         if src.is_int() and target.is_int():
             if isinstance(e, A.IntLit):
                 self.check_int_range(e.value, target, e.pos)
@@ -578,19 +585,39 @@ class Sema:
                 self.error(e.index.pos, f"색인은 정수여야 합니다 (현재 '{it}')")
             if bt.is_array():
                 return bt.elem
+            if bt.is_slice():
+                return bt.elem
             if bt.is_ptr() and not bt.target.is_void():
                 return bt.target
             self.error(e.pos, f"색인할 수 없는 타입입니다: '{bt}'")
+        if isinstance(e, A.SliceExpr):
+            bt = self.check_expr(e.base, None)
+            if bt.is_array() or bt.is_slice():
+                elem = bt.elem
+            elif bt.is_ptr() and not bt.target.is_void():
+                elem = bt.target
+                if e.hi is None:
+                    self.error(e.pos, "참조에서 조각을 만들 때는 끝이 필요합니다 (길이를 알 수 없습니다)")
+            else:
+                self.error(e.pos, f"조각을 만들 수 없는 타입입니다: '{bt}'")
+            for which in ("lo", "hi"):
+                x = getattr(e, which)
+                if x is not None:
+                    t = self.check_expr(x, T.INT)
+                    if not t.is_int():
+                        self.error(x.pos, f"조각의 경계는 정수여야 합니다 (현재 '{t}')")
+                    setattr(e, which, self.coerce(x, T.INT, x.pos, "조각"))
+            return T.SliceType(elem)
         if isinstance(e, A.Member):
             bt = self.check_expr(e.base, None)
             st = bt
             if bt.is_ptr():
                 st = bt.target
-            if not st.is_struct():
+            if not st.is_agg():
                 self.error(e.pos, f"'{bt}'에는 멤버가 없습니다")
             f = st.field(e.name)
             if f is None:
-                self.error(e.pos, f"'{st.name}'에 '{e.name}' 필드가 없습니다")
+                self.error(e.pos, f"'{st}'에 '{e.name}' 필드가 없습니다")
             e.field = f
             return f[1]
         if isinstance(e, A.Call):

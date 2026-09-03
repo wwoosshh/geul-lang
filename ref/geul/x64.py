@@ -31,6 +31,8 @@ class Asm:
         return len(self.code)
 
     def label(self, name):
+        if name in self.labels:
+            raise KeyError(f"중복 라벨: {name}")       # 힌트 뒤에 번호가 붙으므로 힌트는 숫자로 끝나면 안 된다
         self.labels[name] = self.pos()
 
     def rex(self, w=0, r=0, x=0, b=0, force=False):

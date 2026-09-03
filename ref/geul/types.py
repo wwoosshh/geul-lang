@@ -12,6 +12,8 @@ class Type:
     def is_ptr(self): return isinstance(self, PtrType)
     def is_array(self): return isinstance(self, ArrayType)
     def is_struct(self): return isinstance(self, StructType)
+    def is_slice(self): return isinstance(self, SliceType)
+    def is_agg(self): return self.is_struct() or self.is_slice()      # 값 의미론의 메모리 덩어리 (D-16, D-17)
     def is_func(self): return isinstance(self, FuncType)
     def is_void(self): return isinstance(self, VoidType)
     def is_scalar(self): return self.is_int() or self.is_float() or self.is_ptr() or self.is_func()
@@ -82,6 +84,24 @@ class ArrayType(Type):
 
     def __str__(self):
         return f"{self.elem}[{self.count}]"
+
+
+@dataclass(frozen=True)
+class SliceType(Type):
+    """조각 T[]: {T 참조 자료, 정수 길이}. 값이며 16바이트."""
+    elem: Type
+    size = 16
+    align = 8
+
+    def __str__(self):
+        return f"{self.elem}[]"
+
+    def field(self, name):
+        if name == "자료":
+            return ("자료", PtrType(self.elem), 0)
+        if name == "길이":
+            return ("길이", INT, 8)
+        return None
 
 
 @dataclass(frozen=True)
@@ -176,6 +196,8 @@ def same_type(a, b):
         return same_type(a.target, b.target)
     if isinstance(a, ArrayType) and isinstance(b, ArrayType):
         return a.count == b.count and same_type(a.elem, b.elem)
+    if isinstance(a, SliceType) and isinstance(b, SliceType):
+        return same_type(a.elem, b.elem)
     if isinstance(a, FuncType) and isinstance(b, FuncType):
         if len(a.params) != len(b.params) or a.variadic != b.variadic:
             return False

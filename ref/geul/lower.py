@@ -34,7 +34,7 @@ class Lowerer:
         ret = fs.type.ret
         self.result_sym = None
         self.copy_counter = 0
-        if ret is not None and ret.is_struct():
+        if ret is not None and ret.is_agg():
             # 묶음 값 반환 (D-16): 호출자가 준 자리를 채운다 — 숨은 첫 매개변수
             self.result_sym = VarSym("__결과", T.PtrType(ret), "param", None)
             params = [(self.result_sym, T.PtrType(ret))] + params
@@ -74,7 +74,7 @@ class Lowerer:
             t = s.target.type
             if s.op == "=":
                 v = self.rvalue(s.value)
-                if t.is_struct():
+                if t.is_agg():
                     self.store_value(addr, v, t)
                     return
             else:
@@ -209,7 +209,7 @@ class Lowerer:
 
     # ---------- 주소 ----------
     def var_addr(self, sym):
-        if sym.kind == "param" and sym.type.is_struct():
+        if sym.kind == "param" and sym.type.is_agg():
             a = self.f.new_temp(T.PtrType(T.PtrType(sym.type)))
             self.f.emit("addr_local", dst=a, var=sym)
             p = self.f.new_temp(T.PtrType(sym.type))
@@ -224,7 +224,7 @@ class Lowerer:
 
     def store_value(self, addr, v, t):
         """t 타입 값을 addr 에 둔다: 묶음은 메모리 복사, 나머지는 저장."""
-        if t.is_struct():
+        if t.is_agg():
             self.f.emit("copy_mem", to=addr, frm=v, size=t.size)
         else:
             self.f.emit("store", addr=addr, src=v, type=t)
@@ -246,6 +246,8 @@ class Lowerer:
                 raise InternalError("주소를 취할 수 없는 이름")
             return self.var_addr(e.sym)
         if isinstance(e, A.Index):
+            if e.base.type.is_slice():
+                return self.slice_index_addr(e)
             base = self.rvalue(e.base)          # 배열은 첫 원소 참조로 decay 된다
             idx = self.rvalue(e.index)
             idx64 = self.to_i64(idx, e.index.type)
@@ -260,6 +262,100 @@ class Lowerer:
             f.emit("gep", dst=t, base=base, offset=off)
             return t
         raise InternalError(f"좌변이 아닌 식 {type(e).__name__}")
+
+    def slice_parts(self, sv, st):
+        """조각 값(주소)에서 자료 참조와 길이를 읽는다."""
+        f = self.f
+        pt = T.PtrType(st.elem)
+        ptr = f.new_temp(pt)
+        f.emit("load", dst=ptr, addr=sv, type=pt)
+        la = f.new_temp(T.PtrType(T.INT))
+        f.emit("gep", dst=la, base=sv, offset=8)
+        ln = f.new_temp(T.INT)
+        f.emit("load", dst=ln, addr=la, type=T.INT)
+        return ptr, ln
+
+    def slice_index_addr(self, e):
+        """s[i]: 0 <= i < 길이 가 아니면 __글_범위오류(i, 길이) (종료 코드 1)."""
+        f = self.f
+        st = e.base.type
+        sv = self.rvalue(e.base)
+        ptr, ln = self.slice_parts(sv, st)
+        idx = self.rvalue(e.index)
+        idx64 = self.to_i64(idx, e.index.type)
+        ok = f.new_label("범위"); bad = f.new_label("범위밖")
+        c = f.new_temp(T.BOOL)
+        f.emit("cmp", dst=c, cond="ult", a=idx64, b=ln, type=T.INT)
+        f.emit("br", cond=c, ltrue=ok, lfalse=bad)
+        f.emit("label", name=bad)
+        f.emit("call", dst=None, callee="__글_범위오류", extern=False, args=[idx64, ln], sig=T.FuncType((T.INT, T.INT), None), nfixed=2)
+        f.max_call_args = max(f.max_call_args, 2)
+        f.emit("jmp", label=ok)
+        f.emit("label", name=ok)
+        t = f.new_temp(T.PtrType(st.elem))
+        f.emit("index_addr", dst=t, base=ptr, idx=idx64, size=st.elem.size)
+        return t
+
+    def make_slice(self, ptr, ln, st):
+        """새 조각 자리에 (자료, 길이) 를 넣고 그 주소를 돌려준다."""
+        f = self.f
+        slot = self.new_slot(st, "조각")
+        a = self.var_addr(slot)
+        f.emit("store", addr=a, src=ptr, type=T.PtrType(st.elem))
+        la = f.new_temp(T.PtrType(T.INT))
+        f.emit("gep", dst=la, base=a, offset=8)
+        f.emit("store", addr=la, src=ln, type=T.INT)
+        return a
+
+    def lower_slice_expr(self, e):
+        """x[i:j]: 배열·조각이면 0 <= i <= j <= 길이, 참조면 i <= j 만 검사."""
+        f = self.f
+        bt = e.base.type
+        st = e.type
+        ln = None
+        if bt.is_array():
+            base = self.rvalue(e.base)
+            ln = f.new_temp(T.INT)
+            f.emit("const", dst=ln, value=bt.count)
+        elif bt.is_slice():
+            sv = self.rvalue(e.base)
+            base, ln = self.slice_parts(sv, bt)
+        else:
+            base = self.rvalue(e.base)
+        if e.lo is not None:
+            lo = self.rvalue(e.lo)
+        else:
+            lo = f.new_temp(T.INT)
+            f.emit("const", dst=lo, value=0)
+        if e.hi is not None:
+            hi = self.rvalue(e.hi)
+        else:
+            hi = ln
+        ok = f.new_label("조각"); bad = f.new_label("조각밖")
+        c1 = f.new_temp(T.BOOL)
+        f.emit("cmp", dst=c1, cond="ule", a=lo, b=hi, type=T.INT)
+        if ln is not None:
+            mid = f.new_label("조각중")
+            f.emit("br", cond=c1, ltrue=mid, lfalse=bad)
+            f.emit("label", name=mid)
+            c2 = f.new_temp(T.BOOL)
+            f.emit("cmp", dst=c2, cond="ule", a=hi, b=ln, type=T.INT)
+            f.emit("br", cond=c2, ltrue=ok, lfalse=bad)
+            lnarg = ln
+        else:
+            f.emit("br", cond=c1, ltrue=ok, lfalse=bad)
+            lnarg = f.new_temp(T.INT)
+            f.emit("const", dst=lnarg, value=-1)
+        f.emit("label", name=bad)
+        f.emit("call", dst=None, callee="__글_조각오류", extern=False, args=[lo, hi, lnarg], sig=T.FuncType((T.INT, T.INT, T.INT), None), nfixed=3)
+        f.max_call_args = max(f.max_call_args, 3)
+        f.emit("jmp", label=ok)
+        f.emit("label", name=ok)
+        p = f.new_temp(T.PtrType(st.elem))
+        f.emit("index_addr", dst=p, base=base, idx=lo, size=st.elem.size)
+        n = f.new_temp(T.INT)
+        f.emit("bin", dst=n, bop="sub", a=hi, b=lo)
+        return self.make_slice(p, n, st)
 
     def to_i64(self, v, t):
         if t.is_int() and t.bits == 64:
@@ -307,14 +403,16 @@ class Lowerer:
                 f.emit("func_addr", dst=d, name=sym.link_name if sym.is_extern else sym.name, extern=sym.is_extern)
                 return d
             addr = self.var_addr(sym)
-            if t.is_array() or t.is_struct():
-                return addr                      # 배열/묶음 값 = 그 주소
+            if t.is_array() or t.is_agg():
+                return addr                      # 배열/묶음/조각 값 = 그 주소
             d = f.new_temp(t)
             f.emit("load", dst=d, addr=addr, type=t)
             return d
+        if isinstance(e, A.SliceExpr):
+            return self.lower_slice_expr(e)
         if isinstance(e, (A.Index, A.Member)):
             addr = self.lvalue(e)
-            if t.is_array() or t.is_struct():
+            if t.is_array() or t.is_agg():
                 return addr
             d = f.new_temp(t)
             f.emit("load", dst=d, addr=addr, type=t)
@@ -378,6 +476,12 @@ class Lowerer:
         f = self.f
         src_t = T.decay(e.expr.type)
         dst_t = e.type
+        if e.expr.type.is_array() and dst_t.is_slice():
+            # 배열 → 조각 (D-17): {첫 원소 참조, 개수}
+            v = self.rvalue(e.expr)
+            ln = f.new_temp(T.INT)
+            f.emit("const", dst=ln, value=e.expr.type.count)
+            return self.make_slice(v, ln, dst_t)
         v = self.rvalue(e.expr)
         if T.same_type(src_t, dst_t) or (src_t.is_ptr() and dst_t.is_ptr()) or (src_t.is_func() and dst_t.is_ptr()) \
                 or (e.expr.type.is_array() and dst_t.is_ptr()):
@@ -507,13 +611,13 @@ class Lowerer:
         for i in order:
             vals[i] = self.rvalue(args[i])
         for i in range(len(args)):
-            if i < len(ftype.params) and ftype.params[i].is_struct():
+            if i < len(ftype.params) and ftype.params[i].is_agg():
                 slot = self.new_slot(ftype.params[i], "복사")
                 addr = self.var_addr(slot)
                 f.emit("copy_mem", to=addr, frm=vals[i], size=ftype.params[i].size)
                 vals[i] = addr
         result_addr = None
-        if ftype.ret is not None and ftype.ret.is_struct():
+        if ftype.ret is not None and ftype.ret.is_agg():
             slot = self.new_slot(ftype.ret, "반환")
             result_addr = self.var_addr(slot)
             vals = [result_addr] + vals
