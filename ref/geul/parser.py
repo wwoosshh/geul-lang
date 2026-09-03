@@ -406,7 +406,7 @@ class Parser:
                 self.error(t.pos, f"'{t.text}' 선언은 함수 밖에서만 할 수 있습니다")
         if t.kind == SYM and t.text == "{":
             return [self.parse_block()]
-        if t.kind == WORD and t.text in ("만약정의", "만약미정의", "정의", "끝"):
+        if t.kind == WORD and t.text in ("만약정의", "만약미정의", "정의"):
             self.error(t.pos, f"'{t.text}'는 지원하지 않습니다 (조건부 컴파일과 매크로는 없습니다)")
         if self.is_type_start():
             return [self.parse_var_decl()]

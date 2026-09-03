@@ -3,6 +3,7 @@
 
   python build.py test [필터]      spec-tests 실행 (컴파일 실패 = 실패, 건너뜀 없음)
   python build.py check <파일.gl>  문법·의미 검사
+  python build.py selfhost         자체호스팅 단계별 교차 검증 (self/*.gl 을 ref 로 빌드해 덤프 비교)
 """
 import os
 import sys
@@ -103,12 +104,60 @@ def cmd_check(args):
     return subprocess.call([sys.executable, GEULC, "--check", args[0]])
 
 
+def selfhost_inputs():
+    files = sorted(d for d in glob.glob(os.path.join(TESTS, "*", "*", "main.gl"))
+                   if not os.path.exists(os.path.join(os.path.dirname(d), "expect.errors")))
+    files += sorted(glob.glob(os.path.join(ROOT, "표준", "*.gl")))
+    files += sorted(glob.glob(os.path.join(ROOT, "self", "*.gl")))
+    return files
+
+
+def cmd_selfhost(args):
+    """자체호스팅 단계별 교차 검증. 지금은 1단계(렉서): self/렉서.gl 을 ref 로 빌드해 토큰 덤프를 비교한다."""
+    build_dir = os.path.join(ROOT, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    stages = [("렉서", "--dump-tokens")]
+    failed = 0
+    for name, opt in stages:
+        src = os.path.join(ROOT, "self", f"{name}.gl")
+        exe = os.path.join(build_dir, f"self_{name}.exe")
+        r = subprocess.run([sys.executable, GEULC, src, "-o", exe], capture_output=True)
+        if r.returncode != 0 or not os.path.exists(exe):
+            print(f"[{name}] 빌드 실패:\n{(r.stdout + r.stderr).decode('utf-8', 'replace')}")
+            return 1
+        print(f"[{name}] 빌드 OK → {os.path.relpath(exe, ROOT)}")
+        n = 0
+        for f in selfhost_inputs():
+            want = subprocess.run([sys.executable, GEULC, opt, f], capture_output=True)
+            got = subprocess.run([exe, f], capture_output=True, stdin=subprocess.DEVNULL, timeout=30)
+            w = want.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
+            g = got.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
+            n += 1
+            if w != g or want.returncode != got.returncode:
+                failed += 1
+                rel = os.path.relpath(f, ROOT)
+                print(f"  DIFF  {rel} (ref rc={want.returncode}, self rc={got.returncode})")
+                wl, gl = w.splitlines(), g.splitlines()
+                for k in range(max(len(wl), len(gl))):
+                    a = wl[k] if k < len(wl) else "<없음>"
+                    b = gl[k] if k < len(gl) else "<없음>"
+                    if a != b:
+                        print(f"        줄 {k + 1}: ref={a!r}\n                self={b!r}")
+                        break
+                if got.stderr:
+                    print("        self stderr:", got.stderr.decode("utf-8", "replace").strip()[:200])
+        print(f"[{name}] 비교 {n}개, 불일치 {failed}개")
+    return 0 if failed == 0 else 1
+
+
 def main(argv):
-    if not argv or argv[0] not in ("test", "check"):
+    if not argv or argv[0] not in ("test", "check", "selfhost"):
         print(__doc__)
         return 3
     if argv[0] == "test":
         return cmd_test(argv[1:])
+    if argv[0] == "selfhost":
+        return cmd_selfhost(argv[1:])
     return cmd_check(argv[1:])
 
 

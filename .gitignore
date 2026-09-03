@@ -19,3 +19,4 @@ __pycache__/
 # 임시
 *.tmp
 *.log
+build/
