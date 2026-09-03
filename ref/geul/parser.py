@@ -271,6 +271,8 @@ class Parser:
                 pname, particle = split_particle(pt.text) if pt.kind == WORD else (pt.text, None)
                 if pt.kind == IDENT and self.is_particle():
                     particle = self.next().text
+                if pname.endswith("의") and len(pname) > 1:
+                    self.error(pt.pos, f"'의'로 끝나는 이름은 선언할 수 없습니다: '{pname}'")
                 role = ROLE_OF.get(particle) if particle else None
                 if role in ("주제", "의", "비교", "주어"):
                     self.error(pt.pos, f"매개변수에 쓸 수 없는 조사 '{particle}' — 이름 전체가 "
