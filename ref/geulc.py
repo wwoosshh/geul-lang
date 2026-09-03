@@ -19,6 +19,8 @@ USAGE = """사용법: geulc <소스.gl> [-o <출력.exe>] [--check] [--dump-ir] 
   -o <파일>     출력 실행 파일 경로 (기본: 소스와 같은 이름의 .exe)
   --check       문법·의미 검사만 하고 출력을 만들지 않는다
   --dump-ir     타입 IR 을 표준출력으로
+  --dump-tokens 토큰 덤프 (docs/05-덤프-형식.md)
+  --dump-ast    구문 트리 덤프 (파일 하나, 포함 파일의 타입 이름만 반영)
   --version     버전 표시
   --help        이 도움말
 """
@@ -36,6 +38,7 @@ def main(argv):
     out = None
     check = False
     dump_ir = False
+    dump = None
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -49,6 +52,10 @@ def main(argv):
             check = True
         elif a == "--dump-ir":
             dump_ir = True
+        elif a == "--dump-tokens":
+            dump = "tokens"
+        elif a == "--dump-ast":
+            dump = "ast"
         elif a == "-o":
             if i + 1 >= len(argv):
                 print("사용법 오류: -o 뒤에 출력 파일이 필요합니다", file=sys.stderr)
@@ -68,7 +75,7 @@ def main(argv):
         print(USAGE, end="", file=sys.stderr)
         return EXIT_USAGE_ERROR
     try:
-        return driver.compile_file(src, out, check=check, dump_ir=dump_ir, std_dir=os.path.join(HERE, "..", "표준"))
+        return driver.compile_file(src, out, check=check, dump_ir=dump_ir, std_dir=os.path.join(HERE, "..", "표준"), dump=dump)
     except CompileError as e:
         print(str(e), file=sys.stderr)
         return EXIT_USER_ERROR

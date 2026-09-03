@@ -53,9 +53,42 @@ def load_program(path, std_dir, auto_std=True):
     return A.Program(Pos(path, 1, 1), [], decls)
 
 
-def compile_file(src, out, check=False, dump_ir=False, std_dir=None):
+def dump_file(src, std_dir, what):
+    """--dump-tokens / --dump-ast: 주어진 파일 하나만. AST 는 포함 파일의 타입 이름만 빌려 쓴다."""
+    from . import dumps
+    text = load_source(src)
+    toks = tokenize(text, src)
+    if what == "tokens":
+        print(dumps.dump_tokens(toks))
+        return EXIT_OK
+    type_names = set()
+    seen = set()
+
+    def collect(p, pos):
+        ap = os.path.normcase(os.path.abspath(p))
+        if ap in seen:
+            return
+        seen.add(ap)
+        t = tokenize(load_source(p), p)
+        for ipos, name in scan_includes(t):
+            collect(resolve_include(name, os.path.dirname(os.path.abspath(p)), std_dir, ipos), ipos)
+        parse(t, p, type_names)
+
+    std = os.path.join(std_dir, "기본.gl")
+    if os.path.isfile(std):
+        collect(std, Pos(src, 0, 0))
+    for ipos, name in scan_includes(toks):
+        collect(resolve_include(name, os.path.dirname(os.path.abspath(src)), std_dir, ipos), ipos)
+    prog = parse(toks, src, type_names)
+    print(dumps.dump_ast(prog))
+    return EXIT_OK
+
+
+def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None):
     if not os.path.isfile(src):
         raise CompileError(Pos(src, 0, 0), "파일을 열 수 없습니다")
+    if dump in ("tokens", "ast"):
+        return dump_file(src, std_dir, dump)
     program = load_program(src, std_dir)
     from . import sema
     unit = sema.analyze(program)
