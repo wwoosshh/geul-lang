@@ -138,6 +138,25 @@ class Asm:
     def imul(self, dst, src):
         self.rex(1, dst, 0, src); self.emit(0x0F, 0xAF); self.modrm(3, dst, src)
 
+    def imul_imm(self, dst, src, imm):
+        """dst <- src * imm32"""
+        self.rex(1, dst, 0, src); self.emit(0x69); self.modrm(3, dst, src); self.emit32(imm)
+
+    def shift_imm(self, op, r, n):
+        ext = {"shl": 4, "shr": 5, "sar": 7}[op]
+        self.rex(1, 0, 0, r); self.emit(0xC1); self.modrm(3, ext, r); self.emit(n & 63)
+
+    def store_imm(self, base, disp, v, bits=64):
+        """[base+disp] <- imm (bits 크기)"""
+        if bits == 64:
+            self.rex(1, 0, 0, base or 0); self.emit(0xC7); self.mem(0, base, disp); self.emit32(v)
+        elif bits == 32:
+            self.rex(0, 0, 0, base or 0); self.emit(0xC7); self.mem(0, base, disp); self.emit32(v)
+        elif bits == 16:
+            self.emit(0x66); self.rex(0, 0, 0, base or 0); self.emit(0xC7); self.mem(0, base, disp); self.emit(v & 0xFF, (v >> 8) & 0xFF)
+        else:
+            self.rex(0, 0, 0, base or 0); self.emit(0xC6); self.mem(0, base, disp); self.emit(v & 0xFF)
+
     def cqo(self):
         self.emit(0x48, 0x99)
 

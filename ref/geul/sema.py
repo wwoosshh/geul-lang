@@ -660,13 +660,13 @@ class Sema:
             self.check_cond(e.right)
             return T.BOOL
         hint = expected if (expected is not None and (expected.is_int() or expected.is_float())) else None
-        # 리터럴은 다른 쪽 피연산자의 타입을 따른다
+        # 리터럴은 다른 쪽 피연산자의 타입을 따른다. 들어가지 않는 정수 리터럴은 정수(64비트)로 (명세 3.8)
         if isinstance(e.left, (A.IntLit, A.FloatLit)) and not isinstance(e.right, (A.IntLit, A.FloatLit)):
             tr = self.check_expr(e.right, hint)
-            tl = self.check_expr(e.left, tr if (tr.is_int() or tr.is_float()) else None)
+            tl = self.check_expr(e.left, self.operand_hint(e.left, tr))
         else:
             tl = self.check_expr(e.left, hint)
-            tr = self.check_expr(e.right, tl if (tl.is_int() or tl.is_float()) else None)
+            tr = self.check_expr(e.right, self.operand_hint(e.right, tl))
         tl, tr = T.decay(tl), T.decay(tr)
         if op in ("==", "!=", "<", ">", "<=", ">="):
             if tl.is_ptr() and (tr.is_ptr() or isinstance(e.right, (A.IntLit, A.NullLit))):
@@ -713,6 +713,15 @@ class Sema:
         e.left = self.coerce(e.left, ct, e.left.pos, "산술")
         e.right = self.coerce(e.right, ct, e.right.pos, "산술")
         return ct
+
+    @staticmethod
+    def operand_hint(lit, t):
+        """상대 피연산자 타입 t 를 리터럴의 힌트로. 정수 리터럴이 t 에 들어가지 않으면 힌트 없음(정수)."""
+        if not (t.is_int() or t.is_float()):
+            return None
+        if isinstance(lit, A.IntLit) and t.is_int() and not (t.min_value() <= lit.value <= t.max_value()):
+            return None
+        return t
 
     # ---------- 호출 ----------
     def callee_of(self, e):
