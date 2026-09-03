@@ -102,8 +102,8 @@ def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None):
         return EXIT_OK
     if check:
         return EXIT_OK
-    from . import lower
-    ir = lower.lower_program(unit)
+    from . import lower, inline
+    ir = inline.run(lower.lower_program(unit))
     if dump_ir:
         print(ir.dump())
         return EXIT_OK
