@@ -94,6 +94,9 @@ def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None):
     program = load_program(src, std_dir)
     from . import sema
     unit = sema.analyze(program)
+    if dump == "calls":
+        print(chr(10).join(unit.index))
+        return EXIT_OK
     if check:
         return EXIT_OK
     from . import lower

@@ -334,6 +334,7 @@ def cmd_selfhost(args):
         print(f"[{name}] 빌드 OK → {os.path.relpath(exe, ROOT)}")
         if opt is None:
             failed += selfhost_exe_stage(exe, build_dir)
+            failed += selfhost_calls_stage(exe)
             continue
         n = 0
         for f in selfhost_inputs():
@@ -377,6 +378,31 @@ def cmd_selfhost(args):
                     print("        self:", self_line)
             print(f"[{name}] 부정 테스트 {nn}개: 오류 줄(파일:줄:열: 메시지) 동일 확인")
     return 0 if failed == 0 else 1
+
+
+def selfhost_calls_stage(exe):
+    """호출 색인(--dump-calls) 이 두 구현에서 같은가 (D-24)."""
+    bad = 0
+    n = 0
+    env = dict(os.environ, GEUL_ROOT=ROOT)
+    for f in selfhost_inputs():
+        want = subprocess.run([sys.executable, GEULC, f, "--dump-calls"], capture_output=True)
+        got = subprocess.run([exe, f, "--dump-calls"], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
+        w = want.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
+        g = got.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
+        n += 1
+        if w != g:
+            bad += 1
+            wl, gl = w.splitlines(), g.splitlines()
+            print(f"  DIFF  {os.path.relpath(f, ROOT)} 호출 색인")
+            for k in range(max(len(wl), len(gl))):
+                a = wl[k] if k < len(wl) else "<없음>"
+                b = gl[k] if k < len(gl) else "<없음>"
+                if a != b:
+                    print(f"        줄 {k + 1}: ref={a!r}\n                self={b!r}")
+                    break
+    print(f"[컴파일러] 호출 색인 비교 {n}개, 불일치 {bad}개")
+    return bad
 
 
 def main(argv):

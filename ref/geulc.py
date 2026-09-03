@@ -21,6 +21,7 @@ USAGE = """사용법: geulc <소스.gl> [-o <출력.exe>] [--check] [--dump-ir] 
   --dump-ir     타입 IR 을 표준출력으로
   --dump-tokens 토큰 덤프 (docs/05-덤프-형식.md)
   --dump-ast    구문 트리 덤프 (파일 하나, 포함 파일의 타입 이름만 반영)
+  --dump-calls  호출 색인: 정의와 호출부 (docs/05-덤프-형식.md)
   --version     버전 표시
   --help        이 도움말
 """
@@ -54,6 +55,8 @@ def main(argv):
             dump_ir = True
         elif a == "--dump-tokens":
             dump = "tokens"
+        elif a == "--dump-calls":
+            dump = "calls"
         elif a == "--dump-ast":
             dump = "ast"
         elif a == "-o":

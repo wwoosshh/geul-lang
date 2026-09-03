@@ -97,6 +97,7 @@ class Sema:
         self.func_insts = {}
         self.type_params = {}
         self.pending = []
+        self.index = []           # 호출 색인 (D-24): 정의·호출을 의미 분석 순서로 기록
 
     def error(self, pos, msg):
         raise CompileError(pos, msg)
@@ -198,6 +199,7 @@ class Sema:
         if not isinstance(entry, FuncSym) or entry.is_extern:
             self.error(self.program.pos, "'시작하기' 함수가 없습니다")
         self.unit.entry = entry
+        self.unit.index = self.index
         return self.unit
 
     # ---------- 제네릭 (D-19) ----------
@@ -329,6 +331,12 @@ class Sema:
         self.unit.globals.append(sym)
         return sym
 
+    @staticmethod
+    def loc(pos):
+        """색인용 위치: 파일 이름(디렉터리 제외):줄:열."""
+        f = pos.file.replace("\\", "/")
+        return f"{f[f.rfind('/') + 1:]}:{pos.line}:{pos.col}"
+
     def unknown_name(self, name):
         """이름을 찾지 못했다. 조사 분리 때문이면 그렇게 말해 준다 (D-21)."""
         msg = f"선언되지 않은 이름입니다: '{name}'"
@@ -379,6 +387,7 @@ class Sema:
                 self.error(d.pos, "'시작하기'는 매개변수가 없거나 (정수 argc, 문자열 참조 argv)여야 합니다")
             if ret is not None and not ret.is_int():
                 self.error(d.pos, "'시작하기'의 반환 타입은 정수여야 합니다")
+        self.index.append(f"정의 {self.loc(d.pos)} {d.name}")
         fs = FuncSym(d.name, ftype, params, d, d.link_name)
         self.globals.declare(d.name, fs, d.pos)
         (self.unit.externs if fs.is_extern else self.unit.functions).append(fs)
@@ -1013,6 +1022,8 @@ class Sema:
     def check_call(self, e):
         fsym, ftype = self.callee_of(e)
         e.callee_sym = fsym
+        written = e.callee.name if isinstance(e.callee, (A.Name, A.TypeApply)) else "(식)"
+        self.index.append(f"호출 {self.loc(e.pos)} 이름 {written} -> {fsym.name if fsym else '(간접)'}")
         args = list(e.args)
         e.resolved_args = self.bind_args(e, ftype, args, fsym, prechecked=getattr(e, "prechecked", False))
         return ftype.ret if ftype.ret is not None else T.VOID
@@ -1088,6 +1099,7 @@ class Sema:
             r, a = leftover[0]
             self.error(a.pos, f"'{fsym.name}' 호출에 남는 인자가 있습니다 ({ROLE_PARTICLE.get(r)})")
         args = ordered + [a for r, a in leftover]
+        self.index.append(f"호출 {self.loc(e.pos)} 동사 {e.verb} -> {fsym.name}")
         if generic:
             for a in args:
                 self.check_expr(a, None)
