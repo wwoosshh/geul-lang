@@ -32,6 +32,7 @@ def load_program(path, std_dir, auto_std=True):
     seen = set()
     decls = []
     type_names = set()
+    generic_names = set()
 
     def visit(p, pos):
         ap = os.path.normcase(os.path.abspath(p))
@@ -42,7 +43,7 @@ def load_program(path, std_dir, auto_std=True):
         toks = tokenize(text, p)
         for ipos, name in scan_includes(toks):
             visit(resolve_include(name, os.path.dirname(os.path.abspath(p)), std_dir, ipos), ipos)
-        prog = parse(toks, p, type_names)
+        prog = parse(toks, p, type_names, generic_names)
         decls.extend(prog.decls)
 
     if auto_std:
@@ -62,6 +63,7 @@ def dump_file(src, std_dir, what):
         print(dumps.dump_tokens(toks))
         return EXIT_OK
     type_names = set()
+    generic_names = set()
     seen = set()
 
     def collect(p, pos):
@@ -72,14 +74,14 @@ def dump_file(src, std_dir, what):
         t = tokenize(load_source(p), p)
         for ipos, name in scan_includes(t):
             collect(resolve_include(name, os.path.dirname(os.path.abspath(p)), std_dir, ipos), ipos)
-        parse(t, p, type_names)
+        parse(t, p, type_names, generic_names)
 
     std = os.path.join(std_dir, "기본.gl")
     if os.path.isfile(std):
         collect(std, Pos(src, 0, 0))
     for ipos, name in scan_includes(toks):
         collect(resolve_include(name, os.path.dirname(os.path.abspath(src)), std_dir, ipos), ipos)
-    prog = parse(toks, src, type_names)
+    prog = parse(toks, src, type_names, generic_names)
     print(dumps.dump_ast(prog))
     return EXIT_OK
 

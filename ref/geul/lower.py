@@ -425,6 +425,10 @@ class Lowerer:
             d = f.new_temp(t)
             f.emit("load", dst=d, addr=addr, type=t)
             return d
+        if isinstance(e, A.TypeApply):
+            d = f.new_temp(e.sym.type)
+            f.emit("func_addr", dst=d, name=e.sym.name, extern=False)
+            return d
         if isinstance(e, A.Try):
             return self.lower_try(e)
         if isinstance(e, A.Call):

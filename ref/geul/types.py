@@ -164,6 +164,8 @@ class StructType(Type):
     def __init__(self, name, is_union=False):
         self.name = name
         self.is_union = is_union
+        self.template = None        # 제네릭 인스턴스면 (틀 이름, [인자 타입]) (D-19)
+        self.template = None        # 제네릭 인스턴스면 (틀 이름, [인자 타입]) (D-19)
         self.fields: List[Tuple[str, Type, int]] = []   # (이름, 타입, 오프셋)
         self.size = 0
         self.align = 1

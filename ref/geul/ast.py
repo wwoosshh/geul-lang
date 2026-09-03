@@ -43,8 +43,60 @@ class ResultType(Node):
 
 
 @dataclass
+class GenericType(Node):
+    name: str
+    args: List[Node]
+
+
+@dataclass
+class TypeApply(Node):
+    """식 자리의 제네릭 함수 인스턴스: 이름(타입, ...)"""
+    name: str
+    args: List[Node]
+
+
+@dataclass
+class GenericType(Node):
+    name: str
+    args: List[Node]
+
+
+@dataclass
+class TypeApply(Node):
+    """식 자리의 제네릭 함수 인스턴스: 이름(타입, ...)"""
+    name: str
+    args: List[Node]
+
+
+@dataclass
 class ResultType(Node):
     base: Node
+
+
+@dataclass
+class GenericType(Node):
+    name: str
+    args: List[Node]
+
+
+@dataclass
+class TypeApply(Node):
+    """식 자리의 제네릭 함수 인스턴스: 이름(타입, ...)"""
+    name: str
+    args: List[Node]
+
+
+@dataclass
+class GenericType(Node):
+    name: str
+    args: List[Node]
+
+
+@dataclass
+class TypeApply(Node):
+    """식 자리의 제네릭 함수 인스턴스: 이름(타입, ...)"""
+    name: str
+    args: List[Node]
 
 
 @dataclass
@@ -78,6 +130,8 @@ class FuncDecl(Node):
     body: Optional["Block"]          # None 이면 외부 선언
     link_name: Optional[str] = None  # 외부 선언의 링크 이름
     variadic: bool = False
+    type_params: List[str] = field(default_factory=list)   # 제네릭 (D-19)
+    type_params: List[str] = field(default_factory=list)   # 제네릭 (D-19)
 
 
 @dataclass
@@ -85,6 +139,8 @@ class StructDecl(Node):
     name: str
     fields: List[Tuple[Node, str]]
     is_union: bool = False
+    type_params: List[str] = field(default_factory=list)   # 제네릭 (D-19)
+    type_params: List[str] = field(default_factory=list)   # 제네릭 (D-19)
 
 
 @dataclass

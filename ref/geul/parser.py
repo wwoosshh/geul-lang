@@ -29,12 +29,13 @@ def verb_base(root):
 
 
 class Parser:
-    def __init__(self, tokens, filename, type_names=None):
+    def __init__(self, tokens, filename, type_names=None, generic_names=None):
         self.toks = tokens
         self.file = filename
         self.i = 0
         self.limit = len(tokens)      # 식 파싱 상한 (배타)
         self.type_names = type_names if type_names is not None else set()   # 포함 파일과 공유
+        self.generic_names = generic_names if generic_names is not None else set()   # 제네릭 함수 이름 (D-19), 포함 파일과 공유
 
     # ---------- 토큰 유틸 ----------
     def peek(self, k=0):
@@ -153,6 +154,17 @@ class Parser:
         elif t.kind in (WORD, IDENT) and t.text in self.type_names:
             self.next()
             base = A.NamedType(t.pos, t.text)
+            if self.is_sym("(") and self.adjacent(t, self.tok()):
+                self.next()
+                targs = []
+                while True:
+                    targs.append(self.parse_type())
+                    if self.is_sym(","):
+                        self.next()
+                        continue
+                    break
+                self.expect_sym(")")
+                base = A.GenericType(t.pos, t.text, targs)        # 제네릭 인스턴스 타입 (D-19)
         elif t.kind == SYM and t.text == "[":
             self.next()
             params = []
@@ -238,6 +250,10 @@ class Parser:
         params = []
         variadic = False
         name = None
+        type_params = self.scan_header_type_params()
+        added = {p for p in type_params if p not in self.type_names}
+        self.type_names |= added
+        self._header_added = added
         while True:
             t = self.tok()
             if t.kind == SYM and t.text == "]":
@@ -261,6 +277,9 @@ class Parser:
                 params.append(A.Param(pt.pos, ptype, pname, role))
                 continue
             name = self.name_token("함수 이름")
+            if type_params and self.is_sym("("):
+                self.parse_type_params()
+                self.generic_names.add(name)
             if not (self.tok().kind == SYM and self.tok().text == "]"):
                 self.error(self.tok().pos, f"함수 이름 뒤에는 ']'가 와야 합니다 — {self.describe(self.tok())}이(가) 있습니다")
             break
@@ -272,19 +291,54 @@ class Parser:
         if self.is_sym("->"):
             self.next()
             ret = self.parse_type()
-        return start.pos, name, params, ret, variadic
+        return start.pos, name, params, ret, variadic, type_params
+
+    def scan_header_type_params(self):
+        """'[' 를 소비한 직후: 짝 ']' 앞이 ')' 이면 그 괄호의 이름들이 타입 매개변수, 그 앞 단어가 함수 이름."""
+        close = self.find_matching_paren(self.i - 1)
+        if close - 1 <= self.i or not (self.toks[close - 1].kind == SYM and self.toks[close - 1].text == ")"):
+            return []
+        k = close - 1
+        depth = 0
+        while k > self.i:
+            tk = self.toks[k]
+            if tk.kind == SYM and tk.text == ")":
+                depth += 1
+            elif tk.kind == SYM and tk.text == "(":
+                depth -= 1
+                if depth == 0:
+                    break
+            k -= 1
+        if depth != 0 or k - 1 < self.i:
+            return []
+        nm = self.toks[k - 1]
+        if nm.kind not in (WORD, IDENT) or not self.adjacent(nm, self.toks[k]):
+            return []
+        names = []
+        for j in range(k + 1, close - 1):
+            tk = self.toks[j]
+            if tk.kind in (WORD, IDENT):
+                names.append(tk.text)
+            elif not (tk.kind == SYM and tk.text == ","):
+                return []
+        return names
 
     def parse_function(self):
-        pos, name, params, ret, variadic = self.parse_function_header()
+        pos, name, params, ret, variadic, type_params = self.parse_function_header()
+        added = self._header_added
         body = self.parse_block()
-        return A.FuncDecl(pos, name, params, ret, body, variadic=variadic)
+        self.type_names -= added
+        return A.FuncDecl(pos, name, params, ret, body, variadic=variadic, type_params=type_params)
 
     def parse_extern(self):
         kw = self.next()
         link = None
         if self.tok().kind == STRING:
             link = self.next().value
-        pos, name, params, ret, variadic = self.parse_function_header()
+        pos, name, params, ret, variadic, type_params = self.parse_function_header()
+        self.type_names -= self._header_added
+        if type_params:
+            self.error(kw.pos, "외부 함수는 제네릭일 수 없습니다")
         self.expect_end()
         return A.FuncDecl(kw.pos, name, params, ret, None, link_name=link or name, variadic=variadic)
 
@@ -306,9 +360,37 @@ class Parser:
             return t.text
         self.error(t.pos, f"이름이 필요합니다 — {self.describe(t)}이(가) 있습니다")
 
+    def parse_type_params(self):
+        """'(' 이름 {',' 이름} ')' — 타입 매개변수 이름들"""
+        self.expect_sym("(")
+        names = []
+        while True:
+            p = self.tok()
+            if p.kind not in (WORD, IDENT):
+                self.error(p.pos, f"타입 매개변수 이름이 필요합니다 — {self.describe(p)}이(가) 있습니다")
+            self.next()
+            names.append(p.text)
+            if self.is_sym(","):
+                self.next()
+                continue
+            break
+        self.expect_sym(")")
+        return names
+
     def parse_struct(self):
         kw = self.next()
-        name = self.struct_header_name()
+        type_params = []
+        added = set()
+        t = self.tok()
+        if t.kind in (WORD, IDENT) and self.peek(1).kind == SYM and self.peek(1).text == "(" and self.adjacent(t, self.peek(1)):
+            self.next()
+            name = t.text
+            type_params = self.parse_type_params()
+            self.header_particle()
+            added = {p for p in type_params if p not in self.type_names}
+            self.type_names |= added
+        else:
+            name = self.struct_header_name()
         fields = []
         while True:
             ftype = self.parse_type()
@@ -319,8 +401,9 @@ class Parser:
                 continue
             break
         self.expect_end()
+        self.type_names -= added
         self.type_names.add(name)
-        return A.StructDecl(kw.pos, name, fields, is_union=(kw.text == "합침"))
+        return A.StructDecl(kw.pos, name, fields, is_union=(kw.text == "합침"), type_params=type_params)
 
     def parse_enum(self):
         kw = self.next()
@@ -933,6 +1016,17 @@ class Parser:
                     e = self.member_chain(A.Member(t.pos, e, mt.text[:-1], True))     # p→a의 b: 이름은 '의'로 끝날 수 없으므로 모호하지 않다
                 else:
                     e = A.Member(t.pos, e, mt.text, True)
+            elif t.kind == SYM and t.text == "(" and isinstance(e, A.Name) and e.name in self.generic_names and self.is_type_start(1):
+                self.next()
+                targs = []
+                while True:
+                    targs.append(self.parse_type())
+                    if self.is_sym(","):
+                        self.next()
+                        continue
+                    break
+                self.expect_sym(")")
+                e = A.TypeApply(t.pos, e.name, targs)              # 이름(타입, ...) (D-19)
             elif t.kind == SYM and t.text == "(":
                 self.next()
                 args = []
@@ -1077,5 +1171,5 @@ class Parser:
         self.error(self.toks[start].pos, "괄호가 닫히지 않았습니다")
 
 
-def parse(tokens, filename, type_names=None):
-    return Parser(tokens, filename, type_names).parse_program()
+def parse(tokens, filename, type_names=None, generic_names=None):
+    return Parser(tokens, filename, type_names, generic_names).parse_program()

@@ -5,6 +5,7 @@ from . import ast as A
 from . import types as T
 from .diagnostics import CompileError, InternalError
 from .parser import verb_base
+import copy
 
 ROLE_PARTICLE = {"대상": "을/를", "목적지": "에", "출처": "에서", "수단": "로", "동반": "와/과", None: "(무표)"}
 
@@ -88,6 +89,13 @@ class Sema:
         self.loop_depth = 0
         self.switch_depth = 0
         self.static_counter = 0
+        # 제네릭 (D-19): 틀과 인스턴스. 인스턴스는 처음 쓰인 순서로 만들어진다
+        self.generic_structs = {}
+        self.generic_funcs = {}
+        self.struct_insts = {}
+        self.func_insts = {}
+        self.type_params = {}
+        self.pending = []
 
     def error(self, pos, msg):
         raise CompileError(pos, msg)
@@ -97,10 +105,16 @@ class Sema:
         if isinstance(node, A.BaseType):
             return T.BASE_BY_NAME[(node.name, node.unsigned)]
         if isinstance(node, A.NamedType):
+            if node.name in self.type_params:
+                return self.type_params[node.name]
+            if node.name in self.generic_structs:
+                self.error(node.pos, f"제네릭 묶음에는 타입 인자가 필요합니다: '{node.name}(...)'")
             sym = self.globals.lookup(node.name)
             if not isinstance(sym, TypeSym):
                 self.error(node.pos, f"타입이 아닙니다: '{node.name}'")
             return sym.type
+        if isinstance(node, A.GenericType):
+            return self.instantiate_struct(node)
         if isinstance(node, A.PtrType):
             return T.PtrType(self.resolve_type(node.target))
         if isinstance(node, A.ArrayType):
@@ -130,6 +144,17 @@ class Sema:
     def analyze(self):
         func_decls = []
         for d in self.program.decls:
+            if isinstance(d, A.StructDecl) and d.type_params:
+                if d.name in self.generic_structs or self.globals.lookup(d.name) is not None:
+                    self.error(d.pos, f"'{d.name}'은(는) 이미 선언되었습니다")
+                self.generic_structs[d.name] = d
+                continue
+            if isinstance(d, A.FuncDecl) and d.type_params:
+                if d.name in self.generic_funcs or self.globals.lookup(d.name) is not None:
+                    self.error(d.pos, f"'{d.name}'은(는) 이미 선언되었습니다")
+                self.check_name(d.name, d.pos)
+                self.generic_funcs[d.name] = d
+                continue
             if isinstance(d, A.StructDecl):
                 st = T.StructType(d.name, d.is_union)
                 self.globals.declare(d.name, TypeSym(d.name, st), d.pos)
@@ -160,11 +185,133 @@ class Sema:
                 raise InternalError(f"알 수 없는 선언 {type(d).__name__}")
         for d, fs in func_decls:
             self.check_function(d, fs)
+        # 인스턴스 본문: 쓰이는 순서대로, 새 인스턴스가 생기면 뒤에 붙는다
+        k = 0
+        while k < len(self.pending):
+            d, fs, bindings = self.pending[k]
+            k += 1
+            self.type_params = bindings
+            self.check_function(d, fs)
+            self.type_params = {}
         entry = self.globals.lookup("시작하기")
         if not isinstance(entry, FuncSym) or entry.is_extern:
             self.error(self.program.pos, "'시작하기' 함수가 없습니다")
         self.unit.entry = entry
         return self.unit
+
+    # ---------- 제네릭 (D-19) ----------
+    def struct_inst_fields(self, decl, st):
+        fields = []
+        seen = set()
+        for ft, fname in decl.fields:
+            if fname in seen:
+                self.error(decl.pos, f"필드 이름이 중복됩니다: '{fname}'")
+            seen.add(fname)
+            t = self.resolve_type(ft)
+            if t.is_void() or (t.is_struct() and not t.complete):
+                self.error(decl.pos, f"필드 '{fname}'의 타입이 올바르지 않습니다")
+            fields.append((fname, t))
+        st.set_fields(fields)
+
+    def inst_name(self, name, args):
+        return f"{name}({', '.join(str(a) for a in args)})"
+
+    def instantiate_struct(self, node):
+        decl = self.generic_structs.get(node.name)
+        if decl is None:
+            self.error(node.pos, f"제네릭 묶음이 아닙니다: '{node.name}'")
+        args = [self.resolve_type(a) for a in node.args]
+        if len(args) != len(decl.type_params):
+            self.error(node.pos, f"'{node.name}'의 타입 인자는 {len(decl.type_params)}개여야 합니다 ({len(args)}개 있음)")
+        for a in args:
+            if a.is_void():
+                self.error(node.pos, "타입 인자는 '공허'일 수 없습니다")
+        key = self.inst_name(node.name, args)
+        st = self.struct_insts.get(key)
+        if st is not None:
+            return st
+        st = T.StructType(key, decl.is_union)
+        st.template = (node.name, args)
+        self.struct_insts[key] = st
+        saved = self.type_params
+        self.type_params = dict(zip(decl.type_params, args))
+        self.struct_inst_fields(decl, st)
+        self.type_params = saved
+        return st
+
+    def unify(self, node, actual, params, bindings):
+        """틀의 타입 표기 node 를 실제 타입 actual 에 맞춰 타입 매개변수를 정한다."""
+        if isinstance(node, A.NamedType):
+            if node.name in params:
+                if node.name not in bindings:
+                    bindings[node.name] = T.decay(actual)
+            return
+        if isinstance(node, A.PtrType):
+            actual = T.decay(actual)
+            if actual.is_ptr():
+                self.unify(node.target, actual.target, params, bindings)
+            return
+        if isinstance(node, A.SliceType):
+            if actual.is_slice() or actual.is_array():
+                self.unify(node.elem, actual.elem, params, bindings)
+            return
+        if isinstance(node, A.ArrayType):
+            if actual.is_array():
+                self.unify(node.elem, actual.elem, params, bindings)
+            return
+        if isinstance(node, A.ResultType):
+            if actual.is_result() and actual.value is not None:
+                self.unify(node.base, actual.value, params, bindings)
+            return
+        if isinstance(node, A.GenericType):
+            if actual.is_struct() and actual.template is not None and actual.template[0] == node.name:
+                for n2, a2 in zip(node.args, actual.template[1]):
+                    self.unify(n2, a2, params, bindings)
+            return
+        if isinstance(node, A.FuncType):
+            if actual.is_func():
+                for n2, a2 in zip(node.params, actual.params):
+                    self.unify(n2, a2, params, bindings)
+                if node.ret is not None and actual.ret is not None:
+                    self.unify(node.ret, actual.ret, params, bindings)
+            return
+
+    def instantiate_func(self, decl, bindings, pos):
+        for p in decl.type_params:
+            if p not in bindings:
+                self.error(pos, f"타입 매개변수 '{p}'을(를) 정할 수 없습니다 — '{decl.name}(타입)(...)'처럼 명시하세요")
+        args = [bindings[p] for p in decl.type_params]
+        key = self.inst_name(decl.name, args)
+        fs = self.func_insts.get(key)
+        if fs is not None:
+            return fs
+        d2 = copy.deepcopy(decl)
+        d2.name = key
+        d2.type_params = []
+        saved = self.type_params
+        self.type_params = dict(zip(decl.type_params, args))
+        fs = self.declare_function(d2)
+        self.type_params = saved
+        self.func_insts[key] = fs
+        self.pending.append((d2, fs, dict(zip(decl.type_params, args))))
+        return fs
+
+    def infer_and_instantiate(self, decl, args, pos):
+        """인자 식들(검사 끝남)로 타입 매개변수를 추론해 인스턴스를 만든다."""
+        bindings = {}
+        params = set(decl.type_params)
+        for p, a in zip(decl.params, args):
+            self.unify(p.type, a.type, params, bindings)
+        return self.instantiate_func(decl, bindings, pos)
+
+    def explicit_instantiate(self, node):
+        decl = self.generic_funcs.get(node.name)
+        if decl is None:
+            self.error(node.pos, f"제네릭 함수가 아닙니다: '{node.name}'")
+        args = [self.resolve_type(a) for a in node.args]
+        if len(args) != len(decl.type_params):
+            self.error(node.pos, f"'{node.name}'의 타입 인자는 {len(decl.type_params)}개여야 합니다 ({len(args)}개 있음)")
+        return self.instantiate_func(decl, dict(zip(decl.type_params, args)), node.pos)
 
     def declare_global(self, d):
         t = self.resolve_type(d.type)
@@ -184,6 +331,8 @@ class Sema:
     def check_name(self, name, pos):
         if name in ("증가", "감소", "증가하다", "감소하다"):
             self.error(pos, f"'{name}'은(는) 예약된 동사 이름입니다")
+        if name in self.generic_funcs or name in self.generic_structs:
+            self.error(pos, f"'{name}'은(는) 이미 선언되었습니다")
 
     def declare_function(self, d):
         params = []
@@ -636,6 +785,10 @@ class Sema:
             if isinstance(e.callee, A.Name) and e.callee.name == "가변인자" and self.scope.lookup("가변인자") is None:
                 return self.check_vararg(e)
             return self.check_call(e)
+        if isinstance(e, A.TypeApply):
+            fs = self.explicit_instantiate(e)
+            e.sym = fs
+            return fs.type
         if isinstance(e, A.Try):
             t = self.check_expr(e.expr, None)
             if not t.is_result():
@@ -780,8 +933,22 @@ class Sema:
 
     # ---------- 호출 ----------
     def callee_of(self, e):
+        if isinstance(e.callee, A.TypeApply):
+            fs = self.explicit_instantiate(e.callee)
+            e.callee.sym = fs
+            e.callee.type = fs.type
+            return fs, fs.type
         if isinstance(e.callee, A.Name):
             sym = self.scope.lookup(e.callee.name)
+            if sym is None and e.callee.name in self.generic_funcs:
+                decl = self.generic_funcs[e.callee.name]
+                for a in e.args:
+                    self.check_expr(a, None)
+                fs = self.infer_and_instantiate(decl, e.args, e.pos)
+                e.callee.sym = fs
+                e.callee.type = fs.type
+                e.prechecked = True
+                return fs, fs.type
             if sym is None:
                 self.error(e.callee.pos, f"선언되지 않은 함수입니다: '{e.callee.name}'")
             e.callee.sym = sym
@@ -831,10 +998,10 @@ class Sema:
         fsym, ftype = self.callee_of(e)
         e.callee_sym = fsym
         args = list(e.args)
-        e.resolved_args = self.bind_args(e, ftype, args, fsym)
+        e.resolved_args = self.bind_args(e, ftype, args, fsym, prechecked=getattr(e, "prechecked", False))
         return ftype.ret if ftype.ret is not None else T.VOID
 
-    def bind_args(self, e, ftype, args, fsym):
+    def bind_args(self, e, ftype, args, fsym, prechecked=False):
         n = len(ftype.params)
         if len(args) < n or (len(args) > n and not ftype.variadic):
             name = fsym.name if fsym else "함수"
@@ -855,10 +1022,12 @@ class Sema:
                         self.check_expr(nm, None)
                         out.append(self.promote_vararg(nm))
                     return out
-                at = self.check_expr(a, pt)
+                if not prechecked:
+                    self.check_expr(a, pt)
                 out.append(self.coerce(a, pt, a.pos, f"인자 {i + 1}"))
             else:
-                self.check_expr(a, None)
+                if not prechecked:
+                    self.check_expr(a, None)
                 out.append(self.promote_vararg(a))
         return out
 
@@ -876,9 +1045,11 @@ class Sema:
 
     def check_sov_call(self, e):
         fsym = self.resolve_verb(e.verb, e.pos)
-        e.callee_sym = fsym
-        ftype = fsym.type
+        generic = isinstance(fsym, A.FuncDecl)
         params = fsym.params
+        if not generic:
+            e.callee_sym = fsym
+            ftype = fsym.type
         # 역할 정규화 (명세 3.5)
         by_role = {}
         for a, role in e.args:
@@ -897,10 +1068,17 @@ class Sema:
         if missing:
             p = missing[0]
             self.error(e.pos, f"'{fsym.name}' 호출에 '{p.name}'({ROLE_PARTICLE.get(p.role)}) 인자가 없습니다")
-        if leftover and not ftype.variadic:
+        if leftover and not (generic or ftype.variadic):
             r, a = leftover[0]
             self.error(a.pos, f"'{fsym.name}' 호출에 남는 인자가 있습니다 ({ROLE_PARTICLE.get(r)})")
         args = ordered + [a for r, a in leftover]
+        if generic:
+            for a in args:
+                self.check_expr(a, None)
+            fs = self.infer_and_instantiate(fsym, args, e.pos)
+            e.callee_sym = fs
+            e.resolved_args = self.bind_args(e, fs.type, args, fs, prechecked=True)
+            return fs.type.ret if fs.type.ret is not None else T.VOID
         e.resolved_args = self.bind_args(e, ftype, args, fsym)
         return ftype.ret if ftype.ret is not None else T.VOID
 
@@ -915,6 +1093,8 @@ class Sema:
             s = self.scope.lookup(c)
             if isinstance(s, FuncSym):
                 return s
+            if s is None and c in self.generic_funcs:
+                return self.generic_funcs[c]          # 틀: 호출 자리에서 추론해 인스턴스를 만든다
         self.error(pos, f"동사 '{root}다'에 해당하는 함수가 없습니다 (찾은 이름: {', '.join(cands)})")
 
     # ---------- 보간 ----------
