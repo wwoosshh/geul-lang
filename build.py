@@ -4,6 +4,7 @@
   python build.py test [필터] [--self]  spec-tests 실행 (컴파일 실패 = 실패, 건너뜀 없음; --self: 글로 쓴 컴파일러 build/self_컴파일러.exe 로)
   python build.py check <파일.gl>  문법·의미 검사
   python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 컴파일러 — 마지막은 exe 바이트 비교 + 고정점)
+  python build.py docs [필터]      문서의 ```글 예제를 컴파일·실행해 ```출력 과 맞춘다
   python build.py release          배포물 만들기: dist/geul-<버전>-windows-x64/ (자기 컴파일한 geulc.exe + 표준/ + 문서) 와 zip
 """
 import os
@@ -421,8 +422,80 @@ def selfhost_calls_stage(exe):
     return bad + bad2
 
 
+def doc_examples(path):
+    """문서에서 (프로그램, 기대출력, 줄번호) 를 뽑는다. ```글 뒤에 ```출력 이 오면 한 쌍이다."""
+    lines = open(path, encoding="utf-8").read().split("\n")
+    out = []
+    i = 0
+    while i < len(lines):
+        if lines[i].strip() == "```글":
+            start = i + 1
+            j = start
+            while j < len(lines) and lines[j].strip() != "```":
+                j += 1
+            prog = "\n".join(lines[start:j])
+            k = j + 1
+            while k < len(lines) and not lines[k].strip():
+                k += 1
+            want = None
+            if k < len(lines) and lines[k].strip() == "```출력":
+                m = k + 1
+                while m < len(lines) and lines[m].strip() != "```":
+                    m += 1
+                want = "\n".join(lines[k + 1:m])
+                j = m
+            out.append((prog, want, start))
+            i = j + 1
+            continue
+        i += 1
+    return out
+
+
+def cmd_docs(args):
+    """문서의 예제를 전부 컴파일·실행해 기대 출력과 맞춘다 (D-33)."""
+    docs = sorted(glob.glob(os.path.join(ROOT, "docs", "*.md")))
+    if args:
+        docs = [d for d in docs if any(a in os.path.basename(d) for a in args)]
+    total = failed = 0
+    for doc in docs:
+        pairs = doc_examples(doc)
+        if not pairs:
+            continue
+        name = os.path.basename(doc)
+        for prog, want, line in pairs:
+            total += 1
+            tmp = tempfile.mkdtemp(prefix="glddoc-")
+            try:
+                src = os.path.join(tmp, "예제.gl")
+                open(src, "w", encoding="utf-8", newline="\n").write(prog + "\n")
+                exe = os.path.join(tmp, "예제.exe")
+                r = subprocess.run([sys.executable, GEULC, src, "-o", exe], capture_output=True)
+                if r.returncode != 0:
+                    failed += 1
+                    msg = (r.stdout + r.stderr).decode("utf-8", "replace").strip().splitlines()[:1]
+                    print(f"  FAIL  {name}:{line} 컴파일 실패: {msg[0] if msg else ''}")
+                    continue
+                if want is None:
+                    print(f"  PASS  {name}:{line} (컴파일만)")
+                    continue
+                env = dict(os.environ, GEUL_ROOT=ROOT)
+                rr = subprocess.run([exe], capture_output=True, timeout=20, stdin=subprocess.DEVNULL, cwd=tmp, env=env)
+                got = rr.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
+                if got != want.rstrip("\n"):
+                    failed += 1
+                    print(f"  FAIL  {name}:{line} 출력 불일치")
+                    print(f"        기대 {want.rstrip(chr(10))!r}")
+                    print(f"        실제 {got!r}")
+                else:
+                    print(f"  PASS  {name}:{line}")
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+    print(f"\n문서 예제: {total - failed}/{total} 통과")
+    return 0 if failed == 0 else 1
+
+
 def main(argv):
-    if not argv or argv[0] not in ("test", "check", "selfhost", "release"):
+    if not argv or argv[0] not in ("test", "check", "selfhost", "release", "docs"):
         print(__doc__)
         return 3
     if argv[0] == "test":
@@ -431,6 +504,8 @@ def main(argv):
         return cmd_selfhost(argv[1:])
     if argv[0] == "release":
         return cmd_release(argv[1:])
+    if argv[0] == "docs":
+        return cmd_docs(argv[1:])
     return cmd_check(argv[1:])
 
 
