@@ -4,7 +4,7 @@
 from . import ast as A
 from . import types as T
 from .diagnostics import CompileError, InternalError
-from .lexer import PARTICLE_SET, object_particle
+from .lexer import PARTICLE_SET, object_particle, split_particle
 from .parser import verb_base, BASE_TYPES
 import copy
 
@@ -346,6 +346,10 @@ class Sema:
                 if name.startswith(p.name) and part in PARTICLE_SET:
                     return (msg + f" — 매개변수를 이름 '{p.name}', 조사 '{part}'로 읽었습니다. "
                                   f"이름 전체가 '{name}'라면 '{name}{object_particle(name)}'처럼 역할 조사를 덧붙이세요")
+        root, particle = split_particle(name)
+        if particle is not None and particle != "의" and self.scope.lookup(root) is not None:
+            return (msg + f" — 역할 조사라면 '{root} {particle}'처럼 띄어 쓰세요. "
+                          f"붙여 쓴 낱말은 이름으로 읽습니다")
         if name in BASE_TYPES or isinstance(self.globals.lookup(name), TypeSym):
             return (msg + f" — '{name}'은(는) 타입 이름입니다. 변환식이라면 "
                           f"'(x로 {name}){object_particle(name)}'처럼 괄호로 감싸세요")
@@ -1020,12 +1024,42 @@ class Sema:
         return T.INT
 
     def check_call(self, e):
+        if e.args and isinstance(e.args[0], tuple):
+            return self.check_call_roles(e)
         fsym, ftype = self.callee_of(e)
         e.callee_sym = fsym
         written = e.callee.name if isinstance(e.callee, (A.Name, A.TypeApply)) else "(식)"
         self.index.append(f"호출 {self.loc(e.pos)} 이름 {written} -> {fsym.name if fsym else '(간접)'}")
         args = list(e.args)
         e.resolved_args = self.bind_args(e, ftype, args, fsym, prechecked=getattr(e, "prechecked", False))
+        return ftype.ret if ftype.ret is not None else T.VOID
+
+    def check_call_roles(self, e):
+        """역할 조사가 붙은 괄호 호출 (D-27). 동사형과 같은 규칙으로 대응한다."""
+        written = e.callee.name if isinstance(e.callee, (A.Name, A.TypeApply)) else "(식)"
+        generic = False
+        fsym = None
+        if isinstance(e.callee, A.Name) and self.scope.lookup(e.callee.name) is None and e.callee.name in self.generic_funcs:
+            fsym = self.generic_funcs[e.callee.name]
+            generic = True
+            params = fsym.params
+            ftype = None
+        else:
+            fsym, ftype = self.callee_of(e)
+            if fsym is None:
+                self.error(e.pos, "역할 조사를 쓴 호출은 이름으로 부르는 함수여야 합니다")
+            params = fsym.params
+            e.callee_sym = fsym
+        args = self.normalize_roles(e, fsym, params, e.args, generic or ftype.variadic)
+        self.index.append(f"호출 {self.loc(e.pos)} 이름 {written} -> {fsym.name}")
+        if generic:
+            for a in args:
+                self.check_expr(a, None)
+            fs = self.infer_and_instantiate(fsym, args, e.pos)
+            e.callee_sym = fs
+            e.resolved_args = self.bind_args(e, fs.type, args, fs, prechecked=True)
+            return fs.type.ret if fs.type.ret is not None else T.VOID
+        e.resolved_args = self.bind_args(e, ftype, args, fsym)
         return ftype.ret if ftype.ret is not None else T.VOID
 
     def bind_args(self, e, ftype, args, fsym, prechecked=False):
@@ -1070,16 +1104,10 @@ class Sema:
             return a
         self.error(a.pos, f"'{t}' 타입은 가변 인자로 넘길 수 없습니다")
 
-    def check_sov_call(self, e):
-        fsym = self.resolve_verb(e.verb, e.pos)
-        generic = isinstance(fsym, A.FuncDecl)
-        params = fsym.params
-        if not generic:
-            e.callee_sym = fsym
-            ftype = fsym.type
-        # 역할 정규화 (명세 3.5)
+    def normalize_roles(self, e, fsym, params, pairs, variadic):
+        """역할 정규화 (명세 3.5). 동사형과 괄호형이 함께 쓴다 (D-27)."""
         by_role = {}
-        for a, role in e.args:
+        for a, role in pairs:
             by_role.setdefault(role, []).append(a)
         ordered = [None] * len(params)
         for i, p in enumerate(params):
@@ -1087,18 +1115,27 @@ class Sema:
                 ordered[i] = by_role[p.role].pop(0)
         unmarked = by_role.get(None, [])
         for i, p in enumerate(params):
-            if ordered[i] is None and (p.role is None or True) and unmarked:
+            if ordered[i] is None and unmarked:
                 ordered[i] = unmarked.pop(0)
         missing = [params[i] for i in range(len(params)) if ordered[i] is None]
-        leftover = [(r, a) for r, lst in by_role.items() for a in lst if r is not None or True]
         leftover = [(r, a) for r, lst in by_role.items() for a in lst]
         if missing:
             p = missing[0]
             self.error(e.pos, f"'{fsym.name}' 호출에 '{p.name}'({ROLE_PARTICLE.get(p.role)}) 인자가 없습니다")
-        if leftover and not (generic or ftype.variadic):
+        if leftover and not variadic:
             r, a = leftover[0]
             self.error(a.pos, f"'{fsym.name}' 호출에 남는 인자가 있습니다 ({ROLE_PARTICLE.get(r)})")
-        args = ordered + [a for r, a in leftover]
+        return ordered + [a for r, a in leftover]
+
+    def check_sov_call(self, e):
+        fsym = self.resolve_verb(e.verb, e.pos)
+        generic = isinstance(fsym, A.FuncDecl)
+        params = fsym.params
+        ftype = None
+        if not generic:
+            e.callee_sym = fsym
+            ftype = fsym.type
+        args = self.normalize_roles(e, fsym, params, e.args, generic or ftype.variadic)
         self.index.append(f"호출 {self.loc(e.pos)} 동사 {e.verb} -> {fsym.name}")
         if generic:
             for a in args:

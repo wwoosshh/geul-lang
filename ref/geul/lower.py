@@ -444,7 +444,8 @@ class Lowerer:
                 d = f.new_temp(T.INT)
                 f.emit("vararg", dst=d, idx=idx)
                 return d
-            return self.lower_call(e, e.resolved_args, discard)
+            surface = [a for a, _ in e.args] if (e.args and isinstance(e.args[0], tuple)) else None
+            return self.lower_call(e, e.resolved_args, discard, surface=surface)
         if isinstance(e, A.SOVCall):
             return self.lower_call(e, e.resolved_args, discard, surface=[a for a, _ in e.args])
         if isinstance(e, A.Unary):

@@ -1032,18 +1032,55 @@ class Parser:
                 e = A.TypeApply(t.pos, e.name, targs)              # 이름(타입, ...) (D-19)
             elif t.kind == SYM and t.text == "(":
                 self.next()
-                args = []
+                pairs = []
                 while not self.is_sym(")"):
-                    args.append(self.parse_expr_until_arg_end())
+                    pairs.append(self.parse_call_arg())
                     if self.is_sym(","):
                         self.next()
                     elif not self.is_sym(")"):
                         self.error(self.tok().pos, "호출 인자: ',' 또는 ')' 필요")
                 self.expect_sym(")")
-                e = A.Call(t.pos, e, args)
+                # 하나라도 역할 조사가 붙으면 (식, 역할) 쌍으로 (D-27)
+                if any(r is not None for _, r in pairs):
+                    e = A.Call(t.pos, e, pairs)
+                else:
+                    e = A.Call(t.pos, e, [x for x, _ in pairs])
             else:
                 break
         return e
+
+    def parse_call_arg(self):
+        """괄호 호출의 인자 하나. 끝의 역할 조사는 따로 떨어진 낱말이어야 한다 (D-27).
+        붙여 쓴 낱말은 쪼개지 않는다 — `f(길이)` 의 뜻이 달라지면 안 되기 때문이다. (식, 역할)"""
+        j = self.arg_end()
+        role = None
+        if j > self.i:
+            last = self.toks[j - 1]
+            if last.kind == PARTICLE:
+                role = ROLE_OF.get(last.text)
+                if role in ("주제", "주어", "의", "비교"):
+                    self.error(last.pos, f"인자에 쓸 수 없는 조사 '{last.text}'")
+                expr = self.parse_expr_range(self.i, j - 1)
+                self.i = j                      # 조사 토큰을 건너뛴다
+                return expr, role
+        return self.parse_expr_range(self.i, j), None
+
+    def arg_end(self):
+        """호출 인자의 끝 (깊이 0 의 ',' 또는 ')')."""
+        depth = 0
+        j = self.i
+        while j < self.limit:
+            t = self.toks[j]
+            if t.kind == SYM and t.text in "([":
+                depth += 1
+            elif t.kind == SYM and t.text in ")]":
+                if depth == 0:
+                    break
+                depth -= 1
+            elif depth == 0 and t.kind == SYM and t.text == ",":
+                break
+            j += 1
+        return j
 
     def parse_expr_until_arg_end(self):
         """호출 인자: 깊이 0 의 ',' 또는 ')' 까지."""
