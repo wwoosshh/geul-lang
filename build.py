@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """글 2세대 단일 빌드 진입점 (D-08).
 
-  python build.py test [필터]      spec-tests 실행 (컴파일 실패 = 실패, 건너뜀 없음)
+  python build.py test [필터] [--self]  spec-tests 실행 (컴파일 실패 = 실패, 건너뜀 없음; --self: 글로 쓴 컴파일러 build/self_컴파일러.exe 로)
   python build.py check <파일.gl>  문법·의미 검사
-  python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (self/*.gl 을 ref 로 빌드해 덤프 비교; 단계: 토큰덤프 구문덤프 IR덤프)
+  python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 컴파일러 — 마지막은 exe 바이트 비교 + 고정점)
 """
 import os
 import sys
@@ -18,6 +18,8 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 ROOT = os.path.dirname(os.path.abspath(__file__))
 GEULC = os.path.join(ROOT, "ref", "geulc.py")
 TESTS = os.path.join(ROOT, "spec-tests")
+COMPILER = [sys.executable, GEULC]        # --self 면 글로 쓴 컴파일러
+COMPILER_ENV = dict(os.environ, GEUL_ROOT=ROOT)
 
 
 def read(path, default=""):
@@ -33,7 +35,7 @@ def run_test(test_dir, verbose):
         exe = os.path.join(tmp, "main.exe")
         t0 = time.time()
         try:
-            r = subprocess.run([sys.executable, GEULC, main, "-o", exe], capture_output=True, timeout=60, stdin=subprocess.DEVNULL)
+            r = subprocess.run(COMPILER + [main, "-o", exe], capture_output=True, timeout=60, stdin=subprocess.DEVNULL, env=COMPILER_ENV)
             cout = (r.stdout + r.stderr).decode("utf-8", "replace")
             crc = r.returncode
         except subprocess.TimeoutExpired:
@@ -77,7 +79,15 @@ def run_test(test_dir, verbose):
 
 
 def cmd_test(args):
+    global COMPILER
     verbose = "-v" in args
+    if "--self" in args:
+        self_exe = os.path.join(ROOT, "build", "self_컴파일러.exe")
+        if not os.path.exists(self_exe):
+            print("build/self_컴파일러.exe 가 없습니다 — 먼저 python build.py selfhost 컴파일러")
+            return 3
+        COMPILER = [self_exe]
+        print(f"컴파일러: {os.path.relpath(self_exe, ROOT)} (글로 쓴 컴파일러)")
     filters = [a for a in args if not a.startswith("-")]
     dirs = sorted(d for d in glob.glob(os.path.join(TESTS, "*", "*")) if os.path.isfile(os.path.join(d, "main.gl")))
     if filters:
@@ -116,11 +126,65 @@ def selfhost_inputs(negative=False):
     return files
 
 
+def selfhost_exe_stage(exe, build_dir):
+    """4단계: 긍정 테스트마다 참조 컴파일러와 글로 쓴 컴파일러로 exe 를 만들어 바이트를 비교한다."""
+    failed = 0
+    n = 0
+    inputs = sorted(d for d in glob.glob(os.path.join(TESTS, "*", "*", "main.gl"))
+                    if not os.path.exists(os.path.join(os.path.dirname(d), "expect.errors")))
+    inputs += sorted(glob.glob(os.path.join(ROOT, "self", "*덤프.gl"))) + [os.path.join(ROOT, "self", "컴파일러.gl")]
+    ref_exe = os.path.join(build_dir, "cmp_ref.exe")
+    self_exe = os.path.join(build_dir, "cmp_self.exe")
+    env = dict(os.environ, GEUL_ROOT=ROOT)
+    for f in inputs:
+        for x in (ref_exe, self_exe):
+            if os.path.exists(x):
+                os.remove(x)
+        want = subprocess.run([sys.executable, GEULC, f, "-o", ref_exe], capture_output=True)
+        got = subprocess.run([exe, f, "-o", self_exe], capture_output=True, stdin=subprocess.DEVNULL, timeout=120, env=env)
+        n += 1
+        rel = os.path.relpath(f, ROOT)
+        if want.returncode != got.returncode or not os.path.exists(self_exe):
+            failed += 1
+            print(f"  DIFF  {rel} (ref rc={want.returncode}, self rc={got.returncode})")
+            print("        self stderr:", got.stderr.decode("utf-8", "replace").strip()[:300])
+            continue
+        a = open(ref_exe, "rb").read()
+        b = open(self_exe, "rb").read()
+        if a != b:
+            failed += 1
+            k = next((i for i in range(min(len(a), len(b))) if a[i] != b[i]), min(len(a), len(b)))
+            print(f"  DIFF  {rel}: 바이트 불일치, 첫 차이 오프셋 0x{k:X} (ref {len(a)}B, self {len(b)}B) ref={a[k:k+8].hex()} self={b[k:k+8].hex()}")
+    print(f"[컴파일러] exe 바이트 비교 {n}개, 불일치 {failed}개")
+    # 고정점: self1(ref 가 만든 글 컴파일러) → self2 → self3 이 모두 같은 바이트여야 한다
+    import hashlib
+    src = os.path.join(ROOT, "self", "컴파일러.gl")
+    gens = [exe]
+    for k in (2, 3):
+        out = os.path.join(build_dir, f"self{k}_컴파일러.exe")
+        if os.path.exists(out):
+            os.remove(out)
+        r = subprocess.run([gens[-1], src, "-o", out], capture_output=True, stdin=subprocess.DEVNULL, timeout=300, env=env)
+        if r.returncode != 0 or not os.path.exists(out):
+            print(f"  고정점 {k}세대 빌드 실패: {r.stderr.decode(chr(117)+chr(116)+chr(102)+chr(45)+chr(56), chr(114)+chr(101)+chr(112)+chr(108)+chr(97)+chr(99)+chr(101))[:300]}")
+            return failed + 1
+        gens.append(out)
+    hashes = [hashlib.sha256(open(g, "rb").read()).hexdigest() for g in gens]
+    for k, (g, h) in enumerate(zip(gens, hashes), 1):
+        print(f"  {k}세대 {os.path.relpath(g, ROOT)} sha256={h[:16]}… ({os.path.getsize(g)}B)")
+    if len(set(hashes)) == 1:
+        print("[컴파일러] 고정점 도달: 1·2·3세대 바이트 동일")
+    else:
+        print("[컴파일러] 고정점 실패: 세대 간 바이트가 다릅니다")
+        failed += 1
+    return failed
+
+
 def cmd_selfhost(args):
     """자체호스팅 단계별 교차 검증. 지금은 1단계(렉서): self/렉서.gl 을 ref 로 빌드해 토큰 덤프를 비교한다."""
     build_dir = os.path.join(ROOT, "build")
     os.makedirs(build_dir, exist_ok=True)
-    stages = [("토큰덤프", "--dump-tokens"), ("구문덤프", "--dump-ast"), ("IR덤프", "--dump-ir")]
+    stages = [("토큰덤프", "--dump-tokens"), ("구문덤프", "--dump-ast"), ("IR덤프", "--dump-ir"), ("컴파일러", None)]
     if args:
         stages = [st for st in stages if st[0] in args]
     failed = 0
@@ -132,6 +196,9 @@ def cmd_selfhost(args):
             print(f"[{name}] 빌드 실패:\n{(r.stdout + r.stderr).decode('utf-8', 'replace')}")
             return 1
         print(f"[{name}] 빌드 OK → {os.path.relpath(exe, ROOT)}")
+        if opt is None:
+            failed += selfhost_exe_stage(exe, build_dir)
+            continue
         n = 0
         for f in selfhost_inputs():
             want = subprocess.run([sys.executable, GEULC, opt, f], capture_output=True)

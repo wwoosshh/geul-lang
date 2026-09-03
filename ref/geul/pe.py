@@ -1,6 +1,5 @@
 """PE32+ 기록기. 섹션: .text .rdata(문자열+임포트) .data. 재배치 없음(고정 베이스), RIP 상대 주소만 사용."""
 import struct
-import time
 
 IMAGE_BASE = 0x140000000
 SECTION_ALIGN = 0x1000
@@ -116,7 +115,7 @@ def write_pe(img, path):
     dos = bytearray(0x40)
     dos[0:2] = b"MZ"
     dos[0x3C:0x40] = struct.pack("<I", 0x40)
-    coff = struct.pack("<HHIIIHH", 0x8664, len(sections), int(time.time()) & 0xFFFFFFFF, 0, 0, 240, 0x0022 | 0x0001)
+    coff = struct.pack("<HHIIIHH", 0x8664, len(sections), 0, 0, 0, 240, 0x0022 | 0x0001)   # 타임스탬프 0: 같은 소스 → 같은 바이트 (재현 가능한 빌드)
     entry_rva = text_rva + img.entry
     opt = struct.pack(
         "<HBBIIIIIQIIHHHHHHIIIIHHQQQQII",
