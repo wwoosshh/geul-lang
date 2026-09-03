@@ -171,7 +171,7 @@ def cmd_release(args):
     tmp = tempfile.mkdtemp(prefix="geul-release-")
     try:
         hello = os.path.join(tmp, "안녕.gl")
-        open(hello, "w", encoding="utf-8", newline=chr(10)).write('[시작하기]는 -> 정수 {' + chr(10) + '    "안녕, 글 %s\n"을 "배포판"을 쓰다.' + chr(10) + '    반환 0.' + chr(10) + '}' + chr(10))
+        open(hello, "w", encoding="utf-8", newline=chr(10)).write('[시작하기]는 -> 정수 {' + chr(10) + '    "안녕, 글 %s\\n"을 "배포판"을 쓰다.' + chr(10) + '    반환 0.' + chr(10) + '}' + chr(10))
         clean_env = {k: v for k, v in os.environ.items() if k != "GEUL_ROOT"}
         r = subprocess.run([os.path.join(dist, "geulc.exe"), hello], capture_output=True, cwd=tmp, env=clean_env, timeout=120)
         exe = os.path.join(tmp, "안녕.exe")
