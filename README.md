@@ -19,7 +19,7 @@
 
 **3단계(자체호스팅) 진행 중.** 설계 결정 D-01~D-11 확정(2026-09-03), 문법 명세 판 1, 수용 테스트 114개.
 `ref/`의 Python 참조 컴파일러가 114개 전부를 통과합니다 (`python build.py test`).
-표준 라이브러리 9개 모듈(기본·문자열·입출력·수학·목록·배열·사전·바이트열·시간·체계)이 있고, 글로 쓴 렉서 `self/렉서.gl`이 참조 구현과 토큰 덤프가 일치합니다 (`python build.py selfhost`). 다음은 `self/파서.gl`입니다.
+표준 라이브러리 9개 모듈(기본·문자열·입출력·수학·목록·배열·사전·바이트열·시간·체계)이 있고, 글로 쓴 렉서·파서(`self/`)가 참조 구현과 토큰·AST 덤프가 일치합니다 (`python build.py selfhost`). 다음은 `self/의미.gl`(의미 분석)입니다.
 
 ```
 python build.py test            # 수용 테스트 전체
@@ -41,7 +41,7 @@ python ref/geulc.py --check 파일.gl
 | `spec-tests/` | 명세 수용 테스트 114개 (형식은 `spec-tests/README.md`) |
 | `표준/` | 표준 라이브러리 (`기본.gl` 자동 포함) |
 | `build.py` | 단일 빌드 진입점: `test`, `check` |
-| `self/` | 글로 쓴 자체호스팅 컴파일러 (1단계 렉서) |
+| `self/` | 글로 쓴 자체호스팅 컴파일러 (렉서·파서 완료, 각각 덤프 드라이버 포함) |
 | `tools/` | `v1에서_변환.py`: 1세대 소스의 기계 변환기 (1차 변환용) |
 | `ref/` | Python 참조 컴파일러 (`geulc.py`, `geul/` 패키지: lexer·parser·sema·ir·lower·x64·codegen·pe·runtime) |
 

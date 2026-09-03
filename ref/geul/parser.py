@@ -854,7 +854,7 @@ class Parser:
                 if t.text == "-" and isinstance(operand, A.IntLit):
                     return A.IntLit(t.pos, -operand.value)      # 음수 리터럴은 리터럴이다 (범위 검사를 위해)
                 if t.text == "-" and isinstance(operand, A.FloatLit):
-                    return A.FloatLit(t.pos, -operand.value)
+                    return A.FloatLit(t.pos, -operand.value, "-" + operand.raw)
                 return A.Unary(t.pos, t.text, operand)
             if t.kind == KEYWORD and t.text == "아닌":
                 self.next()
@@ -872,7 +872,7 @@ class Parser:
     def parse_cast(self):
         e = self.parse_postfix()
         # 식으로 타입 / 식로 타입
-        if not self.at_limit() and self.tok().kind == PARTICLE and self.tok().text in ("로", "으로") and self.is_type_start(1):
+        if not self.at_limit() and self.tok().kind == PARTICLE and self.tok().text in ("로", "으로") and self.is_type_start(1) and not self.is_sym("[", 1):
             self.next()
             ty = self.parse_type()
             return A.Cast(e.pos, e, ty)
@@ -956,7 +956,7 @@ class Parser:
         if t.kind == INT:
             self.next(); return A.IntLit(t.pos, t.value)
         if t.kind == FLOAT:
-            self.next(); return A.FloatLit(t.pos, t.value)
+            self.next(); return A.FloatLit(t.pos, t.value, t.text)
         if t.kind == CHAR:
             self.next(); return A.CharLit(t.pos, t.value)
         if t.kind == STRING:
@@ -977,7 +977,7 @@ class Parser:
             if t.kind == WORD and text.endswith("의") and len(text) > 1:
                 # 식 위치의 '의' 분리: 이름 + 멤버 접근 (연쇄 가능)
                 return self.member_chain(A.Name(t.pos, text[:-1]))
-            if t.kind == WORD and self.is_type_start(0):
+            if t.kind == WORD and self.is_type_start(0) and not self.is_sym("["):
                 for suffix in ("으로", "로"):
                     if text.endswith(suffix) and len(text) > len(suffix):
                         # 식로 타입 (붙여 쓴 형변환)

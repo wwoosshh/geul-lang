@@ -116,7 +116,7 @@ def cmd_selfhost(args):
     """자체호스팅 단계별 교차 검증. 지금은 1단계(렉서): self/렉서.gl 을 ref 로 빌드해 토큰 덤프를 비교한다."""
     build_dir = os.path.join(ROOT, "build")
     os.makedirs(build_dir, exist_ok=True)
-    stages = [("렉서", "--dump-tokens")]
+    stages = [("토큰덤프", "--dump-tokens"), ("구문덤프", "--dump-ast")]
     failed = 0
     for name, opt in stages:
         src = os.path.join(ROOT, "self", f"{name}.gl")
@@ -129,7 +129,8 @@ def cmd_selfhost(args):
         n = 0
         for f in selfhost_inputs():
             want = subprocess.run([sys.executable, GEULC, opt, f], capture_output=True)
-            got = subprocess.run([exe, f], capture_output=True, stdin=subprocess.DEVNULL, timeout=30)
+            env = dict(os.environ, GEUL_ROOT=ROOT)
+            got = subprocess.run([exe, f], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
             w = want.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
             g = got.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
             n += 1

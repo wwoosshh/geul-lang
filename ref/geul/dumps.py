@@ -21,7 +21,9 @@ FIELD_NAMES = {
     "subject": "대상", "cases": "경우", "default": "기본", "base": "바탕", "index": "색인", "arrow": "화살표",
     "callee": "피호출", "args": "인자", "verb": "동사", "operand": "피연산자", "left": "좌", "right": "우", "a": "참값",
     "b": "거짓값", "unsigned": "부호없는", "elem": "원소", "size": "크기", "role": "역할", "raw": "원문",
+    "target": "대상",
 }
+PTR_TARGET_LABEL = "대상타입"
 
 
 def dump_tokens(tokens):
@@ -54,8 +56,17 @@ def _dump(node, depth, out, label):
     if isinstance(node, A.StringLit):
         out.append(f"{pad}{head}문자열 {node.raw}")
         return
+    if isinstance(node, A.FloatLit):
+        out.append(f"{pad}{head}실수 {node.raw}")
+        return
     if isinstance(node, tuple) and len(node) == 2 and isinstance(node[0], Pos):
         out.append(f'{pad}{head}포함 "{node[1]}"')
+        return
+    if isinstance(node, tuple) and len(node) == 2 and (node[1] is None or isinstance(node[1], str)) and dataclasses.is_dataclass(node[0]):
+        # SOV 인자 (식, 역할) 또는 묶음 필드 (타입, 이름)
+        out.append(f"{pad}{head}[2]")
+        _dump(node[0], depth + 1, out, None)
+        out.append(f"{pad}  {node[1] if node[1] is not None else '무표'}")
         return
     if isinstance(node, (list, tuple)):
         out.append(f"{pad}{head}[{len(node)}]")
@@ -73,10 +84,15 @@ def _dump(node, depth, out, label):
             continue
         v = getattr(node, f.name)
         fname = FIELD_NAMES.get(f.name, f.name)
+        if isinstance(node, A.PtrType) and f.name == "target":
+            fname = PTR_TARGET_LABEL
         if v is None:
             continue
         if isinstance(v, (bool, int, float, str)):
             if f.name == "raw":
+                continue
+            if isinstance(node, A.IntLit) and isinstance(v, int) and not isinstance(v, bool) and v >= (1 << 63):
+                scalars.append(f"{fname}={v} 부호없는")      # 2^63 이상은 64비트 unsigned 표기
                 continue
             scalars.append(f"{fname}={_scalar(v)}")
         else:

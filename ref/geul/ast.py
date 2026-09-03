@@ -173,6 +173,7 @@ class IntLit(Node):
 @dataclass
 class FloatLit(Node):
     value: float
+    raw: str = ""       # 원문 (덤프용; 음수 접기는 '-' 를 앞에 붙인다)
 
 
 @dataclass
