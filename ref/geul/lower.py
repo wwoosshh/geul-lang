@@ -19,7 +19,7 @@ class Lowerer:
     # ---------- 진입 ----------
     def lower(self):
         for fs in self.unit.externs:
-            self.mod.externs[fs.link_name] = (dll_for(fs.link_name), fs.type)
+            self.mod.externs[fs.link_name] = (fs.decl.dll or dll_for(fs.link_name), fs.type)
         for g in self.unit.globals:
             self.mod.globals.append(g)
             if isinstance(g.init, tuple) and g.init[0] == "str":

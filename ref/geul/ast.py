@@ -129,6 +129,7 @@ class FuncDecl(Node):
     ret: Optional[Node]
     body: Optional["Block"]          # None 이면 외부 선언
     link_name: Optional[str] = None  # 외부 선언의 링크 이름
+    dll: Optional[str] = None        # 외부 선언의 DLL 이름 (D-38). 없으면 컴파일러가 정한다
     variadic: bool = False
     type_params: List[str] = field(default_factory=list)   # 제네릭 (D-19)
     type_params: List[str] = field(default_factory=list)   # 제네릭 (D-19)

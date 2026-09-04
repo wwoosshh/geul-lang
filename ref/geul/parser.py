@@ -336,14 +336,19 @@ class Parser:
     def parse_extern(self):
         kw = self.next()
         link = None
+        dll = None
         if self.tok().kind == STRING:
             link = self.next().value
+            if self.tok().kind == STRING:
+                dll, link = link, self.next().value    # 둘이면 앞이 DLL 이름 (D-38)
+                if not dll:
+                    self.error(kw.pos, "DLL 이름이 비어 있습니다")
         pos, name, params, ret, variadic, type_params = self.parse_function_header()
         self.type_names -= self._header_added
         if type_params:
             self.error(kw.pos, "외부 함수는 제네릭일 수 없습니다")
         self.expect_end()
-        return A.FuncDecl(kw.pos, name, params, ret, None, link_name=link or name, variadic=variadic)
+        return A.FuncDecl(kw.pos, name, params, ret, None, link_name=link or name, dll=dll, variadic=variadic)
 
     def struct_header_name(self):
         t = self.tok()

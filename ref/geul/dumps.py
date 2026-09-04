@@ -16,7 +16,7 @@ NODE_NAMES = {
 }
 FIELD_NAMES = {
     "includes": "포함", "decls": "선언", "type": "타입", "name": "이름", "init": "초기값", "static": "정적", "const": "상수",
-    "params": "매개변수", "ret": "반환타입", "body": "본문", "link_name": "링크이름", "variadic": "가변", "fields": "필드",
+    "params": "매개변수", "ret": "반환타입", "body": "본문", "link_name": "링크이름", "dll": "DLL", "variadic": "가변", "fields": "필드",
     "is_union": "합침", "values": "값", "stmts": "문장", "expr": "식", "target": "대상", "op": "연산자", "value": "값",
     "delta": "증분", "cond": "조건", "then": "참블록", "elifs": "아니면조건", "else_": "아니면블록", "step": "증감",
     "subject": "대상", "cases": "경우", "default": "기본", "base": "바탕", "index": "색인", "arrow": "화살표",
