@@ -71,6 +71,7 @@ python ref/geulc.py 파일.gl     # 파일.exe 생성
 | `tools/` | `v1에서_변환.py`: 1세대 소스의 기계 변환기 (1차 변환용) |
 | `ref/` | Python 참조 컴파일러 (`geulc.py`, `geul/` 패키지: lexer·parser·sema·ir·lower·x64·codegen·pe·runtime) |
 | `docs/11-호환-약속.md` | 1.0 이 무엇을 얼리고 무엇을 바꿀 수 있는지 |
+| `프로그램/` | 글로 쓴 도구. `백업` — 원본과 대상을 바꿔 쓰면 컴파일이 거부된다 |
 | `editors/vscode/` | VS Code 문법 강조 (TextMate 문법). 넣는 법은 그 안의 README |
 
 ## 진행 순서
