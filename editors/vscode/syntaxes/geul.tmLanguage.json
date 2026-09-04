@@ -1,0 +1,171 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "글",
+  "scopeName": "source.geul",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#string" },
+    { "include": "#char" },
+    { "include": "#funcheader" },
+    { "include": "#number" },
+    { "include": "#keyword" },
+    { "include": "#type" },
+    { "include": "#call" },
+    { "include": "#verb" },
+    { "include": "#particle" },
+    { "include": "#operator" },
+    { "include": "#terminator" }
+  ],
+  "repository": {
+    "comment": {
+      "comments": "주석은 (* *) 이며 겹칠 수 있다",
+      "name": "comment.block.geul",
+      "begin": "\\(\\*",
+      "end": "\\*\\)",
+      "patterns": [{ "include": "#comment" }]
+    },
+    "string": {
+      "name": "string.quoted.double.geul",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "comments": "보간 — 중괄호 안은 식이다 (명세 3.9)",
+          "name": "meta.embedded.geul",
+          "begin": "(?<!\\\\)\\{",
+          "end": "\\}",
+          "beginCaptures": { "0": { "name": "punctuation.definition.template-expression.begin.geul" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.template-expression.end.geul" } },
+          "patterns": [
+            { "include": "#number" },
+            { "include": "#keyword" },
+            { "include": "#type" },
+            { "include": "#particle" },
+            { "include": "#operator" }
+          ]
+        },
+        { "name": "constant.character.escape.geul", "match": "\\\\[nrt0\\\\\"'{}]" },
+        { "name": "constant.other.placeholder.geul", "match": "%[-#0-9.]*(?:lld|llu|hd|hhd|ld|lu|d|u|s|f|g|e|c|X|x|%)" }
+      ]
+    },
+    "char": {
+      "name": "string.quoted.single.geul",
+      "begin": "'",
+      "end": "'",
+      "patterns": [{ "name": "constant.character.escape.geul", "match": "\\\\[nrt0\\\\\"']" }]
+    },
+    "funcheader": {
+      "comments": "[정수 값을 두배]는 -> 정수 — 대괄호 안의 마지막 낱말이 함수 이름이다",
+      "begin": "^\\s*\\[(?=[^\\]]*\\]\\s*(?:는|은))",
+      "end": "([가-힣A-Za-z_][가-힣A-Za-z0-9_]*)?(\\])(?=\\s*(?:는|은))",
+      "beginCaptures": { "0": { "name": "punctuation.definition.function.begin.geul" } },
+      "endCaptures": {
+        "1": { "name": "entity.name.function.geul" },
+        "2": { "name": "punctuation.definition.function.end.geul" }
+      },
+      "patterns": [
+        { "include": "#type" },
+        { "include": "#number" },
+        { "include": "#particle" },
+        { "include": "#operator" }
+      ]
+    },
+    "number": {
+      "patterns": [
+        { "comments": "한글이 낱말 글자라 \\b 를 쓸 수 없다 — '7이면' 의 7 을 놓친다", "name": "constant.numeric.hex.geul", "match": "(?<![0-9A-Za-z가-힣_.])0[xX][0-9A-Fa-f_]+" },
+        { "name": "constant.numeric.float.geul", "match": "(?<![0-9A-Za-z가-힣_.])[0-9][0-9_]*\\.[0-9][0-9_]*(?:[eE][-+]?[0-9]+)?" },
+        { "name": "constant.numeric.integer.geul", "match": "(?<![0-9A-Za-z가-힣_.])[0-9][0-9_]*(?:[eE][-+]?[0-9]+)?" }
+      ]
+    },
+    "keyword": {
+      "patterns": [
+        {
+          "comments": "홀로 서는 제어 낱말",
+          "name": "keyword.control.geul",
+          "match": "(?<![가-힣A-Za-z0-9_])(아니면|아닌|반복하기|반복|갈래|경우|기본|반환|계속|탈출|시도|혹은)(?![가-힣A-Za-z0-9_])"
+        },
+        {
+          "comments": "'이면'·'동안'은 앞말에 붙여 쓴다 — 'k == 없음이면', '(i < n)동안'",
+          "name": "keyword.control.geul",
+          "match": "(이면|동안)(?![가-힣A-Za-z0-9_])"
+        },
+        {
+          "name": "keyword.operator.logical.geul",
+          "match": "(?<![가-힣A-Za-z0-9_])(그리고|또는)(?![가-힣A-Za-z0-9_])"
+        },
+        {
+          "comments": "선언과 지시",
+          "name": "keyword.other.geul",
+          "match": "(?<![가-힣A-Za-z0-9_])(포함|외부|정적|상수|묶음|나열|합침|별칭|크기|시작하기)(?![가-힣A-Za-z0-9_])"
+        },
+        {
+          "name": "constant.language.geul",
+          "match": "(?<![가-힣A-Za-z0-9_])(참|거짓|없음)(?=이면|동안|[^가-힣A-Za-z0-9_]|$)"
+        }
+      ]
+    },
+    "type": {
+      "name": "storage.type.geul",
+      "match": "(?<![가-힣A-Za-z0-9_])(부호없는|긴정수|중간정수|짧은정수|작은정수|짧은실수|문자열|참거짓|정수|실수|문자|공허|참조|결과)(?![가-힣A-Za-z0-9_])"
+    },
+    "call": {
+      "comments": "괄호 호출. 이 언어는 괄호가 붙어 있어야 호출이므로(띄어 쓴 '('는 새 인자다) 규칙도 붙은 것만 잡는다",
+      "match": "([가-힣A-Za-z_][가-힣A-Za-z0-9_]*)(?=\\()",
+      "captures": { "1": { "name": "entity.name.function.call.geul" } }
+    },
+    "verb": {
+      "comments": "동사형 호출의 어미 — 문장을 끝내는 '…하다.' 와 잇는 '…하고'·'…해서'",
+      "patterns": [
+        {
+          "match": "([가-힣][가-힣A-Za-z0-9_]*)(다)(?=\\s*[.)])",
+          "captures": {
+            "1": { "name": "entity.name.function.call.geul" },
+            "2": { "name": "keyword.other.verb-ending.geul" }
+          }
+        }
+      ]
+    },
+    "particle": {
+      "comments": "역할 조사 — 이 언어에서 인자를 매개변수에 대응시키는 표지다 (명세 3.5)",
+      "patterns": [
+        {
+          "comments": "범위 반복의 표시자 (D-34). 이름 안의 '까지'(식_기호까지)를 건드리지 않으려고 숫자·괄호 뒤나 띄어 쓴 것만 잡는다",
+          "name": "keyword.control.range.geul",
+          "match": "(?<=[0-9)\\]])(부터|전까지|까지)(?![가-힣A-Za-z0-9_])"
+        },
+        {
+          "name": "keyword.control.range.geul",
+          "match": "(?<=\\s)(부터|전까지|까지)(?![가-힣A-Za-z0-9_])"
+        },
+        {
+          "comments": "낱말에 붙은 조사",
+          "match": "([가-힣A-Za-z0-9_\\]\\)\"]+?)(에서|으로|보다|을|를|에|로|와|과|의)(?![가-힣A-Za-z0-9_])",
+          "captures": { "2": { "name": "keyword.operator.particle.geul" } }
+        },
+        {
+          "comments": "띄어 쓴 조사 (D-27)",
+          "name": "keyword.operator.particle.geul",
+          "match": "(?<=\\s)(에서|으로|보다|을|를|에|로|와|과)(?![가-힣A-Za-z0-9_])"
+        },
+        {
+          "comments": "주제·주격 — 선언과 조건에 쓰인다",
+          "match": "([가-힣A-Za-z0-9_\\]\\)]+?)(는|은|이|가)(?![가-힣A-Za-z0-9_])",
+          "captures": { "2": { "name": "keyword.operator.topic.geul" } }
+        }
+      ]
+    },
+    "operator": {
+      "patterns": [
+        { "name": "keyword.operator.member.geul", "match": "→|->" },
+        { "name": "keyword.operator.assignment.geul", "match": "<<=|>>=|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|=" },
+        { "name": "keyword.operator.comparison.geul", "match": "==|!=|<=|>=|<|>" },
+        { "name": "keyword.operator.geul", "match": "\\.\\.\\.|<<|>>|[-+*/%&|^~?:]" }
+      ]
+    },
+    "terminator": {
+      "comments": "문장은 마침표로 끝난다",
+      "name": "punctuation.terminator.geul",
+      "match": "(?<=[^0-9\\s])\\.(?=\\s|$|[})])"
+    }
+  }
+}

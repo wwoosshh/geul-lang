@@ -1,0 +1,28 @@
+{
+  "name": "geul",
+  "displayName": "글 (geul)",
+  "description": "한국어 어순과 조사로 쓰는 프로그래밍 언어 글의 문법 강조",
+  "version": "1.0.0",
+  "publisher": "wwoosshh",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/wwoosshh/geul-lang" },
+  "engines": { "vscode": "^1.75.0" },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "geul",
+        "aliases": ["글", "geul"],
+        "extensions": [".gl"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "geul",
+        "scopeName": "source.geul",
+        "path": "./syntaxes/geul.tmLanguage.json"
+      }
+    ]
+  }
+}

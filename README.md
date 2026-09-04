@@ -50,6 +50,7 @@ python ref/geulc.py --check 파일.gl
 | `self/` | 글로 쓴 컴파일러: 렉서·파서·타입·의미·하강·x64·코드생성·PE, 드라이버 `컴파일러.gl` (자기 자신을 컴파일) |
 | `tools/` | `v1에서_변환.py`: 1세대 소스의 기계 변환기 (1차 변환용) |
 | `ref/` | Python 참조 컴파일러 (`geulc.py`, `geul/` 패키지: lexer·parser·sema·ir·lower·x64·codegen·pe·runtime) |
+| `editors/vscode/` | VS Code 문법 강조 (TextMate 문법). 넣는 법은 그 안의 README |
 
 ## 진행 순서
 
@@ -76,6 +77,10 @@ python ref/geulc.py --check 파일.gl
     반환 0.
 }
 ```
+
+편집기에 색을 입히려면 [`editors/vscode`](editors/vscode/README.md) 를 확장 폴더에 넣으세요.
+조사(`을/를`, `에`, `에서`, `로`)에 따로 색이 붙습니다 — 글에서 조사는 장식이 아니라 인자를
+매개변수에 대응시키는 표지이기 때문입니다.
 
 ## 설치와 사용
 
