@@ -86,7 +86,7 @@ def dump_file(src, std_dir, what):
     return EXIT_OK
 
 
-def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None):
+def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None, gui=False):
     if not os.path.isfile(src):
         raise CompileError(Pos(src, 0, 0), "파일을 열 수 없습니다")
     if dump in ("tokens", "ast"):
@@ -113,5 +113,5 @@ def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None):
     if os.path.exists(out):
         os.remove(out)
     image = codegen.generate(ir)
-    pe.write_pe(image, out)
+    pe.write_pe(image, out, 2 if gui else 3)
     return EXIT_OK

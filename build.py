@@ -5,6 +5,7 @@
   python build.py check <파일.gl>  문법·의미 검사
   python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 컴파일러 — 마지막은 exe 바이트 비교 + 고정점)
   python build.py docs [필터]      문서의 ```글 예제를 컴파일·실행해 ```출력 과 맞춘다
+  python build.py tools           프로그램/ 의 도구들을 만들어 본다
   python build.py release          배포물 만들기: dist/geul-<버전>-windows-x64/ (자기 컴파일한 geulc.exe + 표준/ + 문서) 와 zip
 """
 import os
@@ -494,8 +495,45 @@ def cmd_docs(args):
     return 0 if failed == 0 else 1
 
 
+def cmd_tools(args):
+    """프로그램/ 의 도구들을 실제로 만들어 본다. 창 프로그램은 --창 으로."""
+    tools = [("프로그램/백업.gl", []), ("프로그램/백업창.gl", ["--창"])]
+    tmp = tempfile.mkdtemp(prefix="gltool-")
+    failed = 0
+    try:
+        for rel, opts in tools:
+            src = os.path.join(ROOT, rel.replace("/", os.sep))
+            if not os.path.exists(src):
+                print(f"  SKIP  {rel} (없음)")
+                continue
+            exe = os.path.join(tmp, os.path.basename(rel)[:-3] + ".exe")
+            r = subprocess.run([sys.executable, GEULC, src] + opts + ["-o", exe],
+                               capture_output=True, cwd=ROOT)
+            if r.returncode != 0:
+                failed += 1
+                msg = (r.stdout + r.stderr).decode("utf-8", "replace").strip().splitlines()[:1]
+                print(f"  FAIL  {rel}: {msg[0] if msg else ''}")
+                continue
+            sub = 0
+            with open(exe, "rb") as f:
+                d = f.read()
+            pe_off = int.from_bytes(d[0x3C:0x40], "little")
+            sub = int.from_bytes(d[pe_off + 4 + 20 + 68:pe_off + 4 + 20 + 70], "little")
+            want = 2 if "--창" in opts else 3
+            if sub != want:
+                failed += 1
+                print(f"  FAIL  {rel}: 서브시스템 {sub} (기대 {want})")
+                continue
+            print(f"  PASS  {rel} ({len(d)}B, 서브시스템 {sub})")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    print()
+    print(f"프로그램: {len(tools) - failed}/{len(tools)} 만들어짐")
+    return 0 if failed == 0 else 1
+
+
 def main(argv):
-    if not argv or argv[0] not in ("test", "check", "selfhost", "release", "docs"):
+    if not argv or argv[0] not in ("test", "check", "selfhost", "release", "docs", "tools"):
         print(__doc__)
         return 3
     if argv[0] == "test":
@@ -506,6 +544,8 @@ def main(argv):
         return cmd_release(argv[1:])
     if argv[0] == "docs":
         return cmd_docs(argv[1:])
+    if argv[0] == "tools":
+        return cmd_tools(argv[1:])
     return cmd_check(argv[1:])
 
 

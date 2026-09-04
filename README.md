@@ -51,6 +51,7 @@ python build.py selfhost        # 자체호스팅 단계별 교차 검증
 python build.py docs            # 문서의 예제를 컴파일·실행해 결과와 맞춤
 python build.py release         # 배포물
 python ref/geulc.py 파일.gl     # 파일.exe 생성
+python build.py tools           # 프로그램/ 의 도구들을 만들어 본다
 ```
 
 개발에는 Python 3.12 가 필요하다. 쓰기만 할 때는 `geulc.exe` 하나면 된다.

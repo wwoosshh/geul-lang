@@ -1,6 +1,6 @@
 (* 글로 쓴 글 컴파일러 드라이버.
 
-   사용법: geulc <파일.gl> [-o <출력.exe>] [--dump-calls] [--dump-risky] [--version] [--help]
+   사용법: geulc <파일.gl> [-o <출력.exe>] [--창] [--dump-calls] [--dump-risky] [--version] [--help]
    표준/기본.gl 자동 포함, 포함 재귀, 의미 분석, IR 하강, x86-64 코드 생성, PE32+ 출력.
    표준 디렉터리(`표준/`)는 (1) 환경변수 GEUL_ROOT (2) 이 실행 파일이 있는 디렉터리 (3) 현재 디렉터리 순으로 찾는다.
    종료 코드: 0 성공, 1 사용자 오류, 2 내부 오류, 3 사용법. *)
@@ -119,7 +119,7 @@
 }
 
 [사용법출력]는 {
-    파일에_쓰기(표준오류(), "사용법: geulc <파일.gl> [-o <출력.exe>] [--dump-calls] [--dump-risky] [--version] [--help]\n").
+    파일에_쓰기(표준오류(), "사용법: geulc <파일.gl> [-o <출력.exe>] [--창] [--dump-calls] [--dump-risky] [--version] [--help]\n").
 }
 
 [정수 argc를 문자열 참조 argv를 시작하기]는 -> 정수 {
@@ -132,12 +132,15 @@
         문자열_같은가(argv[k], "--dump-risky")이면 { 위험만 = 참. 위험보고만 = 참. 계속. }
         문자열_같은가(argv[k], "--version")이면 { "geulc %s (글 2세대, 자체호스팅)\n"을 컴파일러_버전을 쓰다. 반환 0. }
         문자열_같은가(argv[k], "--help")이면 {
-            "사용법: geulc <파일.gl> [-o <출력.exe>] [--dump-calls] [--dump-risky] [--version] [--help]\n"을 쓰다.
+            "사용법: geulc <파일.gl> [-o <출력.exe>] [--창] [--dump-calls] [--dump-risky] [--version] [--help]\n"을 쓰다.
             "  표준 라이브러리(표준/)는 GEUL_ROOT, 실행 파일 디렉터리, 현재 디렉터리 순으로 찾습니다.\n"을 쓰다.
             "  종료 코드: 0 성공, 1 사용자 오류, 2 내부 오류, 3 사용법\n"을 쓰다.
             반환 0.
         }
-        문자열_같은가(argv[k], "-o")이면 {
+        (문자열_같은가(argv[k], "--창") 또는 문자열_같은가(argv[k], "--gui"))이면 {
+            PE서브시스템 = 2.
+        }
+        아니면 문자열_같은가(argv[k], "-o")이면 {
             k + 1 >= argc이면 { 사용법출력(). 반환 3. }
             출력 = argv[k + 1].
             k를 증가하다.

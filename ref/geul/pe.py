@@ -10,7 +10,7 @@ def align(n, a):
     return (n + a - 1) // a * a
 
 
-def write_pe(img, path):
+def write_pe(img, path, subsystem=3):    # 3 콘솔, 2 창 (D-39)
     # ----- .rdata 배치: 문자열, 임포트 디렉터리 -----
     rdata = bytearray()
     str_offsets = []
@@ -121,7 +121,7 @@ def write_pe(img, path):
         "<HBBIIIIIQIIHHHHHHIIIIHHQQQQII",
         0x20B, 14, 0, len(code), len(rdata), len(data), entry_rva, text_rva,
         IMAGE_BASE, SECTION_ALIGN, FILE_ALIGN, 6, 0, 0, 0, 6, 0, 0,
-        size_of_image, headers_size, 0, 3, 0x8100,
+        size_of_image, headers_size, 0, subsystem, 0x8100,
         0x100000, 0x1000, 0x100000, 0x1000, 0, 16,
     )
     dirs = [(0, 0)] * 16
