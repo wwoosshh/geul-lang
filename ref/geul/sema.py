@@ -756,7 +756,7 @@ class Sema:
             return expected if expected is not None and expected.is_ptr() else T.VOIDPTR
         if isinstance(e, A.StringLit):
             if self.has_interpolation(e.raw):
-                self.error(e.pos, "보간 문자열은 '쓰기' 계열 호출의 첫 인자에서만 쓸 수 있습니다")
+                self.error(e.pos, "보간 문자열은 '쓰기' 같은 가변 인자 함수의 서식 자리에서만 쓸 수 있습니다")
             self.unit.strings.append(e.value)
             return T.STRING
         if isinstance(e, A.Name):
@@ -1079,8 +1079,8 @@ class Sema:
         for i, a in enumerate(args):
             if i < n:
                 pt = ftype.params[i]
-                if i == 0 and ftype.variadic and isinstance(a, A.StringLit) and self.has_interpolation(a.raw):
-                    if len(args) > 1:
+                if ftype.variadic and i == n - 1 and isinstance(a, A.StringLit) and self.has_interpolation(a.raw):
+                    if len(args) > n:
                         self.error(a.pos, "보간 문자열에는 추가 서식 인자를 섞을 수 없습니다")
                     fmt, names = self.expand_interpolation(a)
                     a.value = fmt
