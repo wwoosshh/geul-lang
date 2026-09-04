@@ -10,6 +10,8 @@ jobs:
           python-version: "3.12"
       - name: 수용 테스트 (참조 구현)
         run: python build.py test
+      - name: 문서 예제 (D-33 — 문서가 낡으면 여기서 깨진다)
+        run: python build.py docs
       - name: 자체호스팅 교차 검증 (토큰·AST·IR 덤프, exe 바이트, 고정점)
         run: python build.py selfhost
       - name: 수용 테스트 (글로 쓴 컴파일러)
