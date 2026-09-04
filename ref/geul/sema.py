@@ -1220,6 +1220,8 @@ class Sema:
             n = getattr(t, "name", None)
             if n:
                 out.add(n)
+            if t.is_ptr() and T.same_type(t.target, T.CHAR):
+                out.add("문자열")      # 문자열은 이름 없는 '문자 참조' 다
             t = t.target if t.is_ptr() else None
             seen += 1
         return out
@@ -1239,9 +1241,9 @@ class Sema:
             f = getattr(t, "fields", None)
             if not f:
                 return None
-            for fld in f:
-                if fld.name == e.name:
-                    return fld.type
+            for fname, ftype, _off in f:
+                if fname == e.name:
+                    return ftype
         return None
 
     def resolve_verb(self, root, pos, pairs=None):
