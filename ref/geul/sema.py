@@ -1180,7 +1180,7 @@ class Sema:
                           f"둘 중 하나에 역할 조사를 붙여 구별하세요")
 
     def check_sov_call(self, e):
-        fsym = self.resolve_verb(e.verb, e.pos)
+        fsym = self.resolve_verb(e.verb, e.pos, e.args)
         generic = isinstance(fsym, A.FuncDecl)
         params = fsym.params
         ftype = None
@@ -1201,8 +1201,51 @@ class Sema:
         e.resolved_args = self.bind_args(e, ftype, args, fsym)
         return ftype.ret if ftype.ret is not None else T.VOID
 
-    def resolve_verb(self, root, pos):
-        """명세 2.6: X기 → X → (X가 Y하이면) Y."""
+    def global_funcs(self):
+        """전역에 선언된 함수 이름 → 심볼. 접두어 생략(D-37)에 쓴다."""
+        s = self.scope
+        while s.parent is not None:
+            s = s.parent
+        out = {n: sym for n, sym in s.names.items() if isinstance(sym, FuncSym)}
+        for n, d in self.generic_funcs.items():
+            out.setdefault(n, d)
+        return out
+
+    @staticmethod
+    def type_prefix_names(t):
+        """타입을 접두어로 쓸 때 나올 수 있는 이름들. 참조는 가리키는 것의 이름도 센다."""
+        out = set()
+        seen = 0
+        while t is not None and seen < 4:
+            n = getattr(t, "name", None)
+            if n:
+                out.add(n)
+            t = t.target if t.is_ptr() else None
+            seen += 1
+        return out
+
+    def decl_type_of(self, e):
+        """식을 검사하지 않고 알 수 있는 선언 타입. 이름과 필드 접근만 본다."""
+        if isinstance(e, A.Name):
+            sym = self.scope.lookup(e.name)
+            return sym.type if isinstance(sym, (VarSym, ConstSym)) else None
+        if isinstance(e, A.Member):
+            base = self.decl_type_of(e.base)
+            if base is None:
+                return None
+            t = T.decay(base)
+            if t.is_ptr():
+                t = t.target
+            f = getattr(t, "fields", None)
+            if not f:
+                return None
+            for fld in f:
+                if fld.name == e.name:
+                    return fld.type
+        return None
+
+    def resolve_verb(self, root, pos, pairs=None):
+        """명세 2.6: X기 → X → (X가 Y하이면) Y. 못 찾으면 접두어를 생략한 것으로 본다 (D-37)."""
         cands = [root + "기", root]
         base = verb_base(root)
         if base != root:
@@ -1221,6 +1264,30 @@ class Sema:
                             f"괄호 호출로 하나를 고르세요")
         if found:
             return found[0][1]
+        # D-37: 정확한 이름이 없을 때만 '<접두어>_<후보>' 를 본다. 정확한 이름이 있으면 언제나 그것이 이긴다.
+        allf = self.global_funcs()
+        pref = []
+        for name, sym in sorted(allf.items()):
+            for c in cands:
+                if name.endswith("_" + c):
+                    pref.append((name, sym))
+                    break
+        if pref:
+            if len(pref) == 1:
+                return pref[0][1]
+            want = set()
+            for a, _role in (pairs or []):
+                t = self.decl_type_of(a)
+                if t is not None:
+                    want |= self.type_prefix_names(t)
+            picked = [(n, s2) for n, s2 in pref if n[: n.rfind("_")] in want]
+            if len(picked) == 1:
+                return picked[0][1]
+            names = ", ".join(n for n, _ in pref)
+            if picked:
+                names = ", ".join(n for n, _ in picked)
+            self.error(pos, f"동사 '{root}다'에 해당하는 함수가 여럿입니다 (찾은 이름: {names}) — "
+                            f"괄호 호출로 하나를 고르세요")
         stem = self.verb_stem_hint(root)
         hint = f" — '{root}'은(는) 활용형으로 보입니다. '{stem}다'처럼 어간을 그대로 쓰세요" if stem else ""
         self.error(pos, f"동사 '{root}다'에 해당하는 함수가 없습니다 (찾은 이름: {', '.join(cands)}){hint}")

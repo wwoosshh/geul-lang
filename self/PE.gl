@@ -7,7 +7,7 @@
 상수 정수 섹션정렬 = 4096.
 상수 정수 파일정렬 = 512.
 
-[바이트열 참조 b를 정수 목표를 채워맞추기]는 {
+[바이트열 참조 b를 정수 목표로 채워맞추기]는 {
     바이트열_길이(b) < 목표이면 { 바이트열_채우기(b, 목표 - 바이트열_길이(b)). }
 }
 
@@ -25,7 +25,7 @@
         정수목록_추가(문자열오프셋, 바이트열_길이(rdata)).
         바이트열_붙이기(rdata, 문자열풀[k], 글자수(문자열풀[k]) + 1).
     }
-    채워맞추기(rdata, 올림(바이트열_길이(rdata), 16)).
+    rdata를 올림(바이트열_길이(rdata), 16)로 채워맞추다.
     정수 이름수 = 정수목록_길이(임포트DLL색인).
     (* 이름 테이블 (hint/name), DLL 순서 → 그 DLL 의 이름 순서 *)
     바이트열 참조 names = 바이트열_만들기().
@@ -74,7 +74,7 @@
     정수 rdata_rva = 올림(text_rva + text_size, 섹션정렬).
     정수 data_rva = 올림(rdata_rva + rdata_total, 섹션정렬).
     (* rdata 본문 조립 *)
-    채워맞추기(rdata, desc_off).
+    rdata를 desc_off로 채워맞추다.
     반복 (정수 d6는 0부터 임포트DLL수 전까지) {
         바이트열_넣기32(rdata, rdata_rva + 정수목록_값(ilt_off, d6)).
         바이트열_넣기32(rdata, 0).
@@ -83,7 +83,7 @@
         바이트열_넣기32(rdata, rdata_rva + 정수목록_값(iat_off, d6)).
     }
     바이트열_채우기(rdata, 20).
-    채워맞추기(rdata, thunks_off).
+    rdata를 thunks_off로 채워맞추다.
     반복 (정수 표는 0부터 2 전까지) {
         반복 (정수 d7는 0부터 임포트DLL수 전까지) {
             반복 (정수 j3는 0부터 이름수 전까지) {
@@ -197,11 +197,11 @@
     바이트열_넣기32(out, data_len). 바이트열_넣기32(out, data_rva). 바이트열_넣기32(out, raw_size_data). 바이트열_넣기32(out, raw_data).
     바이트열_넣기32(out, 0). 바이트열_넣기32(out, 0). 바이트열_넣기16(out, 0). 바이트열_넣기16(out, 0).
     바이트열_넣기32(out, 3221225536).
-    채워맞추기(out, headers_size).
+    out를 headers_size로 채워맞추다.
     바이트열_붙이기(out, 바이트열_자료(코드), code_len).
-    채워맞추기(out, raw_rdata).
+    out를 raw_rdata로 채워맞추다.
     바이트열_붙이기(out, 바이트열_자료(rdata), rdata_len).
-    채워맞추기(out, raw_data).
+    out를 raw_data로 채워맞추다.
     바이트열_붙이기(out, 바이트열_자료(데이터), data_len).
     채워맞추기(out, raw_data + raw_size_data).
     반환 바이트열_파일로쓰기(out, 경로).
