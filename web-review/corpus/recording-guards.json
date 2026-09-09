@@ -1,0 +1,12 @@
+{
+  "schema": "web-recording-guards-selection-1",
+  "case": "jitsi-recording-transcription",
+  "path": "react/features/recording/components/Recording/web/StartRecordingDialogContent.tsx",
+  "method": "_renderSessionToggles",
+  "target": { "tag": "Switch", "attribute": "id", "equals": "recording-switch-audio-video" },
+  "before": { "line": 62, "prefixLine": 51 },
+  "after": { "line": 64, "prefixLine": 53 },
+  "scope": "지역 const의 계산부터 지정한 Switch JSX에 진입하는 조건. 원본 메서드는 선언된 가짜 환경에서만 대조한다. 실제 React·Switch 구현·클래스 생명주기는 실행하지 않는다.",
+  "expectedBooleanChange": "live stream=true, recording permission=true, local recording=false인 한 조합에서만 Switch 진입이 true에서 false로 바뀐다.",
+  "notProven": ["메서드가 호출되는 상위 조건", "생략한 선행 평가의 정상 완료", "실제 props 상태의 도달 가능성", "Switch 렌더링·이벤트·서버 녹화"]
+}

@@ -1,0 +1,22 @@
+{
+  "schema": "web-prop-equations-1",
+  "scope": "원본의 선택 속성 식들을 그대로 전달한다는 가정 아래 결합한 계산. 전체 React 실행·선행 속성·hooks·DOM을 검증한 것이 아니다.",
+  "targets": [
+    {
+      "id": "actual-filter-loading-delivery", "case": "actual-mobile-report-filter",
+      "entry": "packages/desktop-client/src/components/mobile/accounts/AllAccountTransactions.tsx",
+      "tag": "TransactionListWithBalances", "properties": ["isLoading"],
+      "sink": { "tag": "TransactionList", "attribute": "isLoading" },
+      "expectedChanged": 2, "oracle": "filter-loading-delivery-v1"
+    },
+    {
+      "id": "actual-filter-pullable-delivery", "case": "actual-mobile-report-filter",
+      "entry": "packages/desktop-client/src/components/mobile/accounts/AllAccountTransactions.tsx",
+      "tag": "TransactionListWithBalances", "properties": ["isLoading", "onRefresh"],
+      "sink": { "tag": "PullToRefresh", "attribute": "isPullable" },
+      "expectedChanged": 0, "oracle": "filter-pullable-delivery-v1",
+      "expectedUnsupported": "선택 매개변수의 재대입·캡처·기타 사용",
+      "limitation": "onRefresh가 별도 async callback에서도 참조된다. 현재 결합 모델은 캡처를 거부하므로 expectedChanged는 미검증 가설이다."
+    }
+  ]
+}

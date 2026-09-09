@@ -1,0 +1,69 @@
+{
+  "schema": "web-inspector-browser-recording-1",
+  "recordedOn": "2026-09-09",
+  "scope": "Small post-engine-update smoke; unchanged UI assets",
+  "recordingMethod": "CUA reload, ordinary version toggles, boundary dropdown, source and return clicks; read-only DOM checks",
+  "engineSha256": "abdbb91e01a12bb5bd213d07ddc62e6015433a55a2099e46d2ba281ea3590621",
+  "dataSha256": "c0ef57cc9099f182347bddb8fb9c8940d8926d413fa11002e3214d1f0dd33f4d",
+  "producerSha256": "1c0211438a3da8e1896173fe4c957dceb8334ddd1b4983c4c5ebd48207090093",
+  "producerDependencies": {
+    "array-trace-oracle.mjs": "cbcf4e37a0111b6ae1bad96aa391a1e14df4119cad2e860054b150bdd2908e81",
+    "check-array-traces.mjs": "7c0071583639dde4a5fb3fdcb1ec3efba067e10fba7edf94b38de61c7ec5384c",
+    "diff-spans.mjs": "309c30b9da6324da7907ede3b285287890102b5f3c662d56d1d7a240ff398fe2",
+    "check-slice-scope.mjs": "8d3cff68c33f58ca7b3c1dce228e6ff98c174c4c39e9590b13122eb346e081e9"
+  },
+  "assetHashes": {
+    "index.html": "947f5184817a4f2e459139f3f3206b75741bb45a2742a66b904827549ba031f8",
+    "style.css": "ed8372978bd5713e305a018cd3e1f9935e7ffc600c2950a6b00c21c0c33bbfef",
+    "app.mjs": "d2f12e1f178852779dd2c3dbb774f6e8d458469bd58f978fb2ddc0e87912d54e"
+  },
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "ordinary": {
+    "input": "default mixed transactions and one preview; search off and filter on",
+    "before": {
+      "events": 11,
+      "nativeMarked": 6
+    },
+    "after": {
+      "events": 4,
+      "nativeMarked": 2
+    },
+    "result": "observations differ"
+  },
+  "boundary": {
+    "key": "3",
+    "outcome": "before TypeError; after returns a list",
+    "before": {
+      "events": 3,
+      "nativeMarked": 1
+    },
+    "after": {
+      "events": 4,
+      "nativeMarked": 2
+    },
+    "errorSourceLine": 124,
+    "sourceTop": 16,
+    "sourceFocus": "source-code",
+    "returnFocus": "IR의 오류 위치 ↗"
+  },
+  "consoleErrors": 0,
+  "practice": {
+    "reloaded": true,
+    "taskOptions": 4,
+    "conditionOptions": 4,
+    "enabled": true,
+    "consoleErrors": 0,
+    "participantSessionsStarted": 0
+  },
+  "notes": [
+    "This reruns a small smoke only, not the earlier 320-state or 12-pair full browser matrix.",
+    "The call-entry reading itself is tested through CLI/unit/native comparisons, not this transaction UI.",
+    "Mobile viewport and human review improvement remain unverified.",
+    "Two exact accessibility selectors did not resolve; the visible observed dropdown selector and opening the collapsed record section were used."
+  ],
+  "humanParticipants": 0,
+  "wholeBehaviorCasesVerified": 0
+}

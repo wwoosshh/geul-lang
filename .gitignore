@@ -10,6 +10,7 @@ dist/
 __pycache__/
 *.pyc
 .venv/
+node_modules/
 
 # 편집기
 .vscode/

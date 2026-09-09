@@ -1,0 +1,14 @@
+{
+  "schema": "web-corpus-functions-1",
+  "scope": "원본 파일에서 선택한 함수 선언의 본문. 주변 모듈 실행·실제 호출 연결·전체 변경 사례를 성공으로 세지 않는다.",
+  "targets": [
+    {
+      "id": "actual-resolve-starting-settings",
+      "case": "actual-optional-starting-balance",
+      "revision": "after",
+      "path": "packages/desktop-client/src/components/modals/SelectLinkedAccountsModal.tsx",
+      "functionName": "resolveStartingSettings",
+      "oracle": "starting-settings-v1"
+    }
+  ]
+}

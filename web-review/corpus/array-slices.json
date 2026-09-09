@@ -1,0 +1,16 @@
+{
+  "schema": "web-array-slices-1",
+  "scope": "표준 배열이라는 명시적 가정 아래 원본 const 구간 끝의 목록 값·원소 순서·TypeError를 비교한다. 조회·상태 갱신·React 목록 렌더링은 실행하지 않는다.",
+  "targets": [
+    {
+      "id": "actual-filter-transaction-selection",
+      "case": "actual-mobile-report-filter",
+      "path": "packages/desktop-client/src/components/mobile/accounts/AllAccountTransactions.tsx",
+      "arrayProfile": "dense-standard-array-1",
+      "outputs": ["transactionsToDisplay"],
+      "before": { "startLine": 122, "endLine": 122 },
+      "after": { "startLine": 162, "endLine": 162 },
+      "oracle": "actual-transaction-order-v1"
+    }
+  ]
+}

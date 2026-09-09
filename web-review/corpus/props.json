@@ -1,0 +1,30 @@
+{
+  "schema": "web-corpus-props-1",
+  "scope": "원본 설정에 결합된 JSX 속성과 자식 매개변수의 소스 연결. 런타임 전달 값이나 전체 행동은 검증하지 않는다.",
+  "targets": [
+    {
+      "case": "excalidraw-scroll-back-view-mode",
+      "entry": "packages/excalidraw/components/LayerUI.tsx",
+      "component": "packages/excalidraw/components/MobileMenu.tsx",
+      "tag": "MobileMenu",
+      "expected": [
+        { "property": "appState", "expression": "appState", "localName": "appState" },
+        { "property": "defaultUIEnabled", "expression": "defaultUIEnabled", "localName": "defaultUIEnabled" },
+        { "property": "scrollBackToContentUIEnabled", "expression": "scrollBackToContentUIEnabled", "localName": "scrollBackToContentUIEnabled" }
+      ]
+    },
+    {
+      "case": "actual-mobile-report-filter",
+      "entry": "packages/desktop-client/src/components/mobile/accounts/AllAccountTransactions.tsx",
+      "component": "packages/desktop-client/src/components/mobile/transactions/TransactionListWithBalances.tsx",
+      "tag": "TransactionListWithBalances",
+      "includeAbsent": true,
+      "expected": [
+        { "property": "isLoading", "expression": { "before": "isSearching ? isTransactionsLoading : isPreviewTransactionsLoading", "after": "isSearching || isFiltered\n          ? isTransactionsLoading\n          : isPreviewTransactionsLoading" }, "localName": "isLoading", "uses": [{ "kind": "jsx-attribute", "tag": "PullToRefresh", "attribute": "isPullable", "direct": false }, { "kind": "jsx-attribute", "tag": "TransactionList", "attribute": "isLoading", "direct": true }] },
+        { "property": "transactions", "expression": "transactionsToDisplay", "localName": "transactions" },
+        { "property": "onRefresh", "expression": null, "localName": "onRefresh", "provided": false, "uses": [{ "kind": "jsx-attribute", "tag": "PullToRefresh", "attribute": "isPullable", "direct": false }] },
+        { "property": "filtered", "expression": "isFiltered", "localName": "filtered", "revisions": ["after"], "default": "false", "uses": [{ "kind": "jsx-expression" }] }
+      ]
+    }
+  ]
+}

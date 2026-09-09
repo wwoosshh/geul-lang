@@ -1,0 +1,33 @@
+{
+  "schema": "web-inspector-browser-recording-1",
+  "recordedOn": "2026-09-09",
+  "scope": "Input declaration source navigation in the fixed research inspector",
+  "recordingMethod": "CUA controls and read-only DOM marks; inline mobile screenshot inspection",
+  "engineSha256": "afc77dde1b05a9ee2266b43175e777f196a4ae2c3dd61ec03e56c2b55dc12657",
+  "dataSha256": "dd5750817f668f030bf507b3d2023cc4141a0539c08a26fbc8ceb1f5e9987bc7",
+  "producerSha256": "19c3c5173de799176d1bf4e97dfb6f8f7c7d2cbf0507fa6476c5f87828cafa40",
+  "assetHashes": {
+    "index.html": "fe8b21fda7fbeb1aa80ec7901e6db7c8e46ca39e26b5d9fc2adb2f3e7c344fa9",
+    "style.css": "81ee192d51c9ed7fc0136d0eadef15be44a41b5b375086707dd901756b25b49d",
+    "app.mjs": "37e3d2a78b767046f965a3db143abc0ebe926ce53510be5c861a78f6482afd5a"
+  },
+  "sourceLinks": [
+    {"revision":"before","name":"isSearching","file":"parent-before","line":57,"endLine":61,"expression":"useTransactionsSearch({\n    updateQuery: setTransactionsQuery,\n    resetQuery: () => setTransactionsQuery(baseTransactionsQuery()),\n    dateFormat,\n  })"},
+    {"revision":"before","name":"previewTransactions","file":"parent-before","line":51,"expression":"usePreviewTransactions()"},
+    {"revision":"before","name":"transactions","file":"parent-before","line":47,"endLine":49,"expression":"useTransactions({\n    query: transactionsQuery,\n  })"},
+    {"revision":"after","name":"isSearching","file":"parent-after","line":96,"endLine":101,"expression":"useTransactionsSearch({\n    updateQuery: updateFn =>\n      setTransactionsQuery(query => (query ? updateFn(query) : query)),\n    resetQuery: () => setTransactionsQuery(currentQuery),\n    dateFormat,\n  })"},
+    {"revision":"after","name":"isFiltered","file":"parent-after","line":41,"expression":"filterConditions.length > 0"},
+    {"revision":"after","name":"previewTransactions","file":"parent-after","line":90,"expression":"usePreviewTransactions()"},
+    {"revision":"after","name":"transactions","file":"parent-after","line":86,"endLine":88,"expression":"useTransactions({\n    query: transactionsQuery,\n  })"}
+  ],
+  "mobile": {"width":390,"height":844,"documentWidth":375,"clientWidth":375,"keyboardReturnFocus":"패턴을 받는 선언의 초기화 식 원본 ↗","viewportReset":true},
+  "browserConsoleErrors": 0,
+  "humanParticipants": 0,
+  "originalApplicationExecutions": 0,
+  "wholeBehaviorCasesVerified": 0,
+  "notes": [
+    "Source navigation does not execute the hook or prove its result equals the selected input snapshot.",
+    "The two transactions uses are grouped under the same declaration, with both source-use buttons retained.",
+    "This record applies to the listed assets and is not a browser rerun command or human comprehension result."
+  ]
+}

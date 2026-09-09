@@ -1,0 +1,28 @@
+[
+  {"id":"shipping","entry":"shipping","sources":{
+    "policy.c":"int free_limit(void); int standard_fee(void); int shipping(int amount) { if (amount < 0) return -1; if (amount >= free_limit()) return 0; return standard_fee(); }",
+    "limits.c":"int free_limit(void) { return 50000; }",
+    "fees.c":"int standard_fee(void) { return 3000; }"
+  },"ranges":[[-2147483648,0,-1],[0,50000,3000],[50000,2147483648,0]]},
+  {"id":"transitive","entry":"decide","sources":{
+    "policy.c":"int threshold(void); int decide(int x) { if (x < threshold()) return -1; return 1; }",
+    "threshold.c":"int stored(void); int threshold(void) { return stored(); }",
+    "stored.c":"int stored(void) { return 40; }"
+  },"ranges":[[-2147483648,40,-1],[40,2147483648,1]]},
+  {"id":"shared-helper","entry":"decide","sources":{
+    "policy.c":"int limit(void); int left(void); int right(void); int decide(int x) { if (x < limit()) return left(); return right(); }",
+    "limits.c":"int limit(void) { return 10; }",
+    "helpers.c":"int common(void); int left(void) { return common(); } int right(void) { return common(); }",
+    "shared.c":"int common(void) { return 7; }"
+  },"ranges":[[-2147483648,2147483648,7]]},
+  {"id":"extreme-helpers","entry":"decide","sources":{
+    "policy.c":"int limit(void); int lowest(void); int highest(void); int decide(int x) { if (x <= limit()) return lowest(); return highest(); }",
+    "limits.c":"int limit(void) { return -2147483648; }",
+    "values.c":"int lowest(void) { return (-2147483647 - 1); } int highest(void) { return 2147483647; }"
+  },"ranges":[[-2147483648,-2147483647,-2147483648],[-2147483647,2147483648,2147483647]]},
+  {"id":"prototypes","entry":"decide","sources":{
+    "policy.c":"extern int limit(void); int fee(void); int decide(int); int decide(int renamed) { if (limit() <= renamed) return fee(); return 0; }",
+    "limits.c":"int limit(void); int limit(void) { return 100; }",
+    "fees.c":"int fee(void) { return 4; }"
+  },"ranges":[[-2147483648,100,0],[100,2147483648,4]]}
+]

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>글 · 예행 검토</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <header class="masthead"><a class="wordmark" href="/" aria-label="글 예행 검토 처음으로">글<span>변경을 읽는 연습</span></a><span class="practice-label">예행 검토 · 연구 결과로 집계하지 않음</span></header>
+  <main>
+    <div class="intro"><div><p class="eyebrow">원본에서 판단까지</p><h1>무엇이 달라지는지,<br>어디까지 알 수 있는지.</h1></div><p class="intro-note">같은 원본을 네 가지 표시 방식으로 읽어 봅니다.<br>답변은 이 브라우저에만 두고 파일로 내보냅니다.</p></div>
+    <div id="error" role="alert" hidden></div>
+    <section class="workspace-controls" aria-label="예행 검토 선택"><label>검토 과제<select id="task" disabled></select></label><label>자료의 표시 방식<select id="condition"><option value="A">A · 원본 + AI</option><option value="B" selected>B · 원본 + 글의 설명 + AI</option><option value="C">C · 원본 + 결정표 + AI</option><option value="D">D · 원본 + 한국어 풀이 + AI</option></select></label><button id="start" class="primary" disabled>예행 검토 시작</button></section>
+    <div class="workspace">
+      <section class="reading-paper" aria-label="검토 자료"><div class="paper-tabs"><button id="material-tab" aria-pressed="true">검토 자료</button><button id="source-tab" aria-pressed="false">원본 탐색</button><span id="project-name"></span></div><div id="material" class="material"></div><div id="source-panel" hidden><div class="source-controls"><label>원본 파일<select id="source-file"></select></label><label class="line-control">줄<input id="source-line" type="number" value="1" min="1"></label><button id="source-go">이동</button></div><div id="source-status" role="status"></div><div id="source-code" class="source-code" tabindex="0"></div></div></section>
+      <aside class="answer-paper"><div class="answer-heading"><div><p class="eyebrow">내 판단</p><h2>변경 영향 기록</h2></div><output id="clock" aria-label="경과 시간">00:00</output></div><p id="session-status" role="status">시작하면 답변 시간과 원본 이동을 기록합니다.</p>
+        <form id="response"><fieldset id="answers" disabled><label>달라지는 입력 조건<textarea id="answer-0" maxlength="8000" rows="3" required placeholder="어떤 경우에 결과가 달라지나요?"></textarea></label><label>변경 전과 변경 후의 값<textarea id="answer-1" maxlength="8000" rows="3" required placeholder="전후의 값을 구분해서 적어주세요."></textarea></label><label>비슷하지만 바뀌지 않는 예외<textarea id="answer-2" maxlength="8000" rows="3" required placeholder="예외 한 가지와 그 이유를 적어주세요."></textarea></label><label>확인한 범위와 남은 확인<textarea id="answer-3" maxlength="8000" rows="3" required placeholder="화면·서버 동작까지 결론 낼 수 있나요? 무엇을 더 확인해야 하나요?"></textarea></label>
+          <div class="confidence-heading"><label for="confidence">답에 대한 확신</label><output id="confidence-value">50 / 100</output></div><input id="confidence" type="range" min="0" max="100" value="50"><label class="check-label"><input id="familiar" type="checkbox"> 이 변경의 정답을 이미 알고 있었다</label>
+          <details class="ai-details"><summary>AI 사용 기록</summary><label>사용한 도구·모델<input id="ai-model" type="text" maxlength="200" placeholder="사용하지 않았으면 비워두세요"></label><label>AI에게 질문한 횟수<input id="ai-count" type="number" min="0" max="1000" value="0"></label><button id="ai-wait" type="button" aria-pressed="false">AI 응답 대기 시작</button><p>다른 창의 AI 도구를 사용할 수 있습니다. 대기는 전체 시간에 포함하고 별도로 기록합니다. 질문 횟수는 직접 입력합니다.</p></details>
+          <button class="primary export" type="submit">답변을 JSON으로 내보내기</button>
+        </fieldset></form><section id="export-result" class="export-result" hidden aria-label="마지막 예행 검토 응답"><h3>마지막 응답 JSON</h3><p>브라우저에서 파일이 저장되지 않았다면 아래 내용을 선택해 복사할 수 있습니다. 실제 저장 여부는 다운로드 목록에서 확인하세요.</p><label>응답 JSON<textarea id="export-json" readonly rows="9"></textarea></label><div class="export-actions"><button id="select-json" type="button">JSON 전체 선택</button><button id="download-again" type="button">파일 다시 받기</button></div></section><p class="privacy-note">실제 참가자 번호를 받지 않는 예행 검토입니다.<br>새로고침하면 저장하지 않은 답변은 사라집니다.</p>
+      </aside>
+    </div>
+  </main><footer>글 검토 실험<span>네 조건의 입력 범위와 원본 접근은 같습니다.</span></footer><script type="module" src="/app.mjs"></script>
+</body></html>

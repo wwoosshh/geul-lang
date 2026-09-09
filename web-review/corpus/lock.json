@@ -1,0 +1,676 @@
+{
+  "schema": "web-corpus-lock-1",
+  "selectionSha256": "7adcabab0b0cc2dd76b6c256a563fd8cea79dbfa03143905bdb1391e89db9040",
+  "cases": [
+    {
+      "id": "excalidraw-scroll-back-view-mode",
+      "project": "excalidraw",
+      "head": "a1d9b16b0dc485566cfc90ece8269443f8726d63",
+      "parent": "65aa577e39a1ae6315322eae010b69961b99b418",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "packages/excalidraw/components/LayerUI.tsx",
+          "gitBlob": "eba358c0ae7842fe349d8b27db1db78158360b3a",
+          "sha256": "2dd0f633242eef6c007b0b6fe017f9b8fd5fe71c07e95b5827663bc179c13e3b",
+          "bytes": 23545
+        },
+        {
+          "revision": "before",
+          "path": "packages/excalidraw/components/MobileMenu.tsx",
+          "gitBlob": "43f2833f1248beeb10ea4d17e6c37f5e895f40c5",
+          "sha256": "4cfadcb474c85fe3cc65e374241f2809b4556c16383de40328e93551736301ca",
+          "bytes": 5398
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE",
+          "gitBlob": "8a844bc750a313db95d147bea9e4c9537b2cebc0",
+          "sha256": "1352d204fdb90d5e482c13139d848bc2c9300a9a7de358a0a558a23e72d0d8be",
+          "bytes": 1067
+        },
+        {
+          "revision": "after",
+          "path": "packages/excalidraw/components/LayerUI.tsx",
+          "gitBlob": "43ded1403ce0f845daac7ae9c6040e7956280438",
+          "sha256": "543283297e3066a30b2f8fbad0118b4cc953ac5db955af9f230fd059dd9c42dc",
+          "bytes": 23513
+        },
+        {
+          "revision": "after",
+          "path": "packages/excalidraw/components/MobileMenu.tsx",
+          "gitBlob": "8927f613611649cd7d7cd2ffaaab713769daacc9",
+          "sha256": "abc71dd7aea47a2b22b480498a9fc9449fbbb2f3f5e4e5e0463827ea58bec428",
+          "bytes": 5265
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE",
+          "gitBlob": "8a844bc750a313db95d147bea9e4c9537b2cebc0",
+          "sha256": "1352d204fdb90d5e482c13139d848bc2c9300a9a7de358a0a558a23e72d0d8be",
+          "bytes": 1067
+        }
+      ]
+    },
+    {
+      "id": "excalidraw-independent-ui-controls",
+      "project": "excalidraw",
+      "head": "93dd51060a305108450b18b87b39f1b3b2125995",
+      "parent": "344878b0b5f34daf013cc5656bd78c72dfdd61d6",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "packages/excalidraw/components/App.tsx",
+          "gitBlob": "4aade19fac7ec99677478503e51a506bd80f7b80",
+          "sha256": "afcf6501f07314a53a0350af1b5a149d8251fb14fa9c2b1cd04a1bcbd0383173",
+          "bytes": 441963
+        },
+        {
+          "revision": "before",
+          "path": "packages/excalidraw/components/LayerUI.tsx",
+          "gitBlob": "624133226c5d4535325401ee3d423207a676a2ef",
+          "sha256": "132a975d9f345ea40f0e8b7753ecc47baca0c264518e1fec89e804db587cae1d",
+          "bytes": 23291
+        },
+        {
+          "revision": "before",
+          "path": "packages/excalidraw/components/MobileMenu.tsx",
+          "gitBlob": "32f142125daf372f35afde6accea67e365827fb0",
+          "sha256": "456203b81c9b98c239d69aea0043b42431850630750b3d26896d0e41d7913e26",
+          "bytes": 5023
+        },
+        {
+          "revision": "before",
+          "path": "packages/excalidraw/components/footer/Footer.tsx",
+          "gitBlob": "72955d4c76327abbe333e1215c30233dfff8fc4c",
+          "sha256": "2d9403566bb1389269e84f7777705d1b6d3ffec8cb50b6b522d8f99420e7e8c8",
+          "bytes": 2790
+        },
+        {
+          "revision": "before",
+          "path": "packages/excalidraw/index.tsx",
+          "gitBlob": "86d939025e2a4703dd928375ce5f4c3525651a0e",
+          "sha256": "3737b56a39abf4cdf1564d6755b46a55704b4826556c1c6875175c1841ee29ce",
+          "bytes": 15222
+        },
+        {
+          "revision": "before",
+          "path": "packages/excalidraw/types.ts",
+          "gitBlob": "543a345b18198a99c570461686f1c860a015ec0e",
+          "sha256": "96ee668edb3a0a94fd57bb6d6c36da2ba9529268e4fa5ed93c07553519c3b813",
+          "bytes": 47094
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE",
+          "gitBlob": "8a844bc750a313db95d147bea9e4c9537b2cebc0",
+          "sha256": "1352d204fdb90d5e482c13139d848bc2c9300a9a7de358a0a558a23e72d0d8be",
+          "bytes": 1067
+        },
+        {
+          "revision": "after",
+          "path": "packages/excalidraw/components/App.tsx",
+          "gitBlob": "2ee45cd829c0676477d5462803df4da898209862",
+          "sha256": "f184d67336360b4516ac6f3da63705de40de64f2e690d8be5990aada966f9488",
+          "bytes": 442717
+        },
+        {
+          "revision": "after",
+          "path": "packages/excalidraw/components/LayerUI.tsx",
+          "gitBlob": "eba358c0ae7842fe349d8b27db1db78158360b3a",
+          "sha256": "2dd0f633242eef6c007b0b6fe017f9b8fd5fe71c07e95b5827663bc179c13e3b",
+          "bytes": 23545
+        },
+        {
+          "revision": "after",
+          "path": "packages/excalidraw/components/MobileMenu.tsx",
+          "gitBlob": "43f2833f1248beeb10ea4d17e6c37f5e895f40c5",
+          "sha256": "4cfadcb474c85fe3cc65e374241f2809b4556c16383de40328e93551736301ca",
+          "bytes": 5398
+        },
+        {
+          "revision": "after",
+          "path": "packages/excalidraw/components/footer/Footer.tsx",
+          "gitBlob": "469444ddbe33f19ab2d405c954ffa6cfcab1fe40",
+          "sha256": "c5907cf41ebb2d43137d1718c8f04d24b43a09d667700d190770293afbc7c1e9",
+          "bytes": 2920
+        },
+        {
+          "revision": "after",
+          "path": "packages/excalidraw/index.tsx",
+          "gitBlob": "240743cb449dca7f97864a75ea6ec02d52506785",
+          "sha256": "f6c1e5eada115ece75475908e14d2ba10a4afd41f9126fc4336a8e2c467c86db",
+          "bytes": 15727
+        },
+        {
+          "revision": "after",
+          "path": "packages/excalidraw/types.ts",
+          "gitBlob": "68fe94958c51ca3e0586b5148ee272efdfe31b93",
+          "sha256": "213700b1f826c74b01324def5e0a6cccd5c7ba99628c2bd6f3af2cc9c5cd24c3",
+          "bytes": 47810
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE",
+          "gitBlob": "8a844bc750a313db95d147bea9e4c9537b2cebc0",
+          "sha256": "1352d204fdb90d5e482c13139d848bc2c9300a9a7de358a0a558a23e72d0d8be",
+          "bytes": 1067
+        }
+      ]
+    },
+    {
+      "id": "excalidraw-color-error",
+      "project": "excalidraw",
+      "head": "786ab266ff3a9cfffaed16804cf9132b44bc08ae",
+      "parent": "69d4c346cc82ee5f64b6fa6bb91ad94422fedfb3",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "packages/excalidraw/components/ColorPicker/ColorInput.tsx",
+          "gitBlob": "97704ffc09e48a5413126bc92c7c634755a65ddf",
+          "sha256": "cabea64020a40f663e8fabf142fa5445ff3828fa24bd19ccded2e575859db472",
+          "bytes": 3690
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE",
+          "gitBlob": "8a844bc750a313db95d147bea9e4c9537b2cebc0",
+          "sha256": "1352d204fdb90d5e482c13139d848bc2c9300a9a7de358a0a558a23e72d0d8be",
+          "bytes": 1067
+        },
+        {
+          "revision": "after",
+          "path": "packages/excalidraw/components/ColorPicker/ColorInput.tsx",
+          "gitBlob": "bb94123896ab5d737af271b6f166c5ccf3eb094e",
+          "sha256": "2a6f9cc465bd3d40054624f6f01f20188be57f255bbaf34c107447ed3de2efa1",
+          "bytes": 4532
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE",
+          "gitBlob": "8a844bc750a313db95d147bea9e4c9537b2cebc0",
+          "sha256": "1352d204fdb90d5e482c13139d848bc2c9300a9a7de358a0a558a23e72d0d8be",
+          "bytes": 1067
+        }
+      ]
+    },
+    {
+      "id": "excalidraw-escape-default",
+      "project": "excalidraw",
+      "head": "69d4c346cc82ee5f64b6fa6bb91ad94422fedfb3",
+      "parent": "1acf66edabc2ac5bbd4aed0714aed7dca7cc2aab",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "packages/excalidraw/components/Modal.tsx",
+          "gitBlob": "5281768b1f2c45f6c1884f682aba9be944300e5b",
+          "sha256": "e34a11a7f22acd045afa5e93e719865d89f8e6dcbc7a65d28a16dcd3bec51aad",
+          "bytes": 1661
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE",
+          "gitBlob": "8a844bc750a313db95d147bea9e4c9537b2cebc0",
+          "sha256": "1352d204fdb90d5e482c13139d848bc2c9300a9a7de358a0a558a23e72d0d8be",
+          "bytes": 1067
+        },
+        {
+          "revision": "after",
+          "path": "packages/excalidraw/components/Modal.tsx",
+          "gitBlob": "db68f76e49e9996d352c7641fdc5cb908c8ecfc5",
+          "sha256": "8054122c029e0fa2a2057f9900b5de5aa450c56776500b4ab3b71f8648e34416",
+          "bytes": 1691
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE",
+          "gitBlob": "8a844bc750a313db95d147bea9e4c9537b2cebc0",
+          "sha256": "1352d204fdb90d5e482c13139d848bc2c9300a9a7de358a0a558a23e72d0d8be",
+          "bytes": 1067
+        }
+      ]
+    },
+    {
+      "id": "jitsi-advanced-audio-default",
+      "project": "jitsi-meet",
+      "head": "f58028a3815433c26899cdd463dbac954098b764",
+      "parent": "08bbb2b47d62ae1ecb40972a0e444c3864f1656b",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "react/features/base/config/functions.any.ts",
+          "gitBlob": "8b685991fbf43f3972d02f24d137a0165c446bb7",
+          "sha256": "af6fa16fe6a7798ba15a777bcb9f2577f87ee4d8edbcb0d537683e34502cbe05",
+          "bytes": 16631
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE",
+          "gitBlob": "da614295ece1f21e8e78d4ade19bad49146448ba",
+          "sha256": "eae52e200cd80d1e6550ca59deb1388f687dc8c3220254dad219c7faa4cfd719",
+          "bytes": 12596
+        },
+        {
+          "revision": "after",
+          "path": "react/features/base/config/functions.any.ts",
+          "gitBlob": "32d78324776c803dd4962a02c105615e986e4ab1",
+          "sha256": "0106a340bbf515f38705d39d9797c3647edbb394829728bfd734ebe631a50d47",
+          "bytes": 16632
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE",
+          "gitBlob": "da614295ece1f21e8e78d4ade19bad49146448ba",
+          "sha256": "eae52e200cd80d1e6550ca59deb1388f687dc8c3220254dad219c7faa4cfd719",
+          "bytes": 12596
+        }
+      ]
+    },
+    {
+      "id": "jitsi-recording-transcription",
+      "project": "jitsi-meet",
+      "head": "ebdbd6b61ce5230985fa23bb5be8b597a51101ef",
+      "parent": "504af9b13e16df05957a12678a9f3aa93aadeaac",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "react/features/recording/components/LiveStream/AbstractLiveStreamButton.ts",
+          "gitBlob": "a71d996a7374f1baf4c7e761cd734933e8d834b5",
+          "sha256": "4f10869f6ae69f69e182333631ebc5541e79e3cc1911e886a172532714750e6a",
+          "bytes": 4703
+        },
+        {
+          "revision": "before",
+          "path": "react/features/recording/components/Recording/AbstractStartRecordingDialogContent.tsx",
+          "gitBlob": "310dd8cc5a4b18c6705729f7a3e5bcb870cc19cf",
+          "sha256": "be2ae94a0b998794bb5f6bac0dfb318e839d77b6d3714c7f81a15b2b1e5c135a",
+          "bytes": 15388
+        },
+        {
+          "revision": "before",
+          "path": "react/features/recording/components/Recording/web/StartRecordingDialogContent.tsx",
+          "gitBlob": "7f632c3a61e3a57c040fcb2ef5cb3813e8232564",
+          "sha256": "947a3697a44cb81add390441055d07acdf2177b27099d3725f0e5f271925b824",
+          "bytes": 23271
+        },
+        {
+          "revision": "before",
+          "path": "react/features/recording/functions.ts",
+          "gitBlob": "86fa1122dc50f4d3d92744578f7fdee1b9aa7906",
+          "sha256": "421a0cd038c5792ec931a63e2eab3ef6b3aad5da252298d2f8aaab827cbe9f5e",
+          "bytes": 18373
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE",
+          "gitBlob": "da614295ece1f21e8e78d4ade19bad49146448ba",
+          "sha256": "eae52e200cd80d1e6550ca59deb1388f687dc8c3220254dad219c7faa4cfd719",
+          "bytes": 12596
+        },
+        {
+          "revision": "after",
+          "path": "react/features/recording/components/LiveStream/AbstractLiveStreamButton.ts",
+          "gitBlob": "e7f9f94fa65e1c0d3f4a3a17330407776acc9a4a",
+          "sha256": "2dce0c97dac1fccf16cbd70d3c7cb8e77a6e5ee1e1456d48d8bf4c371a616e0b",
+          "bytes": 4578
+        },
+        {
+          "revision": "after",
+          "path": "react/features/recording/components/Recording/AbstractStartRecordingDialogContent.tsx",
+          "gitBlob": "26421844c59ab4f62497e4ec330f53c5e0dab5cc",
+          "sha256": "79317aa33e08790f1ea9283003aaedbcf302835e353470238935cb6ff02457c6",
+          "bytes": 15583
+        },
+        {
+          "revision": "after",
+          "path": "react/features/recording/components/Recording/web/StartRecordingDialogContent.tsx",
+          "gitBlob": "17b710f650589efff266d228764d7c04c049ae6b",
+          "sha256": "afd72eb01d69f3b1f0e386269b394a4bd4e4c0c2597ad4d9b61c9d0d67ccae7a",
+          "bytes": 23746
+        },
+        {
+          "revision": "after",
+          "path": "react/features/recording/functions.ts",
+          "gitBlob": "9379ae9e9478af6192217b8cfd095d1d055537ee",
+          "sha256": "336ff81e4f5cc6cbc5e1a200d6eca2246feaedd83977890873f43fa5f05d3bed",
+          "bytes": 18151
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE",
+          "gitBlob": "da614295ece1f21e8e78d4ade19bad49146448ba",
+          "sha256": "eae52e200cd80d1e6550ca59deb1388f687dc8c3220254dad219c7faa4cfd719",
+          "bytes": 12596
+        }
+      ]
+    },
+    {
+      "id": "jitsi-whiteboard-room-change",
+      "project": "jitsi-meet",
+      "head": "d31c119e4c9b4c5d44d5301f50564a0c979e5f90",
+      "parent": "f648b650ed296ffe2c780021da7924d9f7dd2f19",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "react/features/whiteboard/middleware.any.ts",
+          "gitBlob": "3d7a92a7cc5e9db9178e2b7e0eab79abd61b8c3b",
+          "sha256": "e0c601b5dd1095e0af75824dc0196d226c89062c043a8ee8cb961c7d4ab7f53f",
+          "bytes": 3098
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE",
+          "gitBlob": "da614295ece1f21e8e78d4ade19bad49146448ba",
+          "sha256": "eae52e200cd80d1e6550ca59deb1388f687dc8c3220254dad219c7faa4cfd719",
+          "bytes": 12596
+        },
+        {
+          "revision": "after",
+          "path": "react/features/whiteboard/middleware.any.ts",
+          "gitBlob": "aa5f23d34753ff733a3732ee75cf48c2b7293038",
+          "sha256": "56568d8f72c2250c77c6636fc1a6545cf7aa06eecb2024367d2d7bf197098863",
+          "bytes": 3523
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE",
+          "gitBlob": "da614295ece1f21e8e78d4ade19bad49146448ba",
+          "sha256": "eae52e200cd80d1e6550ca59deb1388f687dc8c3220254dad219c7faa4cfd719",
+          "bytes": 12596
+        }
+      ]
+    },
+    {
+      "id": "jitsi-late-recording-service",
+      "project": "jitsi-meet",
+      "head": "5056f7ed212663bf4d44fd740bbf254721767b4d",
+      "parent": "800fd7884befde254d23020807722f729c94c1bd",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "react/features/recording/components/Recording/AbstractStartRecordingDialog.ts",
+          "gitBlob": "50a9abb16cf86878c8d7eba45433d27a801fc6ec",
+          "sha256": "8090dcb043310197a76038d707d67e2d111455f30cf382482999f1038f6d4d55",
+          "bytes": 27376
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE",
+          "gitBlob": "da614295ece1f21e8e78d4ade19bad49146448ba",
+          "sha256": "eae52e200cd80d1e6550ca59deb1388f687dc8c3220254dad219c7faa4cfd719",
+          "bytes": 12596
+        },
+        {
+          "revision": "after",
+          "path": "react/features/recording/components/Recording/AbstractStartRecordingDialog.ts",
+          "gitBlob": "4f0789787b14dd7c432728af165629071870240a",
+          "sha256": "0412e211779fd1d2c2c435c68d54887736757be252d9e57f4e4a226a10c00edf",
+          "bytes": 29040
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE",
+          "gitBlob": "da614295ece1f21e8e78d4ade19bad49146448ba",
+          "sha256": "eae52e200cd80d1e6550ca59deb1388f687dc8c3220254dad219c7faa4cfd719",
+          "bytes": 12596
+        }
+      ]
+    },
+    {
+      "id": "actual-ref-event-listener",
+      "project": "actual",
+      "head": "5cf13920d569c1143f16444c73c23a476fbe4f72",
+      "parent": "cbf03729f2c2fa2942a1691b17941bf4bf36562c",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/hooks/useRefEventListener.ts",
+          "gitBlob": "36c6c0bc3fc005c10856af928ebce2e6aaf46e84",
+          "sha256": "466b0ad2347c7bd833f911f7bf0d5189eb85ebc410efd8266cc23a0a1f1fa931",
+          "bytes": 1205
+        },
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/hooks/useContextMenu.ts",
+          "gitBlob": "70e480b17255da90ceddeb1bd8b75227d7c11378",
+          "sha256": "94e8609d4acfedbfea35f93f236f2f46201fbecd562cea213dcc538c582334ee",
+          "bytes": 1534
+        },
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/components/budget/SidebarCategory.tsx",
+          "gitBlob": "15b0fd6c31cf5ee997bb020d49328b7562e931ce",
+          "sha256": "31af9fa7cae1eb8947494afc6235896f979144b4191ffda995072e55e85bb193",
+          "bytes": 5004
+        },
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/components/budget/SidebarGroup.tsx",
+          "gitBlob": "0d1fb6d1189798d903306de265e3ac869ac465b4",
+          "sha256": "ca339df6c864455a7744ebcbb8d43abe4638d7717392ff114d87af679bdd1761",
+          "bytes": 7242
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE.txt",
+          "gitBlob": "3898f370d3cef6eaa0cbe60b936512bba6383cfa",
+          "sha256": "71e4b3053e4622e1f5fc5d8aa5336350de32ead39247924c596d659b89b47b6f",
+          "bytes": 1045
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/hooks/useRefEventListener.ts",
+          "gitBlob": "b7bfa79183f696cc9520137586fbf8e9bc32ffe3",
+          "sha256": "464fbc6ddd1f79316b47484c2392517b0cb732293890f00d718d83a22244a577",
+          "bytes": 1691
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/hooks/useContextMenu.ts",
+          "gitBlob": "70e480b17255da90ceddeb1bd8b75227d7c11378",
+          "sha256": "94e8609d4acfedbfea35f93f236f2f46201fbecd562cea213dcc538c582334ee",
+          "bytes": 1534
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/components/budget/SidebarCategory.tsx",
+          "gitBlob": "15b0fd6c31cf5ee997bb020d49328b7562e931ce",
+          "sha256": "31af9fa7cae1eb8947494afc6235896f979144b4191ffda995072e55e85bb193",
+          "bytes": 5004
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/components/budget/SidebarGroup.tsx",
+          "gitBlob": "0d1fb6d1189798d903306de265e3ac869ac465b4",
+          "sha256": "ca339df6c864455a7744ebcbb8d43abe4638d7717392ff114d87af679bdd1761",
+          "bytes": 7242
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE.txt",
+          "gitBlob": "3898f370d3cef6eaa0cbe60b936512bba6383cfa",
+          "sha256": "71e4b3053e4622e1f5fc5d8aa5336350de32ead39247924c596d659b89b47b6f",
+          "bytes": 1045
+        }
+      ]
+    },
+    {
+      "id": "actual-mobile-report-filter",
+      "project": "actual",
+      "head": "6ccb7add3ee1f0c47d16a4642125044f5a3635a5",
+      "parent": "81f391700b975b57d75c997140dd08c0a389d0ea",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/components/mobile/accounts/AccountsPage.tsx",
+          "gitBlob": "9a2b95ed0ef2ee798b386a35052b7249a18dcc3a",
+          "sha256": "849a473ebf8c40612f2b6301c6b300c71799926782d9c7d9194488504184aed3",
+          "bytes": 17326
+        },
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/components/mobile/accounts/AllAccountTransactions.tsx",
+          "gitBlob": "ac3b1e8bb1b95f40a18ff7dc7af6badb5ee43c16",
+          "sha256": "de3777154c3242cc1c6a0bc4b5a27609fa16f04f0b0ceb926e2df037e1dbab81",
+          "bytes": 4869
+        },
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/components/mobile/transactions/TransactionListWithBalances.tsx",
+          "gitBlob": "a01a45c51d3291269f43ea33a04779dcb4693c97",
+          "sha256": "d843368a4c45a8f503b7c1c3c4aa1dc59f4559cf09b5d38ec7bb62b83ebb69c7",
+          "bytes": 8525
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE.txt",
+          "gitBlob": "3898f370d3cef6eaa0cbe60b936512bba6383cfa",
+          "sha256": "71e4b3053e4622e1f5fc5d8aa5336350de32ead39247924c596d659b89b47b6f",
+          "bytes": 1045
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/components/mobile/accounts/AccountsPage.tsx",
+          "gitBlob": "054cf8580c0c056bcd802053854c2b47b599caf1",
+          "sha256": "5570348c9b053096645a023938a628d8fb1612432737475997d259f70ff31963",
+          "bytes": 17932
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/components/mobile/accounts/AllAccountTransactions.tsx",
+          "gitBlob": "e5f26798d380cba5ef0056d639e499ea50832085",
+          "sha256": "86b19dd11a368c0372827d8ab92d4ab272b07618800d5899060596d9c2e26e4c",
+          "bytes": 6164
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/components/mobile/transactions/TransactionListWithBalances.tsx",
+          "gitBlob": "6f7fe966485eda2d116746710d2eb39840fc14ed",
+          "sha256": "88f128ff9084ed013f86c79895cc3fcc7fcb0a5e9d051d961936f02896e78cf5",
+          "bytes": 9576
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE.txt",
+          "gitBlob": "3898f370d3cef6eaa0cbe60b936512bba6383cfa",
+          "sha256": "71e4b3053e4622e1f5fc5d8aa5336350de32ead39247924c596d659b89b47b6f",
+          "bytes": 1045
+        }
+      ]
+    },
+    {
+      "id": "actual-optional-starting-balance",
+      "project": "actual",
+      "head": "967b4443d501e6de6f38b449d23b89e03c322d13",
+      "parent": "7fc4602ccd9dd96634f308541766e04b6d34123e",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/components/modals/SelectLinkedAccountsModal.tsx",
+          "gitBlob": "ce17317d65a0ac1f36bd52e6dad3a062d40cfb87",
+          "sha256": "bdfd9a9ac76de68697eb6b036aa640d98793cd99b445c2f6263af264fc6edfea",
+          "bytes": 37637
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE.txt",
+          "gitBlob": "3898f370d3cef6eaa0cbe60b936512bba6383cfa",
+          "sha256": "71e4b3053e4622e1f5fc5d8aa5336350de32ead39247924c596d659b89b47b6f",
+          "bytes": 1045
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/components/modals/SelectLinkedAccountsModal.tsx",
+          "gitBlob": "463ceb9d7c2234d5b9240e2800deee08509955c8",
+          "sha256": "f10528899b602f6d8b142cc7d0e454ea8a2548ce37db6336ee524e83f8acbcbe",
+          "bytes": 38665
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE.txt",
+          "gitBlob": "3898f370d3cef6eaa0cbe60b936512bba6383cfa",
+          "sha256": "71e4b3053e4622e1f5fc5d8aa5336350de32ead39247924c596d659b89b47b6f",
+          "bytes": 1045
+        }
+      ]
+    },
+    {
+      "id": "actual-tag-rename",
+      "project": "actual",
+      "head": "06e495e850f5732f56229d016d7eca1c0b6140e5",
+      "parent": "935d2b5064e0e83a347df88f5b73030ebb42ed52",
+      "blobs": [
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/components/tags/TagRow.tsx",
+          "gitBlob": "518d496bc557b6e27340ba17539beb2d82ef96f6",
+          "sha256": "af8b65f41a567aa81c8b555819313a2a003249594fcdf01120a9f5e09039a111",
+          "bytes": 5390
+        },
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/components/tags/TagsList.tsx",
+          "gitBlob": "dc2d42ab2c5bbf842fa5366445794c22b15f1f1c",
+          "sha256": "d129251808bfcad112852dc368a8dc2755bee989031c9b68da6f435a89c0b081",
+          "bytes": 1014
+        },
+        {
+          "revision": "before",
+          "path": "packages/desktop-client/src/tags/mutations.ts",
+          "gitBlob": "e55863df30efe88bed3f5797e3f6859282bf42ab",
+          "sha256": "c7ab104e70587d44e6ebdcb792564426ab5bb262aa160e1de59cca0dcbaaedb0",
+          "bytes": 5331
+        },
+        {
+          "revision": "before",
+          "path": "packages/loot-core/src/shared/tags.ts",
+          "gitBlob": "224622c19ba3da35c663b72e19b84237880ef9af",
+          "sha256": "ff520da5113b90e31254830de4326cbc51c4346cb0c85de209941366ba24087c",
+          "bytes": 552
+        },
+        {
+          "revision": "before",
+          "path": "LICENSE.txt",
+          "gitBlob": "3898f370d3cef6eaa0cbe60b936512bba6383cfa",
+          "sha256": "71e4b3053e4622e1f5fc5d8aa5336350de32ead39247924c596d659b89b47b6f",
+          "bytes": 1045
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/components/tags/TagRow.tsx",
+          "gitBlob": "b096d6be315e6732aa64de23f1561fe9e370eed6",
+          "sha256": "4f29417ce4ee9a2c37ca0a520384a65294a5372e106e868799040acb6243cf33",
+          "bytes": 6830
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/components/tags/TagsList.tsx",
+          "gitBlob": "6a352ef5e9ed563badcf7dc0f9359c2541a22a2a",
+          "sha256": "3c60fa994c8bf86ba017a04a17ddb8e526535fbf5e137da9e7e78db89ea6dbdd",
+          "bytes": 1003
+        },
+        {
+          "revision": "after",
+          "path": "packages/desktop-client/src/tags/mutations.ts",
+          "gitBlob": "3ac6d297c21eb99d671c6ed5137828050c4efac7",
+          "sha256": "8fe65a3c1b7a047e53de84717b1c1facd65c95f243b91b6e72866786eefc5682",
+          "bytes": 5989
+        },
+        {
+          "revision": "after",
+          "path": "packages/loot-core/src/shared/tags.ts",
+          "gitBlob": "e156f08fbb15069110edb3c0504177081c8b02b0",
+          "sha256": "be67b9b480b688a479728308d550f567d390ab52a6e251ba0ecc0e1e31fd017f",
+          "bytes": 1054
+        },
+        {
+          "revision": "after",
+          "path": "LICENSE.txt",
+          "gitBlob": "3898f370d3cef6eaa0cbe60b936512bba6383cfa",
+          "sha256": "71e4b3053e4622e1f5fc5d8aa5336350de32ead39247924c596d659b89b47b6f",
+          "bytes": 1045
+        }
+      ]
+    }
+  ]
+}

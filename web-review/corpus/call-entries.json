@@ -1,0 +1,16 @@
+{
+  "schema": "web-call-entries-selection-1",
+  "targets": [
+    {
+      "id": "actual-tag-rename-validation",
+      "case": "actual-tag-rename",
+      "revision": "after",
+      "path": "packages/desktop-client/src/components/tags/TagRow.tsx",
+      "callback": "onRename",
+      "callee": "renameTag",
+      "line": 69,
+      "expected": "trim 후 빈 이름 또는 tag.tag와 같은 이름이면 조기 반환한다. 그 밖에는 renameTag 호출식 평가 직전까지 도달한다.",
+      "notProven": ["콜백을 발생시키는 이벤트", "선택 호출의 대상·인수 평가·성공", "실제 mutation·서버·React 실행"]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema": "web-corpus-runtime-selection-1",
+  "case": "excalidraw-scroll-back-view-mode",
+  "paths": [
+    "yarn.lock",
+    "packages/excalidraw/components/Island.tsx",
+    "packages/excalidraw/components/FixedSideContainer.tsx"
+  ],
+  "packages": ["react@19.0.0", "react-dom@19.0.0", "clsx@1.1.1", "scheduler@^0.25.0"],
+  "scope": "원본 변경 구간의 유한 실행 대조를 위한 React 서버 렌더링 환경. 앱 전체 실행이나 CSS·브라우저 이벤트 검증은 아니다."
+}

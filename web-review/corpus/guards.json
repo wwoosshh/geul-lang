@@ -1,0 +1,9 @@
+{
+  "schema": "web-corpus-guards-1",
+  "scope": "원본 JSX 표현식 안의 조건부 평가 진입 경로. 선행 평가의 정상 완료를 가정하며 생성 성공·사용·렌더링은 미확인이다.",
+  "targets": [
+    { "id": "excalidraw-desktop-scroll-path", "case": "excalidraw-scroll-back-view-mode", "path": "packages/excalidraw/components/LayerUI.tsx", "selector": { "tag": "button", "attribute": "className", "equals": "scroll-back-to-content" }, "oracle": "desktop-scroll-v1" },
+    { "id": "excalidraw-mobile-scroll-path", "case": "excalidraw-scroll-back-view-mode", "path": "packages/excalidraw/components/MobileMenu.tsx", "selector": { "tag": "button", "attribute": "className", "equals": "scroll-back-to-content" }, "oracle": "mobile-scroll-v1" },
+    { "id": "excalidraw-mobile-scroll-prefix", "case": "excalidraw-scroll-back-view-mode", "path": "packages/excalidraw/components/MobileMenu.tsx", "revisions": ["after"], "selector": { "tag": "button", "attribute": "className", "equals": "scroll-back-to-content", "prefixLine": 121 }, "oracle": "mobile-scroll-prefix-v1" }
+  ]
+}

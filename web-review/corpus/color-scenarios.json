@@ -1,0 +1,107 @@
+{
+  "schema": "web-color-scenarios-1",
+  "case": "excalidraw-color-error",
+  "scope": "수동으로 정한 입력·blur 경로의 DOM 표시와 앱 배경색을 원본 전후 앱에서 확인한다. 이벤트·hook을 글 IR로 해석한 모델이 아니다.",
+  "initialColor": "#ffffff",
+  "messages": {
+    "hex-length": "Hex code must be 3, 4, 6, or 8 characters",
+    "invalid-color": "Not a valid color"
+  },
+  "scenarios": [
+    {
+      "id": "hex-correction",
+      "label": "오류 뒤 수정, 같은 색 재입력",
+      "steps": [
+        { "id": "short", "change": "1", "display": "1", "saved": "#ffffff", "error": "hex-length" },
+        { "id": "valid", "change": "ff0000", "display": "ff0000", "saved": "#ff0000", "error": null },
+        { "id": "delete-one", "change": "ff000", "display": "ff000", "saved": "#ff0000", "error": "hex-length" },
+        { "id": "restore-same-color", "change": "ff0000", "display": "ff0000", "saved": "#ff0000", "error": null },
+        { "id": "finish", "blur": true, "display": "ff0000", "saved": "#ff0000", "error": null }
+      ]
+    },
+    {
+      "id": "invalid-clear",
+      "label": "잘못된 색을 입력한 뒤 비우기",
+      "steps": [
+        { "id": "invalid", "change": "zzzzzz", "display": "zzzzzz", "saved": "#ffffff", "error": "invalid-color" },
+        { "id": "clear", "change": "", "display": "", "saved": "#ffffff", "error": null },
+        { "id": "finish", "blur": true, "display": "ffffff", "saved": "#ffffff", "error": null }
+      ]
+    },
+    {
+      "id": "invalid-blur",
+      "label": "잘못된 색을 남긴 채 입력 종료",
+      "steps": [
+        { "id": "invalid", "change": "notacolor", "display": "notacolor", "saved": "#ffffff", "error": "invalid-color" },
+        { "id": "finish", "blur": true, "display": "ffffff", "saved": "#ffffff", "error": null }
+      ]
+    },
+    {
+      "id": "hex-length-and-alpha",
+      "label": "긴 16진수 오류와 짧은 색·알파값",
+      "steps": [
+        { "id": "too-long", "change": "123456789", "display": "123456789", "saved": "#ffffff", "error": "hex-length" },
+        { "id": "short-hex", "change": "#abc", "display": "abc", "saved": "#abc", "error": null },
+        { "id": "short-alpha", "change": "#abcd", "display": "abcd", "saved": "#abcd", "error": null },
+        { "id": "long-alpha", "change": "#ff000080", "display": "ff000080", "saved": "#ff000080", "error": null },
+        { "id": "finish", "blur": true, "display": "ff000080", "saved": "#ff000080", "error": null }
+      ]
+    },
+    {
+      "id": "named-colors",
+      "label": "이름으로 지정하는 색",
+      "steps": [
+        { "id": "uppercase", "change": "RED", "display": "red", "saved": "red", "error": null },
+        { "id": "transparent", "change": "transparent", "display": "transparent", "saved": "transparent", "error": null },
+        { "id": "blue", "change": "blue", "display": "blue", "saved": "blue", "error": null }
+      ]
+    },
+    {
+      "id": "functional-colors",
+      "label": "RGB·RGBA·HSL과 불완전한 입력",
+      "steps": [
+        { "id": "rgb", "change": "rgb(255, 0, 0)", "display": "rgb(255, 0, 0)", "saved": "rgb(255, 0, 0)", "error": null },
+        { "id": "rgba", "change": "rgba(255, 0, 0, 0.5)", "display": "rgba(255, 0, 0, 0.5)", "saved": "rgba(255, 0, 0, 0.5)", "error": null },
+        { "id": "hsl", "change": "hsl(0, 100%, 50%)", "display": "hsl(0, 100%, 50%)", "saved": "hsl(0, 100%, 50%)", "error": null },
+        { "id": "incomplete", "change": "rgb(", "display": "rgb(", "saved": "hsl(0, 100%, 50%)", "error": "invalid-color" },
+        { "id": "finish", "blur": true, "display": "hsl(0, 100%, 50%)", "saved": "hsl(0, 100%, 50%)", "error": null }
+      ]
+    },
+    {
+      "id": "whitespace-repeat",
+      "label": "같은 색 재입력과 공백 표시",
+      "steps": [
+        { "id": "same-initial", "change": "  #FFFFFF  ", "display": "ffffff", "beforeDisplay": "  #ffffff  ", "saved": "#ffffff", "error": null },
+        { "id": "new-color", "change": "  #FF0000  ", "display": "ff0000", "saved": "#ff0000", "error": null },
+        { "id": "repeat-color", "change": "  #FF0000  ", "display": "ff0000", "beforeDisplay": "  #ff0000  ", "saved": "#ff0000", "error": null },
+        { "id": "invalid-spaces", "change": "  notacolor  ", "display": "notacolor", "beforeDisplay": "  notacolor  ", "saved": "#ff0000", "error": "invalid-color" },
+        { "id": "only-spaces", "change": "   ", "display": "", "beforeDisplay": "   ", "saved": "#ff0000", "error": null },
+        { "id": "finish", "blur": true, "display": "ff0000", "saved": "#ff0000", "error": null }
+      ]
+    },
+    {
+      "id": "delete-to-empty",
+      "label": "조금씩 지우는 도중 유효한 길이를 통과",
+      "steps": [
+        { "id": "six", "change": "1e9df0", "display": "1e9df0", "saved": "#1e9df0", "error": null },
+        { "id": "five", "change": "1e9df", "display": "1e9df", "saved": "#1e9df0", "error": "hex-length" },
+        { "id": "four", "change": "1e9d", "display": "1e9d", "saved": "#1e9d", "error": null },
+        { "id": "three", "change": "1e9", "display": "1e9", "saved": "#1e9", "error": null },
+        { "id": "two", "change": "1e", "display": "1e", "saved": "#1e9", "error": "hex-length" },
+        { "id": "one", "change": "1", "display": "1", "saved": "#1e9", "error": "hex-length" },
+        { "id": "empty", "change": "", "display": "", "saved": "#1e9", "error": null },
+        { "id": "finish", "blur": true, "display": "1e9", "saved": "#1e9", "error": null }
+      ]
+    },
+    {
+      "id": "hash-prefix",
+      "label": "해시 기호만 입력하거나 잘못된 16진수 문자 입력",
+      "steps": [
+        { "id": "hash-only", "change": "#", "display": "", "saved": "#ffffff", "error": "invalid-color" },
+        { "id": "valid", "change": "abc", "display": "abc", "saved": "#abc", "error": null },
+        { "id": "bad-digits", "change": "#gggggg", "display": "gggggg", "saved": "#abc", "error": "invalid-color" },
+        { "id": "finish", "blur": true, "display": "abc", "saved": "#abc", "error": null }
+      ]
+    }
+  ]
+}

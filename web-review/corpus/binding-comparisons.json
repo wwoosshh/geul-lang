@@ -1,0 +1,14 @@
+{
+  "schema": "web-binding-comparisons-1",
+  "scope": "구조가 달라진 원본 구간의 선택 변수 값 비교. 호출 도달·외부 요청·전체 변경은 별도.",
+  "targets": [
+    {
+      "id": "actual-starting-settings-refactor",
+      "case": "actual-optional-starting-balance",
+      "path": "packages/desktop-client/src/components/modals/SelectLinkedAccountsModal.tsx",
+      "before": { "startLine": 311, "endLine": 316, "outputs": ["startingDate", "startingBalance"] },
+      "after": { "functionName": "resolveStartingSettings", "line": 311 },
+      "oracle": "starting-settings-refactor-v1"
+    }
+  ]
+}

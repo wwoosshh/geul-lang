@@ -1,0 +1,74 @@
+{
+  "schema": "web-inspector-browser-recording-1",
+  "recordedOn": "2026-09-09",
+  "recordingMethod": "CUA in-app browser; UI controls and read-only DOM observations",
+  "scope": "Fixed Actual transaction selection research inspector, not the original Actual application",
+  "engineSha256": "ec64d9a3deb75cd4381b47aebbd8e514b288afc8200998231e6b10100b77fab3",
+  "dataSha256": "3c3eeaa4bbb55c6f6aa45921a23d922d8539ce9770c28b2c085e1fb9b538ec8b",
+  "producerSha256": "c51d794cd1a06d80cd1c6bc482db509f2e84231c736367167f73a88d7d1e37ed",
+  "assetHashes": {
+    "index.html": "78be453250bf0bde5f5540ac9d00eea562247db42b1bb0d596d4387e4a760fb3",
+    "style.css": "6e152f99076e0dcc7a4051495f86409bc568ab3fb50ab18a45deae108d79b896",
+    "app.mjs": "ee4949e506d87e4de146de25bec7ff5fc55a794b7b0eb426518c840c1ffef31c"
+  },
+  "matrix": {
+    "order": "searching=false,true; filtered=false,true; transaction=0..9; preview=0..3 (innermost)",
+    "encoding": "dictionary entries are comma-separated before IDs | after IDs | displayed difference boolean; empty list is empty field",
+    "checked": 160,
+    "changed": 34,
+    "errors": 0,
+    "dictionary": [
+      "||0", "preview|preview|0", "p2,p1|p2,p1|0", "a,a|a,a|0", "a|a|0",
+      "preview,a|preview,a|0", "p2,p1,a|p2,p1,a|0", "a,a,a|a,a,a|0", "z,a|z,a|0",
+      "preview,z,a|preview,z,a|0", "p2,p1,z,a|p2,p1,z,a|0", "a,a,z,a|a,a,z,a|0", "no-flag|no-flag|0",
+      "preview,no-flag|preview,no-flag|0", "p2,p1,no-flag|p2,p1,no-flag|0", "a,a,no-flag|a,a,no-flag|0",
+      "preview,a,a|preview,a,a|0", "p2,p1,a,a|p2,p1,a,a|0", "a,a,a,a|a,a,a,a|0", "null,undefined|null,undefined|0",
+      "preview,null,undefined|preview,null,undefined|0", "p2,p1,null,undefined|p2,p1,null,undefined|0", "a,a,null,undefined|a,a,null,undefined|0",
+      "zero,minus-zero,empty,nan|zero,minus-zero,empty,nan|0", "preview,zero,minus-zero,empty,nan|preview,zero,minus-zero,empty,nan|0",
+      "p2,p1,zero,minus-zero,empty,nan|p2,p1,zero,minus-zero,empty,nan|0", "a,a,zero,minus-zero,empty,nan|a,a,zero,minus-zero,empty,nan|0",
+      "preview||1", "p2,p1||1", "a,a||1", "preview,a|a|1", "p2,p1,a|a|1", "a,a,a|a|1",
+      "|b|1", "preview|b|1", "p2,p1|b|1", "a,a|b|1", "z,a|z,b,a|1", "preview,z,a|z,b,a|1", "p2,p1,z,a|z,b,a|1", "a,a,z,a|z,b,a|1",
+      "preview,no-flag|no-flag|1", "p2,p1,no-flag|no-flag|1", "a,a,no-flag|no-flag|1", "preview,a,a|a,a|1", "p2,p1,a,a|a,a|1", "a,a,a,a|a,a|1",
+      "preview,null,undefined|null,undefined|1", "p2,p1,null,undefined|null,undefined|1", "a,a,null,undefined|null,undefined|1",
+      "preview,zero,minus-zero,empty,nan|zero,minus-zero,empty,nan|1", "p2,p1,zero,minus-zero,empty,nan|zero,minus-zero,empty,nan|1", "a,a,zero,minus-zero,empty,nan|zero,minus-zero,empty,nan|1",
+      "|one,text,record,array|1", "preview|one,text,record,array|1", "p2,p1|one,text,record,array|1", "a,a|one,text,record,array|1",
+      "a|b,a|1", "preview,a|b,a|1", "p2,p1,a|b,a|1", "a,a,a|b,a|1", "b|b|0", "z,b,a|z,b,a|0", "one,text,record,array|one,text,record,array|0", "b,a|b,a|0"
+    ],
+    "indexes": [0,1,2,3,4,5,6,7,0,1,2,3,8,9,10,11,12,13,14,15,3,16,17,18,19,20,21,22,23,24,25,26,0,1,2,3,4,5,6,7,0,27,28,29,4,30,31,32,33,34,35,36,37,38,39,40,12,41,42,43,3,44,45,46,19,47,48,49,23,50,51,52,53,54,55,56,57,58,59,60,0,0,0,0,4,4,4,4,61,61,61,61,62,62,62,62,12,12,12,12,3,3,3,3,19,19,19,19,23,23,23,23,63,63,63,63,64,64,64,64,0,0,0,0,4,4,4,4,61,61,61,61,62,62,62,62,12,12,12,12,3,3,3,3,19,19,19,19,23,23,23,23,63,63,63,63,64,64,64,64]
+  },
+  "duplicateIdValues": {
+    "inputKey": "0:1:5:3",
+    "before": [{"id":"a","is_child":true},{"id":"a","is_child":true},{"amount":1,"id":"a","is_child":false},{"amount":2,"id":"a","is_child":false}],
+    "after": [{"amount":1,"id":"a","is_child":false},{"amount":2,"id":"a","is_child":false}]
+  },
+  "sourceLinks": [
+    {"file":"parent-before","line":122,"markedText":"!isSearching"},
+    {"file":"parent-after","line":163,"markedText":"!isSearching && !isFiltered"},
+    {"file":"child-before","line":109,"markedText":"useSelected('transactions', [...transactions], [])"},
+    {"file":"child-after","line":113,"markedText":"useSelected('transactions', [...transactions], [])"}
+  ],
+  "interactions": {
+    "viewsByRevision": 6,
+    "views": ["change", "calculation", "uses"],
+    "revisions": ["before", "after"],
+    "keyboardActivation": "Enter on calculation and after revision buttons; Enter on source return",
+    "sourceRevisionSync": "parent and child source selection follows revision button",
+    "mobileSourceVisit": {"width":390,"height":844,"sourceTop":16.140625,"focus":"source-code","sourceLine":169},
+    "mobileSourceReturn": {"focusClass":"use-site","top":374.15625,"bottom":469.453125},
+    "viewportReset": true,
+    "browserConsoleErrors": 0
+  },
+  "layout": [
+    {"width":1280,"height":720,"documentWidth":1265,"clientWidth":1265,"visualInspection":"default results, reading and source pane"},
+    {"width":390,"height":844,"documentWidth":375,"clientWidth":375,"visualInspection":"default results and source visit; duplicate ID full values did not overflow page"}
+  ],
+  "humanParticipants": 0,
+  "originalApplicationExecutions": 0,
+  "wholeBehaviorCasesVerified": 0,
+  "notes": [
+    "The matrix checks displayed IDs and difference labels; this alone does not establish full-value semantic equivalence. Full-value/native checks are separate evidence.",
+    "This retained recording is not an automated browser rerun and becomes historical when its assets or producer change.",
+    "Screenshots were visually inspected inline; no screenshot files were retained.",
+    "Viewport and keyboard checks are bounded UI checks, not a complete accessibility audit or human comprehension experiment."
+  ]
+}

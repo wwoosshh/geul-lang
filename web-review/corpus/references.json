@@ -1,0 +1,11 @@
+{
+  "schema": "web-corpus-references-1",
+  "scope": "저장된 값을 직접 JSX 자식으로 읽는 두 경로. 입력 값과 생성 시점의 값의 동일성, 실제 렌더링은 미확인이다.",
+  "case": "excalidraw-scroll-back-view-mode",
+  "revision": "after",
+  "path": "packages/excalidraw/components/MobileMenu.tsx",
+  "targets": [
+    { "name": "scrollBackToContentButton", "line": 170, "container": "Island", "className": "App-toolbar", "whenBottom": true },
+    { "name": "scrollBackToContentButton", "line": 176, "container": "div", "className": "floating-status-stack", "whenBottom": false }
+  ]
+}

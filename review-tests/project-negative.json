@@ -1,0 +1,22 @@
+[
+  {"id":"unresolved","entry":"f","sources":{"a.c":"int h(void); int f(int x) { return h(); }"},"error":"C_UNRESOLVED"},
+  {"id":"undeclared-cross-file","entry":"f","sources":{"a.c":"int f(int x) { return h(); }","b.c":"int h(void) { return 1; }"},"error":"C_CALL_DECL"},
+  {"id":"declared-too-late","entry":"f","sources":{"a.c":"int f(int x) { return h(); } int h(void) { return 1; }"},"error":"C_CALL_DECL"},
+  {"id":"parameter-shadow","entry":"f","sources":{"a.c":"int h(void); int f(int h) { return h(); }","b.c":"int h(void) { return 1; }"},"error":"C_CALL"},
+  {"id":"arity-mismatch","entry":"f","sources":{"a.c":"int h(void); int f(int x) { return h(); }","b.c":"int h(int x) { return 1; }"},"error":"C_SIGNATURE"},
+  {"id":"return-type-mismatch","entry":"f","sources":{"a.c":"int h(void); int f(int x) { return h(); }","b.c":"long h(void) { return 1; }"},"error":"C_SIGNATURE"},
+  {"id":"duplicate-definition","entry":"f","sources":{"a.c":"int f(int x) { return 1; }","b.c":"int f(int x) { return 2; }"},"error":"C_DUPLICATE"},
+  {"id":"missing-entry","entry":"missing","sources":{"a.c":"int f(int x) { return 1; }"},"error":"C_ENTRY"},
+  {"id":"void-entry","entry":"f","sources":{"a.c":"int f(void) { return 1; }"},"error":"C_ENTRY"},
+  {"id":"old-style","entry":"f","sources":{"a.c":"int h(); int f(int x) { return 0; } int h() { return 1; }"},"error":"C_SIGNATURE"},
+  {"id":"arguments","entry":"f","sources":{"a.c":"int h(void); int f(int x) { return h(1); }","b.c":"int h(void) { return 1; }"},"error":"C_CALL"},
+  {"id":"input-function-call","entry":"f","sources":{"a.c":"int other(int); int f(int x) { return other(); }","b.c":"int other(int y) { return 1; }"},"error":"C_CALL"},
+  {"id":"global","entry":"f","sources":{"a.c":"int global; int f(int x) { return 1; }"},"error":"C_SIGNATURE"},
+  {"id":"hidden-state","entry":"f","sources":{"a.c":"int h(void); int f(int x) { return h(); }","b.c":"int h(void) { static int count; count++; return count; }"},"error":"C_CONSTANT"},
+  {"id":"unused-effect","entry":"f","sources":{"a.c":"int f(int x) { return 0; }","b.c":"int hidden(void) { int value = 1; return value; }"},"error":"C_CONSTANT"},
+  {"id":"recursive","entry":"f","sources":{"a.c":"int h(void); int f(int x) { return h(); }","b.c":"int h(void) { return h(); }"},"error":"C_RECURSION"},
+  {"id":"mutual-recursion","entry":"f","sources":{"a.c":"int first(void); int f(int x) { return first(); }","b.c":"int second(void); int first(void) { return second(); }","c.c":"int first(void); int second(void) { return first(); }"},"error":"C_RECURSION"},
+  {"id":"arithmetic-helper","entry":"f","sources":{"a.c":"int h(void); int f(int x) { return h(); }","b.c":"int h(void) { return 1 + 2; }"},"error":"C_UNSUPPORTED"},
+  {"id":"static-linkage","entry":"f","sources":{"a.c":"static int h(void) { return 1; } int f(int x) { return h(); }"},"error":"C_SIGNATURE"},
+  {"id":"helper-no-return","entry":"f","sources":{"a.c":"int h(void); int f(int x) { return h(); }","b.c":"int h(void) {}"},"error":"C_CONSTANT"}
+]

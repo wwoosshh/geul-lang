@@ -1,0 +1,64 @@
+{
+  "schema": "web-corpus-slices-1",
+  "scope": "원본 수정 없는 식·속성 단위 검증. 사례 전체를 성공으로 세지 않는다. 입력은 선택 지점 값으로 가정한다.",
+  "targets": [
+    {
+      "id": "actual-starting-balance-value",
+      "case": "actual-optional-starting-balance",
+      "path": "packages/desktop-client/src/components/modals/SelectLinkedAccountsModal.tsx",
+      "beforeSelector": { "tag": "AmountInput", "attribute": "value", "line": 932 },
+      "afterSelector": { "tag": "AmountInput", "attribute": "value", "line": 958 },
+      "domains": { "customStartingDate": [
+        { "$record": {} },
+        { "$record": { "amount": { "$value": "undefined" } } },
+        { "$record": { "amount": null } },
+        { "$record": { "amount": 0 } },
+        { "$record": { "amount": { "$value": "-0" } } },
+        { "$record": { "amount": { "$value": "NaN" } } },
+        { "$record": { "amount": 125 } }
+      ] },
+      "expectedChanged": 3,
+      "expectedPredicate": "customStartingDate.amount == null"
+    },
+    {
+      "id": "excalidraw-default-ui-mode",
+      "case": "excalidraw-independent-ui-controls",
+      "path": "packages/excalidraw/components/App.tsx",
+      "container": "isDefaultUIEnabled",
+      "before": "props.ui !== false",
+      "after": "props.ui !== false && (typeof props.ui !== \"object\" || props.ui === null)",
+      "domains": { "props": [
+        { "$record": {} },
+        { "$record": { "ui": { "$value": "undefined" } } },
+        { "$record": { "ui": false } },
+        { "$record": { "ui": true } },
+        { "$record": { "ui": null } },
+        { "$record": { "ui": { "$record": {} } } },
+        { "$record": { "ui": { "$record": { "enabled": { "$record": { "zoom": true } } } } } },
+        { "$record": { "ui": 0 } },
+        { "$record": { "ui": "" } }
+      ] },
+      "expectedChanged": 2,
+      "expectedPredicate": "props.ui !== null && typeof props.ui === 'object'"
+    },
+    {
+      "id": "actual-filter-loading-prop",
+      "case": "actual-mobile-report-filter",
+      "path": "packages/desktop-client/src/components/mobile/accounts/AllAccountTransactions.tsx",
+      "selector": { "tag": "TransactionListWithBalances", "attribute": "isLoading" },
+      "domains": { "isSearching": [false, true], "isFiltered": [false, true], "isTransactionsLoading": [false, true], "isPreviewTransactionsLoading": [false, true] },
+      "expectedChanged": 2,
+      "expectedPredicate": "!isSearching && isFiltered && isTransactionsLoading !== isPreviewTransactionsLoading"
+    },
+    {
+      "id": "jitsi-recording-toggle-condition",
+      "case": "jitsi-recording-transcription",
+      "path": "react/features/recording/components/Recording/web/StartRecordingDialogContent.tsx",
+      "before": "_renderRecording || _localRecordingRunning",
+      "after": "(!_isLiveStreamRunning && _renderRecording) || _localRecordingRunning",
+      "domains": { "_renderRecording": [false, true], "_localRecordingRunning": [false, true], "_isLiveStreamRunning": [false, true] },
+      "expectedChanged": 1,
+      "expectedPredicate": "_isLiveStreamRunning && _renderRecording && !_localRecordingRunning"
+    }
+  ]
+}

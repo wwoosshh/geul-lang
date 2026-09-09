@@ -1,0 +1,236 @@
+{
+  "schema": "web-inspector-browser-recording-1",
+  "recordedOn": "2026-09-09",
+  "scope": "Selected source regions and other changed lines in the same original file",
+  "recordingMethod": "CUA source-link clicks with read-only DOM range assertions and desktop screenshot inspection",
+  "engineSha256": "afc77dde1b05a9ee2266b43175e777f196a4ae2c3dd61ec03e56c2b55dc12657",
+  "dataSha256": "f7058fa71b32b4a4f4a27b261dd218516165cea0a38d79147950aa1199dd2596",
+  "producerSha256": "b58a8f69d6f1a44052748fd36f29f966422e7698a5b9074bdea95760646e1e64",
+  "producerDependencies": {
+    "array-trace-oracle.mjs": "669a3138ecba82f3784f6077e7a88c5ef55542838f31ef677ca6466f493d28f1",
+    "check-array-traces.mjs": "7c0071583639dde4a5fb3fdcb1ec3efba067e10fba7edf94b38de61c7ec5384c",
+    "diff-spans.mjs": "309c30b9da6324da7907ede3b285287890102b5f3c662d56d1d7a240ff398fe2",
+    "check-slice-scope.mjs": "8d3cff68c33f58ca7b3c1dce228e6ff98c174c4c39e9590b13122eb346e081e9"
+  },
+  "assetHashes": {
+    "index.html": "b55aeef6e2578a2a29aba1cda108535bfade052f8907e3108ed7caa72ac06e05",
+    "style.css": "d43f4ad6dbae933c6936e34f47f5d62c306aa0bc2445a29364c6e4cbf744e8f9",
+    "app.mjs": "20f5012340c9585a55934ae6c31afb64abf1b490273d0d0f516b10dab73fd8db"
+  },
+  "desktop": {
+    "width": 1280,
+    "height": 720,
+    "documentWidth": 1265,
+    "clientWidth": 1265,
+    "sourceLinkChecks": [
+      {
+        "revision": "before",
+        "kind": "selected",
+        "file": "parent-before",
+        "firstLine": 122,
+        "lastLine": 125,
+        "selectedLineCount": 4,
+        "matched": true
+      },
+      {
+        "revision": "before",
+        "kind": "outside",
+        "file": "parent-before",
+        "firstLine": 1,
+        "lastLine": 1,
+        "selectedLineCount": 1,
+        "matched": true
+      },
+      {
+        "revision": "before",
+        "kind": "outside",
+        "file": "parent-before",
+        "firstLine": 7,
+        "lastLine": 7,
+        "selectedLineCount": 1,
+        "matched": true
+      },
+      {
+        "revision": "before",
+        "kind": "outside",
+        "file": "parent-before",
+        "firstLine": 34,
+        "lastLine": 34,
+        "selectedLineCount": 1,
+        "matched": true
+      },
+      {
+        "revision": "before",
+        "kind": "outside",
+        "file": "parent-before",
+        "firstLine": 39,
+        "lastLine": 40,
+        "selectedLineCount": 2,
+        "matched": true
+      },
+      {
+        "revision": "before",
+        "kind": "outside",
+        "file": "parent-before",
+        "firstLine": 58,
+        "lastLine": 59,
+        "selectedLineCount": 2,
+        "matched": true
+      },
+      {
+        "revision": "before",
+        "kind": "outside",
+        "file": "parent-before",
+        "firstLine": 130,
+        "lastLine": 130,
+        "selectedLineCount": 1,
+        "matched": true
+      },
+      {
+        "revision": "after",
+        "kind": "selected",
+        "file": "parent-after",
+        "firstLine": 162,
+        "lastLine": 166,
+        "selectedLineCount": 5,
+        "matched": true
+      },
+      {
+        "revision": "after",
+        "kind": "outside",
+        "file": "parent-after",
+        "firstLine": 1,
+        "lastLine": 1,
+        "selectedLineCount": 1,
+        "matched": true
+      },
+      {
+        "revision": "after",
+        "kind": "outside",
+        "file": "parent-after",
+        "firstLine": 3,
+        "lastLine": 3,
+        "selectedLineCount": 1,
+        "matched": true
+      },
+      {
+        "revision": "after",
+        "kind": "outside",
+        "file": "parent-after",
+        "firstLine": 8,
+        "lastLine": 11,
+        "selectedLineCount": 4,
+        "matched": true
+      },
+      {
+        "revision": "after",
+        "kind": "outside",
+        "file": "parent-after",
+        "firstLine": 38,
+        "lastLine": 43,
+        "selectedLineCount": 6,
+        "matched": true
+      },
+      {
+        "revision": "after",
+        "kind": "outside",
+        "file": "parent-after",
+        "firstLine": 48,
+        "lastLine": 52,
+        "selectedLineCount": 5,
+        "matched": true
+      },
+      {
+        "revision": "after",
+        "kind": "outside",
+        "file": "parent-after",
+        "firstLine": 54,
+        "lastLine": 80,
+        "selectedLineCount": 27,
+        "matched": true
+      },
+      {
+        "revision": "after",
+        "kind": "outside",
+        "file": "parent-after",
+        "firstLine": 97,
+        "lastLine": 99,
+        "selectedLineCount": 3,
+        "matched": true
+      },
+      {
+        "revision": "after",
+        "kind": "outside",
+        "file": "parent-after",
+        "firstLine": 171,
+        "lastLine": 173,
+        "selectedLineCount": 3,
+        "matched": true
+      },
+      {
+        "revision": "after",
+        "kind": "outside",
+        "file": "parent-after",
+        "firstLine": 183,
+        "lastLine": 183,
+        "selectedLineCount": 1,
+        "matched": true
+      }
+    ],
+    "counts": {
+      "before": {
+        "changed": 12,
+        "intersects": 4,
+        "outside": 8
+      },
+      "after": {
+        "changed": 56,
+        "intersects": 5,
+        "outside": 51
+      }
+    }
+  },
+  "mobile": {
+    "status": "not-verified-viewport-override-not-applied",
+    "requestedWidth": 390,
+    "requestedHeight": 844,
+    "observedWidth": 1280,
+    "observedHeight": 720,
+    "observedMobileMediaQuery": false,
+    "attempts": "Existing tab, reload and one fresh temporary tab all remained at desktop size. Temporary tab closed and override reset.",
+    "noMobilePassClaim": true
+  },
+  "existingViews": {
+    "change": "rendered",
+    "structure": {
+      "rendered": true,
+      "inputOriginsPresent": true
+    },
+    "uses": {
+      "rendered": true,
+      "sourceButtons": 3
+    },
+    "execution": [
+      {
+        "revision": "before",
+        "rows": 11,
+        "nativeMarks": 6
+      },
+      {
+        "revision": "after",
+        "rows": 4,
+        "nativeMarks": 2
+      }
+    ]
+  },
+  "browserConsoleErrors": 0,
+  "humanParticipants": 0,
+  "originalApplicationExecutions": 0,
+  "wholeBehaviorCasesVerified": 0,
+  "notes": [
+    "The 17 source links select exactly the expected inclusive line range in the correct revision. Ending newline does not highlight the next line.",
+    "Changed-line overlap is not semantic coverage, support status, or evidence that an outside change has no effect.",
+    "Desktop return button refocuses the originating source link. Mobile focus and layout were not verified in this run.",
+    "Screenshot was inspected through CUA but no image file was retained. The full verification command does not rerun these browser actions."
+  ]
+}

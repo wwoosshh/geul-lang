@@ -1,0 +1,9 @@
+{
+  "schema": "web-color-normalization-selection-1",
+  "id": "excalidraw-color-normalization",
+  "case": "excalidraw-color-error",
+  "path": "packages/excalidraw/components/ColorPicker/ColorInput.tsx",
+  "before": { "startLine": 42, "endLine": 42, "outputs": ["value"] },
+  "after": { "startLine": 43, "endLine": 43, "outputs": ["value"] },
+  "scope": "changeColor 안 첫 const의 문자열 결과. normalizeInputColor·상태 변경·화면·저장은 실행 범위 밖이다."
+}

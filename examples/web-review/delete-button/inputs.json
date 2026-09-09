@@ -1,0 +1,5 @@
+{
+  "user": { "$record": { "role": "admin", "suspended": false } },
+  "owner": false,
+  "locked": false
+}

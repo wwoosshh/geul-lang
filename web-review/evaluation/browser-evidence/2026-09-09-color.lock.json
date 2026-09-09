@@ -1,0 +1,144 @@
+{
+  "schema": "geul-color-browser-recording-lock-1",
+  "recordingSha256": "66bb6f2a6c225d994531eda355f35ed5230b56b2715ee08167337ac064849bc9",
+  "corpusLockSha256": "30e463c3f4c278b61c2eb9d5a76d3ff6f7c063271723430c8b2f1c0ba331a4c2",
+  "selectionSha256": "b1775b2f0a5738f542a8f739397b2812bb5eb7409423708f58ed44bf86e70f1f",
+  "fixtures": [
+    {
+      "path": "upstream-tests/color-browser.html",
+      "sha256": "6d2ebd232158c37b372500259b5df58f00716fcdae8737765eaffd09125dd9d1"
+    },
+    {
+      "path": "upstream-tests/color-browser.tsx",
+      "sha256": "e034ab9b46bbd949c37ffe2a0162f908e0d507a511092db9af02fd8f5d0c0753"
+    },
+    {
+      "path": "upstream-tests/color-browser.config.mts",
+      "sha256": "4bae1b0ebe99fc320a95b3f2b3851f34c8362e74fae197e3c552083b158daacb"
+    }
+  ],
+  "revisions": [
+    {
+      "revision": "before",
+      "commit": "69d4c346cc82ee5f64b6fa6bb91ad94422fedfb3",
+      "tree": "bab39b52509b542bf3d17da112021139148fb8cb",
+      "sources": [
+        {
+          "path": "packages/excalidraw/components/ColorPicker/ColorInput.tsx",
+          "present": true,
+          "gitBlob": "97704ffc09e48a5413126bc92c7c634755a65ddf",
+          "sha256": "cabea64020a40f663e8fabf142fa5445ff3828fa24bd19ccded2e575859db472"
+        },
+        {
+          "path": "packages/excalidraw/components/ColorPicker/ColorPicker.scss",
+          "present": true,
+          "gitBlob": "e1bacfca9a9abd9e5b9b065592c5842d2bb8decf",
+          "sha256": "674edd55acbf0099380fae79245d5c8acd053ba63ab29b04e4cf4824f8ccea3c"
+        },
+        {
+          "path": "packages/excalidraw/locales/en.json",
+          "present": true,
+          "gitBlob": "512f0d503bcdf5ba541bbaedd4029d3510ad69bf",
+          "sha256": "36ab166770f8259958ea0d1e55432e041a49dd19fd2dd6949350031e0ef297d3"
+        },
+        {
+          "path": "packages/excalidraw/tests/colorInput.test.ts",
+          "present": true,
+          "gitBlob": "827eefb4346a46bb9d57750484628e4f22f3e9d9",
+          "sha256": "58cb016b4904b32b7e9f633ec0975b360d85a7b8a262ccec5555b46961d41608"
+        },
+        {
+          "path": "packages/excalidraw/tests/colorInput.test.tsx",
+          "present": false
+        },
+        {
+          "path": "vitest.config.mts",
+          "present": true,
+          "gitBlob": "13874fbbba4653a7f846c6a12ed8ccaac5076c94",
+          "sha256": "be32b1c9e8dcf0233985b38ee9a6d4d3dae9f9f31bda80db766d63f08d088a30"
+        },
+        {
+          "path": "yarn.lock",
+          "present": true,
+          "gitBlob": "e2eb9e911b805274a3e3e83a372a82a1e7f621bf",
+          "sha256": "2fceed8bdb8180b2d14ab0db6010f48b05da0f3a772e218a7024e88ca7a7c76e"
+        },
+        {
+          "path": "package.json",
+          "present": true,
+          "gitBlob": "c91ee030c3800a91359082661a89d20a4da051f5",
+          "sha256": "7b7a3a1ac12b2a3d15ee280c02abce3fb4beafdd7156a05b4e9c5446aa66bb1c"
+        },
+        {
+          "path": "packages/common/src/colors.ts",
+          "present": true,
+          "gitBlob": "f6bced8b6740e74d37dab91ab7cc085b121cd3ba",
+          "sha256": "f233cdb736218fd87f07a157178bb0e71eefe8096b168a04c117ba9c719b19c8"
+        }
+      ]
+    },
+    {
+      "revision": "after",
+      "commit": "786ab266ff3a9cfffaed16804cf9132b44bc08ae",
+      "tree": "f2759cf01be3f330dd43ffdf59592ff24d1a0b2d",
+      "sources": [
+        {
+          "path": "packages/excalidraw/components/ColorPicker/ColorInput.tsx",
+          "present": true,
+          "gitBlob": "bb94123896ab5d737af271b6f166c5ccf3eb094e",
+          "sha256": "2a6f9cc465bd3d40054624f6f01f20188be57f255bbaf34c107447ed3de2efa1"
+        },
+        {
+          "path": "packages/excalidraw/components/ColorPicker/ColorPicker.scss",
+          "present": true,
+          "gitBlob": "cd91681912cf9b0acd6b44607660c673635e20a4",
+          "sha256": "eb034363ca09b3318c2d9b16fd6d483e14b9c10a8ffec080219036c9f9556c8e"
+        },
+        {
+          "path": "packages/excalidraw/locales/en.json",
+          "present": true,
+          "gitBlob": "5535a2adba754ecad0f7fae8393423c3bf647064",
+          "sha256": "8d1d0a3cead005918a1bc6dbbb6f64c81f595b92f4c46812ef1fa99182b7eb84"
+        },
+        {
+          "path": "packages/excalidraw/tests/colorInput.test.ts",
+          "present": false
+        },
+        {
+          "path": "packages/excalidraw/tests/colorInput.test.tsx",
+          "present": true,
+          "gitBlob": "59f6c07b476f879e2b443646ecc65014b3b0decd",
+          "sha256": "7ed07087484930a61daa98f127514c4f2315be5cc961abda80e279a637c4e7e2"
+        },
+        {
+          "path": "vitest.config.mts",
+          "present": true,
+          "gitBlob": "13874fbbba4653a7f846c6a12ed8ccaac5076c94",
+          "sha256": "be32b1c9e8dcf0233985b38ee9a6d4d3dae9f9f31bda80db766d63f08d088a30"
+        },
+        {
+          "path": "yarn.lock",
+          "present": true,
+          "gitBlob": "e2eb9e911b805274a3e3e83a372a82a1e7f621bf",
+          "sha256": "2fceed8bdb8180b2d14ab0db6010f48b05da0f3a772e218a7024e88ca7a7c76e"
+        },
+        {
+          "path": "package.json",
+          "present": true,
+          "gitBlob": "c91ee030c3800a91359082661a89d20a4da051f5",
+          "sha256": "7b7a3a1ac12b2a3d15ee280c02abce3fb4beafdd7156a05b4e9c5446aa66bb1c"
+        },
+        {
+          "path": "packages/common/src/colors.ts",
+          "present": true,
+          "gitBlob": "f6bced8b6740e74d37dab91ab7cc085b121cd3ba",
+          "sha256": "f233cdb736218fd87f07a157178bb0e71eefe8096b168a04c117ba9c719b19c8"
+        }
+      ]
+    }
+  ],
+  "browser": "Codex in-app browser, 1280 x 1000; original app content 798 x 648; desktop viewport, not mobile emulation.",
+  "dependencies": "Separate original Yarn 1.22.22 frozen-lock install, scripts ignored; React/React DOM 19.0.0 and Vite 5.0.12. Installed dependency files are not all independently hashed.",
+  "scope": "Two original app mounts; original click/change/keyboard handlers, CSS and observers, without jsdom setup. Harness uses original workspace aliases and source components, not the production app entrypoint.",
+  "collection": "CUA observations transcribed from tool output. Hashes bind retained evidence and fixtures; they do not independently authenticate the recording."
+}
