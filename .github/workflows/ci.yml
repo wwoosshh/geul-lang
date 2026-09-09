@@ -1,38 +1,6 @@
 name: ci
 on: [push, pull_request]
 jobs:
-  web-review-core:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: web-review/package-lock.json
-      - name: 고정된 TypeScript 컴파일러 API 설치
-        working-directory: web-review
-        run: npm ci --ignore-scripts
-      - name: JavaScript 의미·여러 모듈·거부 사례 검증
-        working-directory: web-review
-        run: npm test
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: 원본 변경 목록의 NUL 경로·추가·삭제·binary 검사
-        working-directory: web-review
-        run: python -m unittest discover -s inventory-tests
-  review-core:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: 검토 언어 의존성
-        run: python -m pip install -r requirements-review.txt
-      - name: G0 고정 사례와 C 차등 실행
-        run: python build.py review-test
   test:
     runs-on: windows-latest
     steps:

@@ -1,5 +1,0 @@
-{
-  "files": ["policy.ts", "button.ts"],
-  "entry": "button.ts",
-  "functionName": "disabled"
-}

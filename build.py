@@ -6,10 +6,6 @@
   python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 컴파일러 — 마지막은 exe 바이트 비교 + 고정점)
   python build.py docs [필터]      문서의 ```글 예제를 컴파일·실행해 ```출력 과 맞춘다
   python build.py tools           프로그램/ 의 도구들을 만들어 본다
-  python build.py review <명령>    검토 언어 G0 (review --help: C 단일 파일·프로젝트 변환과 검사)
-  python build.py review-test      G0 고정 사례·부정 사례·C 차등 실행 (pycparser, GCC 필요)
-  python build.py web-review <명령> TypeScript·TSX 검토 핵심 (Node.js, web-review/npm ci 필요)
-  python build.py web-review-test   웹 의미·부정 사례·JavaScript 차등 실행
   python build.py release          배포물 만들기: dist/geul-<버전>-windows-x64/ (자기 컴파일한 geulc.exe + 표준/ + 문서) 와 zip
 """
 import os
@@ -537,32 +533,9 @@ def cmd_tools(args):
 
 
 def main(argv):
-    if not argv or argv[0] not in ("test", "check", "selfhost", "release", "docs", "tools", "review", "review-test", "web-review", "web-review-test"):
+    if not argv or argv[0] not in ("test", "check", "selfhost", "release", "docs", "tools"):
         print(__doc__)
         return 3
-    if argv[0] in ("web-review", "web-review-test"):
-        node = shutil.which("node")
-        if not node:
-            print("Node.js 22 이상이 필요합니다.")
-            return 3
-        if argv[0] == "web-review-test":
-            if len(argv) != 1:
-                print("사용법: python build.py web-review-test")
-                return 3
-            tests = sorted(glob.glob(os.path.join(ROOT, "web-review", "test", "*.test.mjs")))
-            return subprocess.call([node, "--test", *tests], cwd=ROOT)
-        return subprocess.call([node, os.path.join(ROOT, "web-review", "src", "cli.mjs"), *argv[1:]])
-    if argv[0] == "review":
-        from ref.geul_review.cli import main as review_main
-        return review_main(argv[1:])
-    if argv[0] == "review-test":
-        if len(argv) != 1:
-            print("사용법: python build.py review-test")
-            return 3
-        import unittest
-        suite = unittest.defaultTestLoader.discover(os.path.join(ROOT, "review-tests"))
-        result = unittest.TextTestRunner(verbosity=2).run(suite)
-        return 0 if result.wasSuccessful() else 1
     if argv[0] == "test":
         return cmd_test(argv[1:])
     if argv[0] == "selfhost":

@@ -1,23 +1,5 @@
 # 글 (geul) 2세대
 
-2026-09-08부터 **사람이 검토할 수 있는 실행 가능한 상위 표현**을 연구하는 G0 계층을 추가했다.
-앞으로의 첫 적용 대상은 **TypeScript·React 웹 프론트엔드**다. 여러 파일에 흩어진 화면 동작 조건과 변경 영향을 글로 재구성한다.
-[웹 연구 목표와 개발 순서](docs/13-웹-검토언어-방향.md)에 따라 TypeScript 식·JSX 속성과 제한된 여러 모듈 순수 함수 분석의 첫 구현을 추가했다. [웹 구현 범위와 실행 방법](web-review/README.md)을 참고한다. 실제 React 앱 전체의 해석과 사람 검토 개선은 아직 검증하지 않았다.
-웹 도구는 파일의 분석 후보 탐색, Git 변경 구간과 후보의 연결, 선택한 계산의 한국어 설명과 제한된 입력 대조를 지원한다. `discover`와 `discover-change --focus changed-lines`로 검사할 원본 위치를 찾으며, 미검사와 미지원 범위를 따로 남긴다.
-C G0 실험은 int32 결정 규칙의 글↔C 변환, 여러 C 파일의 상수 함수 연결, 독립 실행, 모델의 전체 입력 구간 비교를 지원한다.
-기존 `.gl` 컴파일러와는 별도이며, 일반 C·Java나 생성 기계어의 동등성을 증명한 상태는 아니다.
-[G0의 의미·지원 범위·실행 방법](docs/12-검토언어-G0.md)을 참고한다.
-
-```powershell
-python -m pip install -r requirements-review.txt
-python build.py review run examples/review/배송비.glr 55000
-python build.py review compare examples/review/배송비.glr examples/review/배송비-수정.glr
-python build.py review lift-project examples/review/shipping-project/project.json --name 배송비 --input-name 주문금액
-python build.py review-test
-```
-
-아래는 기존 1.x 네이티브 언어의 상태와 사용법이다.
-
 저장소: [github.com/wwoosshh/geul-lang](https://github.com/wwoosshh/geul-lang) 의 브랜치 `v2`. 1세대는 `main`에 있다. CI(`.github/workflows/ci.yml`)가 windows-latest 에서 수용 테스트, 자체호스팅 교차 검증, 글 컴파일러로 스위트 실행을 돈다.
 
 한글 키워드와 한국어 어순(SOV)으로 프로그래밍하는 언어 **글**의 두 번째 설계입니다.
@@ -139,3 +121,4 @@ geulc 안녕.gl
 `안녕.exe` 가 만들어진다. `-o <출력.exe>` 로 이름을 정하고, `--version`·`--help` 가 있다. 표준 라이브러리는 실행 파일 옆의 `표준/` 에서 찾으며, `GEUL_ROOT` 환경변수로 다른 위치를 줄 수 있다. 만들어진 실행 파일은 Windows x64 에서 kernel32 만 필요로 한다.
 
 배포물은 `python build.py release` 가 만든다: 참조 구현이 만든 `geulc` 로 다시 `geulc` 를 만들어 바이트가 같을 때만 묶는다.
+

@@ -1,5 +1,0 @@
-{
-  "files": ["policy.ts", "screen.tsx"],
-  "entry": "screen.tsx",
-  "functionName": "DeleteButton"
-}

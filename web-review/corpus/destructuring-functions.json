@@ -1,8 +1,0 @@
-{
-  "schema": "web-destructuring-functions-1",
-  "scope": "고정한 원본 파일 안의 변경되지 않은 두 순수 함수 본문을 사용한 지원 범위 검사. 변경 전체 해석·실제 호출 경로 검증으로 세지 않는다.",
-  "targets": [
-    { "id": "jitsi-live-streaming-visible", "case": "jitsi-recording-transcription", "path": "react/features/recording/functions.ts", "functionName": "isLiveStreamingButtonVisible", "oracle": "stream-visible-v1" },
-    { "id": "jitsi-recording-sharing", "case": "jitsi-recording-transcription", "path": "react/features/recording/functions.ts", "functionName": "isRecordingSharingEnabled", "oracle": "recording-sharing-v1" }
-  ]
-}

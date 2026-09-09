@@ -1,5 +1,0 @@
-{
-  "format": "geul-g0-c-project/v1",
-  "entry": "shipping",
-  "sources": ["policy.c", "limits.c", "fees.c"]
-}
