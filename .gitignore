@@ -11,6 +11,10 @@ __pycache__/
 *.pyc
 .venv/
 
+# 도구가 내려받거나 남기는 것 (의존성, 브라우저 추적)
+node_modules/
+.playwright-cli/
+
 # 편집기
 .vscode/
 .idea/
