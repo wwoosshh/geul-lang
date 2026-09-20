@@ -58,6 +58,7 @@ OPERANDS = {
     "br": ("cond",), "copy": ("src",), "load": ("addr",), "store": ("addr", "src"), "gep": ("base",),
     "index_addr": ("base", "idx"), "bin": ("a", "b"), "cmp": ("a", "b"), "neg": ("a",), "not": ("a",),
     "lnot": ("a",), "cast": ("src",), "ret": ("value",), "vararg": ("idx",), "copy_mem": ("to", "frm"),
+    "swap": ("addr",),
 }
 ALLOC_REGS = [RBX, RSI, RDI, R12, R13, R14, R15]     # 피호출자 보존, 이 순서로 배정
 XMM_REGS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]           # XMM6-XMM15: 피호출자 보존, 실수 값
@@ -742,6 +743,14 @@ class FuncGen:
             self.finish_in(k, i.dst, RAX)
         elif op == "call":
             self.gen_call(k, i)
+        elif op == "swap":
+            # 교체: 함수 테이블 슬롯에 새 본문 주소를 쓴다. 슬롯 주소는 호출과 같은 "ftab" 고정으로 얻는다.
+            if not self.hotswap:
+                raise InternalError("교체는 --핫스왑 빌드에서만 쓸 수 있습니다")
+            self.load_into(RAX, i.addr)
+            a.lea_rip(R11, "ftab", i.name)
+            a.store(R11, 0, RAX)
+            self.rax_temp = None
         elif op == "copy_mem":
             self.gen_copy_mem(i)
         elif op == "ret":

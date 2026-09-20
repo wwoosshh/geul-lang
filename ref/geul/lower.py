@@ -480,6 +480,10 @@ class Lowerer:
             d = f.new_temp(T.INT)
             f.emit("const", dst=d, value=e.rtype.size)
             return d
+        if isinstance(e, A.Swap):
+            v = self.rvalue(e.addr)
+            f.emit("swap", name=e.fname, addr=v)
+            return None
         raise InternalError(f"알 수 없는 식 {type(e).__name__}")
 
     def condition(self, e):

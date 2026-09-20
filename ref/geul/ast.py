@@ -345,3 +345,11 @@ class Cast(Node):
 @dataclass
 class SizeOf(Node):
     type: Node
+
+
+@dataclass
+class Swap(Node):
+    """교체(함수, 새주소): 실행 중 함수 테이블 슬롯을 새 본문 주소로 바꾼다 (--핫스왑 전용)."""
+    func: Node      # 바꿀 함수의 이름
+    addr: Node      # 새 본문의 주소
+    fname: str = None   # 의미 분석이 채운다 (슬롯을 가리킬 함수 이름)

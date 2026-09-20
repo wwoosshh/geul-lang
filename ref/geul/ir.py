@@ -130,6 +130,8 @@ def dump_inst(i):
         args = ", ".join(_t(a) for a in i.args)
         callee = i.callee if isinstance(i.callee, str) else _t(i.callee)
         return d + ("외부호출 " if i.extern else "호출 ") + f"{callee}({args})"
+    if op == "swap":
+        return f"    교체 {i.name} <- {_t(i.addr)}"
     if op == "jmp":
         return f"    점프 {i.label}"
     if op == "br":

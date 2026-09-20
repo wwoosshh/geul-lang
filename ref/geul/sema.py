@@ -557,7 +557,7 @@ class Sema:
             self.check_block(s)
         elif isinstance(s, A.ExprStmt):
             e = self.check_expr(s.expr, None)
-            if not isinstance(s.expr, (A.Call, A.SOVCall, A.Try)):
+            if not isinstance(s.expr, (A.Call, A.SOVCall, A.Try, A.Swap)):
                 self.error(s.pos, "호출이 아닌 식은 문장이 될 수 없습니다")
         elif isinstance(s, A.Assign):
             self.check_assign(s)
@@ -886,6 +886,21 @@ class Sema:
         if isinstance(e, A.SizeOf):
             e.rtype = self.resolve_type(e.type)
             return T.INT
+        if isinstance(e, A.Swap):
+            # 교체(함수, 새주소): 함수 테이블 슬롯을 바꾼다. 슬롯은 --핫스왑 빌드에만 있다.
+            if not getattr(self, "hotswap", False):
+                self.error(e.pos, "교체는 --핫스왑 빌드에서만 쓸 수 있습니다 (함수 테이블이 그때만 있습니다)")
+            if not isinstance(e.func, A.Name):
+                self.error(e.func.pos, "교체의 첫 자리는 바꿀 함수의 이름이어야 합니다")
+            sym = self.scope.lookup(e.func.name)
+            if not isinstance(sym, FuncSym):
+                self.error(e.func.pos, f"교체: '{e.func.name}'은(는) 함수가 아닙니다")
+            if sym.is_extern:
+                self.error(e.func.pos, f"교체: 외부 함수 '{e.func.name}'은(는) 바꿀 수 없습니다")
+            e.fname = sym.name
+            self.check_expr(e.addr, T.VOIDPTR)
+            e.addr = self.coerce(e.addr, T.VOIDPTR, e.addr.pos, "교체의 새 주소")
+            return None
         raise InternalError(f"알 수 없는 식 {type(e).__name__}")
 
     def check_binary(self, e, expected):
@@ -1370,7 +1385,8 @@ class Sema:
         return "".join(out), names
 
 
-def analyze(program, risky_report_only=False):
+def analyze(program, risky_report_only=False, hotswap=False):
     s = Sema(program)
     s.risky_report_only = risky_report_only
+    s.hotswap = hotswap
     return s.analyze()

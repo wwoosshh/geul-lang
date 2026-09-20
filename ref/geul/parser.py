@@ -571,7 +571,7 @@ class Parser:
             e = self.parse_expr_range(self.i, j)
             self.i = j
             self.expect_end()
-            if not (isinstance(e, A.Call) or (isinstance(e, A.Try) and isinstance(e.expr, (A.Call, A.SOVCall)))):
+            if not (isinstance(e, (A.Call, A.Swap)) or (isinstance(e, A.Try) and isinstance(e.expr, (A.Call, A.SOVCall)))):
                 self.error(start.pos, "호출이 아닌 식은 문장이 될 수 없습니다")
             return [A.ExprStmt(start.pos, e)]
         if last.kind == KEYWORD and last.text == "이면":
@@ -1102,6 +1102,14 @@ class Parser:
                 ty = self.parse_type()
                 self.expect_sym(")")
                 return A.SizeOf(t.pos, ty)
+            if t.kind == KEYWORD and t.text == "교체":
+                self.next()
+                self.expect_sym("(")
+                fn = self.parse_expr()
+                self.expect_sym(",")
+                ad = self.parse_expr()
+                self.expect_sym(")")
+                return A.Swap(t.pos, fn, ad)
             if t.kind == SYM and t.text == "*":
                 self.error(t.pos, "단항 '*'는 없습니다 — 역참조는 p[0] 을 씁니다")
         return self.parse_cast()

@@ -93,7 +93,7 @@ def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None, 
         return dump_file(src, std_dir, dump)
     program = load_program(src, std_dir)
     from . import sema
-    unit = sema.analyze(program, risky_report_only=(dump == "risky"))
+    unit = sema.analyze(program, risky_report_only=(dump == "risky"), hotswap=hotswap)
     if dump == "calls":
         print(chr(10).join(unit.index))
         return EXIT_OK
@@ -103,7 +103,10 @@ def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None, 
     if check:
         return EXIT_OK
     from . import lower, inline
-    ir = inline.run(lower.lower_program(unit))
+    ir = lower.lower_program(unit)
+    # 핫스왑에서는 인라인하지 않는다: 인라인된 호출은 함수 테이블을 거치지 않아 교체가 먹지 않는다.
+    if not hotswap:
+        ir = inline.run(ir)
     if dump_ir:
         print(ir.dump())
         return EXIT_OK
