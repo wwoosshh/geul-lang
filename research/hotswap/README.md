@@ -81,4 +81,20 @@ python ref/geulc.py research/hotswap/글-실행중교체.gl -o build/실행중�
 
 **내장 `교체(함수, 새주소)`:** 함수 이름을 컴파일 타임에 그 테이블 슬롯으로 풀어(`call [rip+슬롯]` 이 쓰는 "ftab" 고정을 `lea` 로 재사용) 새 주소를 슬롯에 store 한다. 키워드(흔한 이름과 충돌 없음). `--핫스왑` 빌드에서만(아니면 "교체는 --핫스왑 빌드에서만" 오류), 외부 함수는 못 바꾼다. `--핫스왑` 에서는 인라인을 끈다(인라인 호출은 테이블을 안 거치므로).
 
+## 실사용 테스트 — 생명 게임 (2026-09-21, `생명/`)
+
+진짜 edit→rebuild→reload 루프를 콘솔 생명 게임으로 시험. 규칙(순수 잎 함수)을 `--조각`으로 따로 컴파일해 실행 중 `교체`. 격자 상태는 호스트가 쥐고 보존된다.
+
+```
+python ref/geulc.py research/hotswap/생명/규칙.gl -o build/규칙.bin --조각
+python ref/geulc.py research/hotswap/생명/생명.gl -o build/생명.exe --핫스왑
+build/생명.exe            # 다른 창에서 규칙.gl 을 고쳐 규칙.bin 을 다시 빌드하면 실행 중 교체
+```
+
+`--조각`(`--fragment`, 참조 구현): 순수 잎 함수 하나 → 위치 독립 원시 코드 `.bin`. 외부 참조(호출·전역·문자열)가 남으면 거부. 편집: `ref/geul/{sema,codegen,lower,driver}.py`·`ref/geulc.py`. self 미러는 가치 확인 후 다음.
+
+**결과:** 실행 중 규칙을 Conway → "이웃 하나라도 있으면 산다"로 재빌드하자 호스트가 감지·교체 — 같은 격자에서 살아있는 칸 10→44→92→149 로 번짐(상태 보존, 규칙만 바뀜). 기록: `생명/실행기록.txt`. 발견: mtime 폴링이 Windows last-write-time 지연으로 감지까지 수초(핫스왑 자체는 즉시) — 더 나은 트리거가 개선점. 잎 함수만 되므로 헬퍼·전역 쓰는 규칙은 DLL 필요.
+
+## 이정표 3·4 편집 상세
+
 편집(ref·self 양쪽): ref `lexer.py`(교체 키워드)·`ast.py`(Swap 노드)·`parser.py`(`교체(함수, 식)` 파싱 + 문장 허용)·`sema.py`(hotswap 배선, 함수 이름 해석·검사)·`lower.py`(swap IR)·`codegen.py`(swap: lea_rip "ftab" + store)·`ir.py`(덤프)·`driver.py`(핫스왑 시 인라인 끔); 그 미러 self `렉서.gl`(교체 키워드표)·`파서.gl`(노드_교체 + 파싱 + 문장호출)·`의미.gl`(노드_교체 검사)·`하강.gl`(명_교체 + 인라인 게이트)·`코드생성.gl`(명_교체 → LEA_RIP 고정_FTAB + STORE). **검증:** ref·self 양쪽에서 데모가 1→777·상태 보존, 자체호스팅 고정점 유지, 수용 194/194, spec-test `프로그램-테스트/20-교체-핫스왑필요`(--핫스왑 없이 거부).

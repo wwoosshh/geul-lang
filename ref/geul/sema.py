@@ -198,9 +198,10 @@ class Sema:
             self.check_function(d, fs)
             self.type_params = {}
         entry = self.globals.lookup("시작하기")
-        if not isinstance(entry, FuncSym) or entry.is_extern:
-            self.error(self.program.pos, "'시작하기' 함수가 없습니다")
-        self.unit.entry = entry
+        if not getattr(self, "fragment", False):
+            if not isinstance(entry, FuncSym) or entry.is_extern:
+                self.error(self.program.pos, "'시작하기' 함수가 없습니다")
+        self.unit.entry = entry if isinstance(entry, FuncSym) else None
         self.unit.index = self.index
         self.report_same_role()
         self.unit.risky = self.risky
@@ -1385,8 +1386,9 @@ class Sema:
         return "".join(out), names
 
 
-def analyze(program, risky_report_only=False, hotswap=False):
+def analyze(program, risky_report_only=False, hotswap=False, fragment=False):
     s = Sema(program)
     s.risky_report_only = risky_report_only
     s.hotswap = hotswap
+    s.fragment = fragment
     return s.analyze()

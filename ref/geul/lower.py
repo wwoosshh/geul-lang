@@ -26,7 +26,7 @@ class Lowerer:
                 g.init_index = self.mod.intern_string(g.init[1])    # 문자열 풀 순서를 결정적으로: 전역 초기값이 먼저
         for fs in self.unit.functions:
             self.mod.functions.append(self.lower_function(fs))
-        self.mod.entry = self.unit.entry.name
+        self.mod.entry = self.unit.entry.name if self.unit.entry is not None else None
         return self.mod
 
     def lower_function(self, fs):

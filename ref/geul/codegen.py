@@ -1070,6 +1070,26 @@ class FuncGen:
                 self.finish_in(k, i.dst, RAX)
 
 
+def generate_fragment(mod, src="<조각>"):
+    """--조각: 순수 잎 함수 하나를 위치 독립 기계코드 바이트로 낸다 (핫스왑 적재용).
+    다른 함수 호출·전역·문자열을 쓰면(외부 참조가 남으면) 거부한다."""
+    from .diagnostics import CompileError, Pos
+    funcs = [f for f in mod.functions if not getattr(f, "is_extern", False)]
+    if len(funcs) != 1:
+        raise CompileError(Pos(src, 0, 0), f"--조각은 함수 하나만 정의해야 합니다 (현재 {len(funcs)}개)")
+    asm = Asm()
+    FuncGen(asm, funcs[0], mod).gen()
+    asm.resolve_labels()
+    if asm.ext_fixups:
+        kinds = sorted({k for _, k, _ in asm.ext_fixups})
+        what = {"func": "다른 함수 호출", "iat": "외부 함수 호출", "str": "문자열", "data": "전역 변수"}
+        names = ", ".join(what.get(k, k) for k in kinds)
+        raise CompileError(Pos(src, 0, 0),
+            f"--조각 함수는 위치 독립이어야 합니다 — {names}을(를) 쓸 수 없습니다 "
+            f"(인자와 산술만으로 된 순수 잎 함수여야 합니다)")
+    return bytes(asm.code)
+
+
 def generate(mod, hotswap=False):
     asm = Asm()
     img = Image()

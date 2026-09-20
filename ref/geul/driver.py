@@ -86,14 +86,15 @@ def dump_file(src, std_dir, what):
     return EXIT_OK
 
 
-def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None, gui=False, hotswap=False):
+def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None, gui=False, hotswap=False, fragment=False):
     if not os.path.isfile(src):
         raise CompileError(Pos(src, 0, 0), "파일을 열 수 없습니다")
     if dump in ("tokens", "ast"):
         return dump_file(src, std_dir, dump)
-    program = load_program(src, std_dir)
+    # --조각: 표준 라이브러리를 자동 포함하지 않는다 (순수 잎 함수 하나만).
+    program = load_program(src, std_dir, auto_std=not fragment)
     from . import sema
-    unit = sema.analyze(program, risky_report_only=(dump == "risky"), hotswap=hotswap)
+    unit = sema.analyze(program, risky_report_only=(dump == "risky"), hotswap=hotswap, fragment=fragment)
     if dump == "calls":
         print(chr(10).join(unit.index))
         return EXIT_OK
@@ -111,6 +112,15 @@ def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None, 
         print(ir.dump())
         return EXIT_OK
     from . import codegen, pe
+    if fragment:
+        blob = codegen.generate_fragment(ir, src)
+        if out is None:
+            out = os.path.splitext(src)[0] + ".bin"
+        if os.path.exists(out):
+            os.remove(out)
+        with open(out, "wb") as fp:
+            fp.write(blob)
+        return EXIT_OK
     if out is None:
         out = os.path.splitext(src)[0] + ".exe"
     if os.path.exists(out):
