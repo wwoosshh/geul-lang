@@ -209,6 +209,10 @@ class Asm:
     def call_iat(self, name):
         self.emit(0xFF, 0x15); self.emit32(0); self.rip_fixup("iat", name)
 
+    def call_ftab(self, name):
+        # 핫스왑: 내부 호출을 글 함수 테이블 슬롯을 거쳐 부른다 (call qword [rip+슬롯]). IAT 와 같은 인코딩.
+        self.emit(0xFF, 0x15); self.emit32(0); self.rip_fixup("ftab", name)
+
     def call_reg(self, r):
         self.rex(0, 0, 0, r); self.emit(0xFF); self.modrm(3, 2, r)
 

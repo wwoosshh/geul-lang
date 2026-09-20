@@ -19,6 +19,7 @@ USAGE = """사용법: geulc <소스.gl> [-o <출력.exe>] [--check] [--dump-ir] 
   -o <파일>     출력 실행 파일 경로 (기본: 소스와 같은 이름의 .exe)
   --check       문법·의미 검사만 하고 출력을 만들지 않는다
   --창, --gui   콘솔 없이 뜨는 창 프로그램으로 만든다 (PE 서브시스템 2)
+  --핫스왑, --hotswap  내부 호출을 함수 테이블로 우회한다 (실행 중 본문 교체용; 개발 빌드)
   --dump-ir     타입 IR 을 표준출력으로
   --dump-tokens 토큰 덤프 (docs/05-덤프-형식.md)
   --dump-ast    구문 트리 덤프 (파일 하나, 포함 파일의 타입 이름만 반영)
@@ -41,6 +42,7 @@ def main(argv):
     out = None
     check = False
     gui = False
+    hotswap = False
     dump_ir = False
     dump = None
     i = 0
@@ -56,6 +58,8 @@ def main(argv):
             check = True
         elif a in ("--창", "--gui"):
             gui = True
+        elif a in ("--핫스왑", "--hotswap"):
+            hotswap = True
         elif a == "--dump-ir":
             dump_ir = True
         elif a == "--dump-tokens":
@@ -85,7 +89,7 @@ def main(argv):
         print(USAGE, end="", file=sys.stderr)
         return EXIT_USAGE_ERROR
     try:
-        return driver.compile_file(src, out, check=check, dump_ir=dump_ir, std_dir=os.path.join(HERE, "..", "표준"), dump=dump, gui=gui)
+        return driver.compile_file(src, out, check=check, dump_ir=dump_ir, std_dir=os.path.join(HERE, "..", "표준"), dump=dump, gui=gui, hotswap=hotswap)
     except CompileError as e:
         print(str(e), file=sys.stderr)
         return EXIT_USER_ERROR

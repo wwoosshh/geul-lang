@@ -81,6 +81,8 @@ def write_pe(img, path, subsystem=3):    # 3 콘솔, 2 창 (D-39)
             tgt = rdata_rva + str_offsets[target]
         elif kind == "data":
             tgt = data_rva + img.data_globals[target]
+        elif kind == "ftab":
+            tgt = data_rva + img.func_table[target]     # 핫스왑: 함수 테이블 슬롯의 RVA (call [rip+슬롯])
         else:
             raise KeyError(kind)
         code[off:off + 4] = struct.pack("<i", tgt - at)
@@ -91,6 +93,8 @@ def write_pe(img, path, subsystem=3):    # 3 콘솔, 2 창 (D-39)
             va = IMAGE_BASE + rdata_rva + str_offsets[target]
         elif kind == "data":
             va = IMAGE_BASE + data_rva + img.data_globals[target]
+        elif kind == "faddr":
+            va = IMAGE_BASE + text_rva + img.func_offsets[target]   # 핫스왑: 함수 슬롯 초기값 = 함수 절대 VA (고정 베이스)
         else:
             raise KeyError(kind)
         data[off:off + 8] = struct.pack("<Q", va)

@@ -40,6 +40,8 @@ class Image:
         self.data_abs_fixups = []   # (offset, kind, target) 64비트 절대 주소
         self.data_globals = {}      # name -> offset
         self.imports = {}           # dll -> [name]
+        self.func_table = {}        # 핫스왑: 함수 이름 -> data 안 8바이트 슬롯 오프셋
+        self.func_offsets = {}      # 핫스왑: 함수 이름 -> 코드 오프셋 (슬롯 초기값 = 절대 VA 계산에)
 
 
 def align(n, a):
@@ -63,10 +65,12 @@ CC_OF = {"eq": "e", "ne": "ne", "lt": "l", "le": "le", "gt": "g", "ge": "ge", "u
 
 
 class FuncGen:
-    def __init__(self, asm, f, mod):
+    def __init__(self, asm, f, mod, hotswap=False, func_names=None):
         self.a = asm
         self.f = f
         self.mod = mod
+        self.hotswap = hotswap
+        self.func_names = func_names if func_names is not None else set()
         self.slots = {}             # VarSym or Temp -> disp from rbp
         self.frame = 0
         self.uses = {}
@@ -1041,6 +1045,8 @@ class FuncGen:
         if isinstance(callee, str):
             if i.extern:
                 a.call_iat(callee)
+            elif self.hotswap and callee in self.func_names:
+                a.call_ftab(callee)         # 내부 호출을 함수 테이블 슬롯을 거쳐 (실행 중 교체 가능)
             else:
                 a.call_label(callee)
         else:
@@ -1055,14 +1061,15 @@ class FuncGen:
                 self.finish_in(k, i.dst, RAX)
 
 
-def generate(mod):
+def generate(mod, hotswap=False):
     asm = Asm()
     img = Image()
     # 런타임 시작 함수 + 사용자 함수
     start = runtime.build_startup(mod)
     funcs = [start] + mod.functions
+    func_names = {f.name for f in funcs}
     for f in funcs:
-        FuncGen(asm, f, mod).gen()
+        FuncGen(asm, f, mod, hotswap, func_names).gen()
     asm.resolve_labels()
     img.code = bytes(asm.code)
     img.entry = asm.labels[start.name]
@@ -1099,5 +1106,13 @@ def generate(mod):
             bits = g.type.bits if g.type.is_int() else 64
             v = int(init) & ((1 << bits) - 1)
             img.data += v.to_bytes(bits // 8, "little")
+    # 핫스왑: 글 함수 테이블 — 함수마다 8바이트 슬롯을 data 에 두고 절대 VA 로 미리 채운다.
+    # RW 섹션이라 런타임이 슬롯을 바꿔 실행 중 함수를 교체할 수 있다 (IAT 와 같은 우회 구조).
+    if hotswap:
+        img.func_offsets = {f.name: asm.labels[f.name] for f in funcs}
+        for f in funcs:
+            img.func_table[f.name] = len(img.data)
+            img.data_abs_fixups.append((len(img.data), "faddr", f.name))
+            img.data += b"\0" * 8
     img.strings = list(mod.strings)
     return img
