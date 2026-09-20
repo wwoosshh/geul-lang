@@ -877,7 +877,8 @@ class Sema:
             ok = ((src.is_int() or src.is_float()) and (target.is_int() or target.is_float())) \
                 or (src.is_ptr() and (target.is_ptr() or target.is_int())) \
                 or (src.is_int() and target.is_ptr()) \
-                or (src.is_func() and target.is_ptr())
+                or (src.is_func() and target.is_ptr()) \
+                or (src.is_ptr() and target.is_func())     # 주소를 함수로 (핫스왑; 명시 변환만, 암시 아님)
             if not ok:
                 self.error(e.pos, f"'{src}'를 '{target}'(으)로 변환할 수 없습니다")
             e.type = target

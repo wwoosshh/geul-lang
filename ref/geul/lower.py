@@ -555,6 +555,7 @@ class Lowerer:
             return self.make_slice(v, ln, dst_t)
         v = self.rvalue(e.expr)
         if T.same_type(src_t, dst_t) or (src_t.is_ptr() and dst_t.is_ptr()) or (src_t.is_func() and dst_t.is_ptr()) \
+                or (src_t.is_ptr() and dst_t.is_func()) \
                 or (e.expr.type.is_array() and dst_t.is_ptr()):
             d = f.new_temp(dst_t)
             f.emit("copy", dst=d, src=v)
