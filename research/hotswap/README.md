@@ -58,4 +58,4 @@ python ref/geulc.py <프로그램>.gl -o build/<>.exe --핫스왑
 
 **검증(투명성):** 문자열·수학·정렬·테트리스·빌드시스템·제네릭·콜백 등 14개 프로그램을 `--핫스왑`으로 빌드해 실행한 결과가 기본 빌드와 출력 동일(재귀·표준 라이브러리·제네릭·함수 포인터를 가로질러 우회가 투명). 기본 빌드 수용 193/193 회귀 없음, 자체호스팅 고정점 유지.
 
-편집(참조 구현): `x64.py` call_ftab(FF 15 + "ftab" fixup), `codegen.py`(Image 에 func_table·func_offsets, FuncGen 에 hotswap, gen_call 내부 호출 분기, generate 가 테이블·faddr fixup 생성), `pe.py`("ftab"→슬롯 RVA, "faddr"→함수 절대 VA), `driver.py`·`geulc.py`(플래그 배선). **self/ 미러링은 다음(이정표 2b).**
+편집(ref·self 양쪽): `ref/geul/{x64,codegen,pe,driver}.py`·`ref/geulc.py` 와 그 미러 `self/{x64,코드생성,PE,컴파일러}.gl`. call_ftab(FF 15 + ftab fixup), 함수 테이블(data 슬롯) + faddr fixup(함수 절대 VA), ftab fixup(슬롯 RVA), 플래그 배선. **검증:** 기본 수용 193/193, 자체호스팅 고정점 유지, 양쪽 컴파일러로 대표 프로그램 13~14개가 `--핫스왑` 켠 빌드에서 출력 동일.
