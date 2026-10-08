@@ -16,6 +16,10 @@
   (쿠다.gl 의 PTX이름 과 같은 규칙), 대응표는 표준출력으로 낸다.
 - 의미는 PTX 에 다 적는다 — 드라이버가 고를 여지를 남기지 않는다. 부동소수 연산은 반올림(.rn)을 적어 곱과 덧셈이
   FMA 로 합쳐지지 않게 하고(글의 CPU 의미와 비트까지 같게), .approx·.ftz 는 쓰지 않는다 (docs/17 §7 PTX 계약).
+- 2단계(docs/17 §7): 2a 커널의 참조 매개변수는 전역 메모리를 가리키고 거기서 나온 주소도 전역이다(ld.global·st.global).
+  주소가 새지 않는 지역 변수는 레지스터에 둔다. 2b 연구용 내장 — 블록안가로·블록안세로·블록가로·블록세로(스레드·블록 번호),
+  공유메모리0~3(각 4096 바이트, ld.shared·st.shared), 동기화(bar.sync). 2c 실수 → 정수·짧은실수 변환이 범위를 넘으면 모듈의
+  오류 칸 __geul_err 에 비트를 켠다 — 호스트가 실행 뒤에 읽는다.
 - 다른 함수 호출, 문자열, 전역 변수, 묶음 값 복사, 가변 인자는 아직 받지 않는다.
 """
 import io
@@ -33,7 +37,21 @@ from geul.driver import load_program          # noqa: E402
 from geul import sema, lower, inline          # noqa: E402
 from geul.diagnostics import CompileError     # noqa: E402
 
-INTRINSICS = ("실행번호", "실행개수")
+# GPU 내장. 실행번호·실행개수는 탐침 1 부터, 나머지는 2b 의 연구용 내장이다(언어가 아니다 — 타일을 손으로 써 보기 위한 것).
+BLOCK_REGS = {"블록안가로": "%tid.x", "블록안세로": "%tid.y", "블록가로": "%ctaid.x", "블록세로": "%ctaid.y"}
+SHARED = {f"공유메모리{k}": f"__geul_sm{k}" for k in range(4)}      # 각 4096 바이트, 공유 메모리 공간의 주소를 돌려준다
+SHARED_BYTES = 4096
+# 2c: 실수 → 정수, 실수 → 짧은실수 변환의 범위 검사. 넘으면 모듈의 오류 칸 __geul_err 에 비트를 켠다(1 정수, 2 짧은실수) —
+# 호스트가 실행 뒤에 읽는다. 조용한 값이 없다. (끄는 것은 재기 도구가 검사의 비용을 잴 때만 한다.)
+RANGE_CHECK = True
+
+
+def flit(x, t):
+    """실수 상수의 PTX 표기 (t 의 폭)."""
+    if t.bits == 32:
+        return f"0f{struct.unpack('<I', struct.pack('<f', x))[0]:08X}"
+    return f"0d{struct.unpack('<Q', struct.pack('<d', x))[0]:016X}"
+INTRINSICS = ("실행번호", "실행개수", "동기화") + tuple(BLOCK_REGS) + tuple(SHARED)
 
 
 class PTXError(Exception):
@@ -87,19 +105,86 @@ BIN = {"add": "add", "sub": "sub", "mul": "mul.lo", "sdiv": "div", "udiv": "div"
        "fadd": "add.rn", "fsub": "sub.rn", "fmul": "mul.rn", "fdiv": "div.rn"}
 
 
+# 값으로 쓰이는 임시값 자리 (dst 제외)
+USE_FIELDS = ("a", "b", "src", "addr", "base", "idx", "cond", "value")
+
+
+def is_scalar(t):
+    return t.is_float() or t.is_int() or t.is_ptr()
+
+
 class FuncPTX:
     def __init__(self, f):
         self.f = f
         self.lines = []
         self.labels = {}
-        self.slots = {}          # VarSym -> 지역 자리 오프셋
+        # 2a: 주소가 새지 않는 지역 변수는 레지스터에 둔다 — 그 주소가 load/store 의 자리로만 쓰이는 변수
+        self.addr_of = {i.dst: i.var for i in f.insts if i.op == "addr_local"}
+        escaped = set()
+        for i in f.insts:
+            for fld in USE_FIELDS + ("args",):
+                v = getattr(i, fld, None)
+                for t in (v if isinstance(v, (list, tuple)) else [v]):
+                    if t in self.addr_of and not (fld == "addr" and i.op in ("load", "store")):
+                        escaped.add(self.addr_of[t])
+        self.regvar = {}         # VarSym -> PTX 레지스터
+        for v in f.locals:
+            if v not in escaped and is_scalar(v.type):
+                self.regvar[v] = f"%v{len(self.regvar)}"
+        self.slots = {}          # VarSym -> 지역 자리 오프셋 (레지스터로 못 간 변수만)
         off = 0
         for v in f.locals:
+            if v in self.regvar:
+                continue
             size = max(getattr(v.type, "size", 8), 1)
             off = (off + 7) // 8 * 8
             self.slots[v] = off
             off += size
         self.depot = (off + 7) // 8 * 8
+        self.space = self.address_spaces()
+
+    def address_spaces(self):
+        """2a: 임시값의 주소 공간. 규칙 — 커널의 참조 매개변수는 전역 메모리를 가리키고, 거기서 나온 주소(색인·필드·복사)도
+        전역이다. 공유 메모리 내장이 준 주소는 공유. 타입처럼 전해질 뿐 추측하지 않는다. 한 변수에 서로 다른 공간이 섞이면
+        이 커널은 모두 범용 주소로 돌아간다(예전과 같은 코드)."""
+        f = self.f
+        params = {sym for sym, _ in f.params}
+        var_src = {v: ({"global"} if v in params else set()) for v in self.regvar if v.type.is_ptr()}
+        temp = {}
+        changed = True
+        while changed:
+            changed = False
+            for i in f.insts:
+                s = None
+                if i.op == "load" and i.addr in self.addr_of and self.addr_of[i.addr] in var_src:
+                    srcs = var_src[self.addr_of[i.addr]]
+                    s = next(iter(srcs)) if len(srcs) == 1 else ("generic" if srcs else None)
+                elif i.op in ("index_addr", "gep"):
+                    s = temp.get(i.base)
+                elif i.op == "copy":
+                    s = temp.get(i.src)
+                elif i.op == "call" and i.extern and i.callee in SHARED:
+                    s = "shared"
+                elif getattr(i, "dst", None) is not None and i.dst.type.is_ptr():
+                    s = "generic"
+                if s is not None and temp.get(i.dst) != s:
+                    temp[i.dst] = s
+                    changed = True
+                if i.op == "store" and i.addr in self.addr_of and self.addr_of[i.addr] in var_src:
+                    s2 = temp.get(i.src, "generic")
+                    srcs = var_src[self.addr_of[i.addr]]
+                    if s2 not in srcs:
+                        srcs.add(s2)
+                        changed = True
+        if any(len(s) > 1 for s in var_src.values()):
+            self.global_params = set()
+            return {}
+        self.global_params = {v for v, s in var_src.items() if v in params and s == {"global"}}
+        return {t: s for t, s in temp.items() if s in ("global", "shared")}
+
+    def mem(self, addr):
+        """메모리 명령의 공간 접미사."""
+        return {"global": ".global", "shared": ".shared"}.get(self.space.get(addr), "")
 
     def r(self, t):
         return f"%t{t.id}"
@@ -137,20 +222,30 @@ class FuncPTX:
         if self.depot:
             out.append(f"    .local .align 8 .b8 __depot[{self.depot}];")
         out.append("    .reg .u64 %SPL, %SP;")
-        out.append("    .reg .pred %p;")
+        out.append("    .reg .pred %p, %q;")
         out.append("    .reg .u32 %x<4>;")
         out.append("    .reg .u64 %X<3>;")
+        for name in sorted({i.callee for i in f.insts if i.op == "call" and i.extern and i.callee in SHARED}):
+            out.append(f"    .shared .align 16 .b8 {SHARED[name]}[{SHARED_BYTES}];")
         for t in f.temps:
             out.append(f"    .reg {reg_type(t.type)} {self.r(t)};")
-        for k, (_, t) in enumerate(f.params):
-            out.append(f"    .reg {reg_type(t)} %a{k};")
+        for v, reg in self.regvar.items():
+            out.append(f"    .reg {reg_type(v.type)} {reg};")
+        for k, (sym, t) in enumerate(f.params):
+            if sym not in self.regvar:
+                out.append(f"    .reg {reg_type(t)} %a{k};")
         if self.depot:
             self.emit("mov.u64 %SPL, __depot;")
             self.emit("cvta.local.u64 %SP, %SPL;")
         for k, (sym, t) in enumerate(f.params):
             ld = mem_type(t) if not (t.is_int() and t.bits < 32) else ("." + ("s" if t.signed else "u") + "32")
-            self.emit(f"ld.param{ld} %a{k}, [p{k}];")
-            self.emit(f"st{mem_type(t)} [%SP+{self.slots[sym]}], %a{k};")
+            if sym in self.regvar:                 # 2a: 매개변수를 레지스터로 바로 — 참조 매개변수는 전역 주소로 바꿔 둔다
+                self.emit(f"ld.param{ld} {self.regvar[sym]}, [p{k}];")
+                if sym in self.global_params:
+                    self.emit(f"cvta.to.global.u64 {self.regvar[sym]}, {self.regvar[sym]};")
+            else:
+                self.emit(f"ld.param{ld} %a{k}, [p{k}];")
+                self.emit(f"st{mem_type(t)} [%SP+{self.slots[sym]}], %a{k};")
         for i in f.insts:
             self.inst(i)
         return "\n".join(out + self.lines + ["}"])
@@ -170,13 +265,22 @@ class FuncPTX:
             else:
                 e(f"mov.f64 {self.r(i.dst)}, 0d{struct.unpack('<Q', struct.pack('<d', i.value))[0]:016X};")
         elif op == "addr_local":
-            e(f"add.u64 {self.r(i.dst)}, %SP, {self.slots[i.var]};")
+            if i.var not in self.regvar:           # 레지스터로 간 변수는 주소가 없다
+                e(f"add.u64 {self.r(i.dst)}, %SP, {self.slots[i.var]};")
         elif op == "copy":
             e(f"mov{reg_type(i.dst.type)} {self.r(i.dst)}, {self.r(i.src)};")
         elif op == "load":
-            e(f"ld{mem_type(i.dst.type)} {self.r(i.dst)}, [{self.r(i.addr)}];")
+            var = self.addr_of.get(i.addr)
+            if var in self.regvar:
+                e(f"mov{reg_type(i.dst.type)} {self.r(i.dst)}, {self.regvar[var]};")
+            else:
+                e(f"ld{self.mem(i.addr)}{mem_type(i.dst.type)} {self.r(i.dst)}, [{self.r(i.addr)}];")
         elif op == "store":
-            e(f"st{mem_type(i.type)} [{self.r(i.addr)}], {self.r(i.src)};")
+            var = self.addr_of.get(i.addr)
+            if var in self.regvar:
+                e(f"mov{reg_type(var.type)} {self.regvar[var]}, {self.r(i.src)};")
+            else:
+                e(f"st{self.mem(i.addr)}{mem_type(i.type)} [{self.r(i.addr)}], {self.r(i.src)};")
         elif op == "gep":
             e(f"add.s64 {self.r(i.dst)}, {self.r(i.base)}, {i.offset};")
         elif op == "index_addr":
@@ -265,12 +369,25 @@ class FuncPTX:
         elif k in ("sitofp", "uitofp"):
             e(f"cvt.rn{reg_type(dt)}{self.int_type(st, signed=(k == 'sitofp'))} {d}, {s};")
         elif k in ("fptosi", "fptoui"):
+            if RANGE_CHECK:            # 2c: 값이 대상 정수의 범위 [lo, hi) 밖이면(NaN 포함) 오류 칸에 1
+                bits = dt.bits
+                lo, hi = (-(2.0 ** (bits - 1)), 2.0 ** (bits - 1)) if k == "fptosi" else (-1.0, 2.0 ** bits)
+                ft = reg_type(st)
+                cmp_lo = "ge" if k == "fptosi" else "gt"
+                e(f"setp.{cmp_lo}{ft} %q, {s}, {flit(lo, st)};")
+                e(f"setp.lt.and{ft} %q, {s}, {flit(hi, st)}, %q;")
+                e("@!%q red.global.or.b32 [__geul_err], 1;")
             e(f"cvt.rzi{self.int_type(dt, signed=(k == 'fptosi'))}{reg_type(st)} {d}, {s};")
             self.normalize(d, dt)
         elif k == "fpext":
             e(f"cvt.f64.f32 {d}, {s};")
         elif k == "fptrunc":
             e(f"cvt.rn.f32.f64 {d}, {s};")
+            if RANGE_CHECK:            # 2c: 유한한 실수가 짧은실수로 오며 무한이 되면 오류 칸에 2
+                e(f"testp.infinite.f32 %q, {d};")
+                e(f"testp.finite.f64 %p, {s};")
+                e("and.pred %q, %q, %p;")
+                e("@%q red.global.or.b32 [__geul_err], 2;")
         else:
             raise PTXError(f"PTX 탐침이 아직 받지 않는 변환 '{k}'")
 
@@ -278,11 +395,19 @@ class FuncPTX:
         name = i.callee if isinstance(i.callee, str) else None
         if not (i.extern and name in INTRINSICS):
             raise PTXError(f"'{self.f.name}': 함수 호출은 아직 받지 않는다 (GPU 내장 {', '.join(INTRINSICS)} 만): {name}")
+        e = self.emit
+        if name == "동기화":          # 블록 안의 모든 스레드가 여기까지 오고, 그 앞의 공유 메모리 쓰기가 보인다
+            e("bar.sync 0;")
+            return
         if i.dst is None:
             raise PTXError(f"GPU 내장 '{name}' 의 값을 쓰지 않았다")
-        e = self.emit
         d = self.r(i.dst)
-        if name == "실행번호":       # %ctaid.x * %ntid.x + %tid.x
+        if name in BLOCK_REGS:
+            e(f"mov.u32 %x1, {BLOCK_REGS[name]};")
+            e(f"cvt.u64.u32 {d}, %x1;")
+        elif name in SHARED:          # 공유 메모리 공간의 주소 — 이 주소로의 읽기·쓰기는 ld.shared·st.shared 가 된다
+            e(f"mov.u64 {d}, {SHARED[name]};")
+        elif name == "실행번호":       # %ctaid.x * %ntid.x + %tid.x
             e("mov.u32 %x1, %ctaid.x;")
             e("mov.u32 %x2, %ntid.x;")
             e("mov.u32 %x3, %tid.x;")
@@ -303,7 +428,9 @@ def translate(src):
     if not kernels:
         raise PTXError("커널이 없다 — 반환값이 없는 함수가 커널이 된다")
     head = ["//", "// geul -> PTX probe (research/gpu/geulptx). ASCII only: Korean names are mangled as _G + UTF-8 hex.", "//",
-            ".version 7.0", ".target sm_52", ".address_size 64", ""]
+            ".version 7.0", ".target sm_52", ".address_size 64", "",
+            "// 2c: range-check error cell (bit 1: float->int out of range, bit 2: float64->float32 overflow)",
+            ".visible .global .align 4 .u32 __geul_err;", ""]
     body = [FuncPTX(f).gen() for f in kernels]
     return "\n".join(head) + "\n\n".join(body) + "\n", [(f.name, ptx_name(f.name)) for f in kernels]
 
