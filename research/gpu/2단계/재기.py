@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""2단계 재기 — 2b 타일 행렬곱이 기준 판과 비트까지 같은가, 얼마나 빠른가 (docs/17 §7 2단계 이정표의 판정 그대로).
+"""2단계 재기 — 타일 행렬곱(2b)·레지스터 타일(2f)이 기준 판과 비트까지 같은가, 얼마나 빠른가 (docs/17 §7 2단계 이정표의 판정 그대로).
 
   build/감사venv/Scripts/python research/gpu/2단계/재기.py
 
@@ -41,37 +41,33 @@ def main():
     ctx = ctypes.c_void_p()
     assert cu.cuInit(0) == 0 and cu.cuDevicePrimaryCtxRetain(ctypes.byref(ctx), 0) == 0 and cu.cuCtxSetCurrent(ctx) == 0
     naive = load(cu, os.path.join(ROOT, "research", "gpu", "감사", "행렬곱.gl"), "행렬곱")
-    tiled = load(cu, os.path.join(HERE, "타일행렬곱.gl"), "타일행렬곱")
+    kernels = {  # 이름 → (함수, 블록 한 변의 스레드 수, 블록이 맡는 출력 한 변의 칸 수)
+        "타일 판(2b)": (load(cu, os.path.join(HERE, "타일행렬곱.gl"), "타일행렬곱"), 32, 32),
+        "레지스터 타일 판(2f, 4×4)": (load(cu, os.path.join(HERE, "레지스터타일행렬곱.gl"), "레지스터타일행렬곱"), 16, 64),
+        "큰 타일 판(2f, 8×8)": (load(cu, os.path.join(HERE, "큰타일행렬곱.gl"), "큰타일행렬곱"), 16, 128),
+        "겹친 큰 타일 판(2f, 8×8, 겹쳐 읽기)": (load(cu, os.path.join(HERE, "겹친큰타일행렬곱.gl"), "겹친큰타일행렬곱"), 16, 128),
+    }
     g = torch.Generator(device=dev).manual_seed(48)
     x = torch.randn(4096, K, device=dev, generator=g)
     w = torch.randn(K, N, device=dev, generator=g) / K ** 0.5
 
-    def run(fn, B, tile):
+    def launch(fn, B, threads, tile):
         o = torch.empty(B, N, device=dev)
         ps = [ctypes.c_uint64(x.data_ptr()), ctypes.c_uint64(w.data_ptr()), ctypes.c_uint64(o.data_ptr()),
               ctypes.c_int64(B), ctypes.c_int64(N), ctypes.c_int64(K)]
         args = (ctypes.c_void_p * 6)(*[ctypes.cast(ctypes.byref(p), ctypes.c_void_p) for p in ps])
-        if tile:
-            r = cu.cuLaunchKernel(fn, (N + 31) // 32, (B + 31) // 32, 1, 32, 32, 1, 0, None, args, None)
+        if threads:
+            r = cu.cuLaunchKernel(fn, (N + tile - 1) // tile, (B + tile - 1) // tile, 1, threads, threads, 1, 0, None, args, None)
         else:
             r = cu.cuLaunchKernel(fn, (B * N + 255) // 256, 1, 1, 256, 1, 1, 0, None, args, None)
         assert r == 0 and cu.cuCtxSynchronize() == 0
         return o
 
     bits = lambda t: t.contiguous().view(torch.int32)
-    full_diff, row_diff = [], []
-    ref0 = run(tiled, 1, True)[0].clone()
-    for B in BS:
-        a, b = run(naive, B, False), run(tiled, B, True)
-        if not torch.equal(bits(a), bits(b)):
-            full_diff.append(B)
-        if not torch.equal(bits(b[0]), bits(ref0)):
-            row_diff.append(B)
     x0, wn = x[0].cpu().numpy(), w.cpu().numpy()
     acc = np.zeros(N, dtype=np.float32)
     for kk in range(K):
         acc = (acc + x0[kk] * wn[kk]).astype(np.float32)
-    cpu_diff = int(np.count_nonzero(ref0.cpu().numpy().view(np.uint32) != acc.view(np.uint32)))
 
     def timed(f):
         f(); torch.cuda.synchronize()
@@ -82,14 +78,25 @@ def main():
             ts.append(s.elapsed_time(e))
         return round(sorted(ts)[5], 3)
 
+    res = {}
+    for name, (fn, threads, tile) in kernels.items():
+        full_diff, row_diff = [], []
+        ref0 = launch(fn, 1, threads, tile)[0].clone()
+        for B in BS:
+            a, b = launch(naive, B, 0, 0), launch(fn, B, threads, tile)
+            if not torch.equal(bits(a), bits(b)):
+                full_diff.append(B)
+            if not torch.equal(bits(b[0]), bits(ref0)):
+                row_diff.append(B)
+        cpu_diff = int(np.count_nonzero(ref0.cpu().numpy().view(np.uint32) != acc.view(np.uint32)))
+        res[name] = {"기준 판과 출력 전체가 다른 B": full_diff, "0번 행이 B=1 과 다른 B": row_diff,
+                     "0번 행과 CPU 기준이 다른 칸": cpu_diff,
+                     "시간_ms_B4096": timed(lambda: launch(fn, 4096, threads, tile))}
     wt = w.t().contiguous()
-    t = {"기준 판(행렬곱.gl)": timed(lambda: run(naive, 4096, False)),
-         "타일 판(타일행렬곱.gl)": timed(lambda: run(tiled, 4096, True)),
-         "PyTorch F.linear": timed(lambda: F.linear(x, wt))}
-    res = {"타일과 기준의 출력 전체가 다른 B": full_diff, "타일 0번 행이 B=1 과 다른 B": row_diff,
-           "타일 0번 행과 CPU 기준이 다른 칸": cpu_diff, "시간_ms_B4096": t}
+    res["기준 판(행렬곱.gl) 시간_ms_B4096"] = timed(lambda: launch(naive, 4096, 0, 0))
+    res["PyTorch F.linear 시간_ms_B4096"] = timed(lambda: F.linear(x, wt))
     os.makedirs(os.path.join(HERE, "결과"), exist_ok=True)
-    json.dump(res, open(os.path.join(HERE, "결과", "2b.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    json.dump(res, open(os.path.join(HERE, "결과", "행렬곱.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     for k, v in res.items():
         print(f"{k}: {v}")
 

@@ -44,6 +44,10 @@ SHARED_BYTES = 4096
 # 2c: 실수 → 정수, 실수 → 짧은실수 변환의 범위 검사. 넘으면 모듈의 오류 칸 __geul_err 에 비트를 켠다(1 정수, 2 짧은실수) —
 # 호스트가 실행 뒤에 읽는다. 조용한 값이 없다. (끄는 것은 재기 도구가 검사의 비용을 잴 때만 한다.)
 RANGE_CHECK = True
+# 2e: 음이 아니고 32비트 범위임이 증명된 두 값의 나눗셈·나머지를 32비트 명령으로 (결과는 64비트로 되돌린다). GPU 에서 64비트
+# 나눗셈은 소프트웨어로 돌아서 비싸다. 곱셈·주소 계산도 좁혀 봤지만, 드라이버 컴파일러가 반복 변수의 곱을 덧셈으로 바꾸는
+# 최적화와 겹쳐 이득이 없거나 오히려 느려졌다(타일 행렬곱 2.29 → 2.98 ms) — 그래서 좁히지 않는다. 끄는 것은 재기 도구만.
+WIDTH_PROOF = True
 
 
 def flit(x, t):
@@ -51,7 +55,8 @@ def flit(x, t):
     if t.bits == 32:
         return f"0f{struct.unpack('<I', struct.pack('<f', x))[0]:08X}"
     return f"0d{struct.unpack('<Q', struct.pack('<d', x))[0]:016X}"
-INTRINSICS = ("실행번호", "실행개수", "동기화") + tuple(BLOCK_REGS) + tuple(SHARED)
+# 2g: 곱해더하기(x, y, z) = x × y + z 를 반올림 한 번으로(fma.rn). 소스가 이 낱말로 밝힐 때만 합친다 — `x * y + z` 는 늘 두 번 반올림.
+INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기") + tuple(BLOCK_REGS) + tuple(SHARED)
 
 
 class PTXError(Exception):
@@ -108,6 +113,50 @@ BIN = {"add": "add", "sub": "sub", "mul": "mul.lo", "sdiv": "div", "udiv": "div"
 # 값으로 쓰이는 임시값 자리 (dst 제외)
 USE_FIELDS = ("a", "b", "src", "addr", "base", "idx", "cond", "value")
 
+# 2e: 정수 값 범위. 하드웨어가 보장하는 내장의 범위 (블록 한 변 ≤ 1024 스레드, 격자 x ≤ 2^31 − 1 블록, 격자 y ≤ 65535 블록)
+I32_MIN, I32_MAX = -2 ** 31, 2 ** 31 - 1
+INTRINSIC_RANGE = {"블록안가로": (0, 1023), "블록안세로": (0, 1023), "블록가로": (0, 2 ** 31 - 2), "블록세로": (0, 65534),
+                   "실행번호": (0, (2 ** 31 - 1) * 1024 - 1), "실행개수": (1, (2 ** 31 - 1) * 1024)}
+SWAP = {"lt": "gt", "le": "ge", "gt": "lt", "ge": "le", "eq": "eq", "ne": "ne",
+        "ult": "ugt", "ule": "uge", "ugt": "ult", "uge": "ule"}
+
+
+def type_range(t):
+    if t.is_int():
+        b = t.bits
+        return (-(2 ** (b - 1)), 2 ** (b - 1) - 1) if t.signed else (0, 2 ** b - 1)
+    return None
+
+
+def clamp_to(t, lo, hi):
+    """정확한 구간이 타입의 범위를 넘으면(순환할 수 있으면) 타입의 전 범위."""
+    tr = type_range(t)
+    return (lo, hi) if tr[0] <= lo and hi <= tr[1] else tr
+
+
+def refine(r, cond, b):
+    """v cond b 가 참일 때 v 의 구간 r 을 좁힌다. 빈 구간이면 None."""
+    lo, hi = r
+    if cond.startswith("u"):
+        if r[0] < 0 or b[0] < 0:
+            return r
+        cond = cond[1:]
+    if cond == "lt":
+        hi = min(hi, b[1] - 1)
+    elif cond == "le":
+        hi = min(hi, b[1])
+    elif cond == "gt":
+        lo = max(lo, b[0] + 1)
+    elif cond == "ge":
+        lo = max(lo, b[0])
+    elif cond == "eq":
+        lo, hi = max(lo, b[0]), min(hi, b[1])
+    return (lo, hi) if lo <= hi else None
+
+
+NEGATE = {"lt": "ge", "le": "gt", "gt": "le", "ge": "lt", "eq": "ne", "ne": "eq",
+          "ult": "uge", "ule": "ugt", "ugt": "ule", "uge": "ult"}
+
 
 def is_scalar(t):
     return t.is_float() or t.is_int() or t.is_ptr()
@@ -142,6 +191,8 @@ class FuncPTX:
             off += size
         self.depot = (off + 7) // 8 * 8
         self.space = self.address_spaces()
+        self.rng = self.ranges() if WIDTH_PROOF else {}
+        self.narrowed = {"나눗셈·나머지": 0}
 
     def address_spaces(self):
         """2a: 임시값의 주소 공간. 규칙 — 커널의 참조 매개변수는 전역 메모리를 가리키고, 거기서 나온 주소(색인·필드·복사)도
@@ -186,6 +237,148 @@ class FuncPTX:
         """메모리 명령의 공간 접미사."""
         return {"global": ".global", "shared": ".shared"}.get(self.space.get(addr), "")
 
+    # ---------- 2e: 정수 값 범위의 증명 ----------
+    def ranges(self):
+        """정수 임시값마다 값이 들 수 있는 구간을 구한다 — 흐름을 따르는 구간 해석. 근거는 상수, 내장(스레드·블록 번호)의
+        범위, 분기 조건으로 좁힌 변수의 구간뿐이고, 반복의 머리로 돌아오는 간선에서는 넓힌다(끝이 있게). 레지스터로 간 정수
+        변수만 추적하고, 매개변수·메모리에서 읽은 값은 타입의 전 범위다. 그래서 실행할 때 받는 크기에서 나온 값은 좁혀지지 않는다."""
+        insts = self.f.insts
+        self.defs = {i.dst: i for i in insts if getattr(i, "dst", None) is not None}
+        starts = {0}
+        for k, i in enumerate(insts):
+            if i.op == "label":
+                starts.add(k)
+            if i.op in ("jmp", "br", "ret") and k + 1 < len(insts):
+                starts.add(k + 1)
+        starts = sorted(starts)
+        blocks = list(zip(starts, starts[1:] + [len(insts)]))
+        at_label = {insts[s].name: bi for bi, (s, _) in enumerate(blocks) if insts[s].op == "label"}
+        ivars = [v for v in self.regvar if v.type.is_int()]
+        rng = {}
+        state_in = {0: {v: type_range(v.type) for v in ivars}}
+        work = [0]
+        hull = lambda a, b: (min(a[0], b[0]), max(a[1], b[1]))
+        while work:
+            bi = work.pop(0)
+            st = dict(state_in[bi])
+            s, e = blocks[bi]
+            src = {}                                       # 임시값 -> 이 블록에서 그 값을 읽어 온 변수(그 뒤로 안 바뀜)
+            for k in range(s, e):
+                i = insts[k]
+                if i.op == "store" and self.addr_of.get(i.addr) in st:
+                    v = self.addr_of[i.addr]
+                    st[v] = self.range_of(rng, i.src) if i.src.type.is_int() else type_range(v.type)
+                    src = {t: w for t, w in src.items() if w is not v}
+                    continue
+                d = getattr(i, "dst", None)
+                if d is None or not d.type.is_int():
+                    continue
+                r = self.eval_range(i, st, rng)
+                rng[d] = hull(rng[d], r) if d in rng else r
+                if i.op == "load" and self.addr_of.get(i.addr) in st:
+                    src[d] = self.addr_of[i.addr]
+            last = insts[e - 1] if e > s else None
+            if last is not None and last.op == "jmp":
+                succ = [(at_label[last.label], st)]
+            elif last is not None and last.op == "br":
+                succ = [(at_label[last.ltrue], self.branch_state(last.cond, st, rng, src, True)),
+                        (at_label[last.lfalse], self.branch_state(last.cond, st, rng, src, False))]
+            elif last is not None and last.op == "ret":
+                succ = []
+            else:
+                succ = [(bi + 1, st)] if bi + 1 < len(blocks) else []
+            for nb, ns in succ:
+                if ns is None:                             # 조건이 늘 거짓인 간선
+                    continue
+                if nb not in state_in:
+                    state_in[nb] = ns
+                    work.append(nb)
+                    continue
+                old = state_in[nb]
+                new = {v: hull(old[v], ns[v]) for v in ivars}
+                if new == old:
+                    continue
+                if nb <= bi:                               # 반복의 머리로 돌아오는 간선 — 커지는 쪽 끝을 타입의 끝까지 넓힌다
+                    new = {v: (old[v][0] if new[v][0] >= old[v][0] else type_range(v.type)[0],
+                               old[v][1] if new[v][1] <= old[v][1] else type_range(v.type)[1]) for v in ivars}
+                state_in[nb] = new
+                if nb not in work:
+                    work.append(nb)
+        return rng
+
+    def range_of(self, rng, t):
+        return rng.get(t) or type_range(t.type)
+
+    def eval_range(self, i, st, rng):
+        t = i.dst.type
+        R = lambda x: self.range_of(rng, x)
+        op = i.op
+        if op == "const":
+            return clamp_to(t, int(i.value), int(i.value))
+        if op == "load":
+            v = self.addr_of.get(i.addr)
+            return st[v] if v in st else type_range(t)
+        if op == "copy":
+            return R(i.src) if i.src.type.is_int() else type_range(t)
+        if op == "call":
+            return INTRINSIC_RANGE.get(i.callee, type_range(t)) if i.extern else type_range(t)
+        if op in ("cmp", "lnot"):
+            return (0, 1)
+        if op == "neg":
+            a = R(i.a)
+            return clamp_to(t, -a[1], -a[0])
+        if op == "cast":
+            if i.kind in ("sext", "zext", "trunc") and i.src.type.is_int():
+                a = R(i.src)
+                if i.kind == "zext" and a[0] < 0:
+                    return type_range(t)
+                return clamp_to(t, a[0], a[1])
+            return type_range(t)
+        if op != "bin":
+            return type_range(t)
+        a, b = R(i.a), R(i.b)
+        bop = i.bop
+        if bop == "add":
+            return clamp_to(t, a[0] + b[0], a[1] + b[1])
+        if bop == "sub":
+            return clamp_to(t, a[0] - b[1], a[1] - b[0])
+        if bop == "mul":
+            c = [a[0] * b[0], a[0] * b[1], a[1] * b[0], a[1] * b[1]]
+            return clamp_to(t, min(c), max(c))
+        if bop in ("sdiv", "udiv") and a[0] >= 0 and b[0] >= 1:
+            return clamp_to(t, a[0] // b[1], a[1] // b[0])
+        if bop in ("srem", "urem") and a[0] >= 0 and b[0] >= 1:
+            return (0, min(a[1], b[1] - 1))
+        if bop == "and" and (a[0] >= 0 or b[0] >= 0):
+            return (0, min(x[1] for x in (a, b) if x[0] >= 0))
+        if bop in ("or", "xor") and a[0] >= 0 and b[0] >= 0:
+            return clamp_to(t, 0, (1 << max(a[1], b[1]).bit_length()) - 1)
+        if bop == "shl" and a[0] >= 0 and b[0] == b[1] and 0 <= b[0] < 64:
+            return clamp_to(t, a[0] << b[0], a[1] << b[0])
+        if bop in ("lshr", "ashr") and a[0] >= 0 and b[0] == b[1] and 0 <= b[0] < 64:
+            return (a[0] >> b[0], a[1] >> b[0])
+        return type_range(t)
+
+    def branch_state(self, cond, st, rng, src, taken):
+        """분기의 한쪽 간선에서의 변수 구간: 조건이 비교이고 그 피연산자가 이 블록에서 읽은 변수면 그 변수를 좁힌다."""
+        c = self.defs.get(cond)
+        if c is None or c.op != "cmp" or not c.type.is_int():
+            return st
+        rel = c.cond if taken else NEGATE[c.cond]
+        out = dict(st)
+        for x, y, rr in ((c.a, c.b, rel), (c.b, c.a, SWAP[rel])):
+            v = src.get(x)
+            if v is not None and rr != "ne":
+                n = refine(out[v], rr, self.range_of(rng, y))
+                if n is None:
+                    return None
+                out[v] = n
+        return out
+
+    def fits32(self, t):
+        r = self.rng.get(t)
+        return r is not None and I32_MIN <= r[0] and r[1] <= I32_MAX
+
     def r(self, t):
         return f"%t{t.id}"
 
@@ -225,6 +418,7 @@ class FuncPTX:
         out.append("    .reg .pred %p, %q;")
         out.append("    .reg .u32 %x<4>;")
         out.append("    .reg .u64 %X<3>;")
+        out.append("    .reg .b32 %w<3>;")
         for name in sorted({i.callee for i in f.insts if i.op == "call" and i.extern and i.callee in SHARED}):
             out.append(f"    .shared .align 16 .b8 {SHARED[name]}[{SHARED_BYTES}];")
         for t in f.temps:
@@ -248,6 +442,8 @@ class FuncPTX:
                 self.emit(f"st{mem_type(t)} [%SP+{self.slots[sym]}], %a{k};")
         for i in f.insts:
             self.inst(i)
+        n = self.narrowed
+        out.insert(0, f"// 2e width proof: {n['나눗셈·나머지']} div/rem computed with 32-bit operands")
         return "\n".join(out + self.lines + ["}"])
 
     def inst(self, i):
@@ -348,6 +544,14 @@ class FuncPTX:
                 amt = "%x0"
             ty = ".b" + str(width(t)) if i.bop == "shl" else self.int_type(t, signed=(i.bop == "ashr"))
             self.emit(f"{base}{ty} {d}, {a}, {amt};")
+        elif (width(t) == 64 and i.bop in ("sdiv", "srem", "udiv", "urem") and self.fits32(i.a) and self.fits32(i.b)
+              and self.rng[i.a][0] >= 0 and self.rng[i.b][0] >= 1):
+            # 2e: 음이 아닌 두 값이 32비트 범위임이 증명됐다 — 32비트 나눗셈(부호 있는 것과 없는 것의 답이 같다)
+            self.emit(f"cvt.u32.u64 %w0, {a};")
+            self.emit(f"cvt.u32.u64 %w1, {b};")
+            self.emit(f"{'div' if i.bop.endswith('div') else 'rem'}.u32 %w2, %w0, %w1;")
+            self.emit(f"cvt.u64.u32 {d}, %w2;")
+            self.narrowed["나눗셈·나머지"] += 1
         else:
             signed = t.signed if i.bop in ("add", "sub", "mul") else i.bop in ("sdiv", "srem")
             self.emit(f"{base}{self.int_type(t, signed=signed)} {d}, {a}, {b};")
@@ -402,7 +606,10 @@ class FuncPTX:
         if i.dst is None:
             raise PTXError(f"GPU 내장 '{name}' 의 값을 쓰지 않았다")
         d = self.r(i.dst)
-        if name in BLOCK_REGS:
+        if name == "곱해더하기":
+            x, y, z = (self.r(a) for a in i.args)
+            e(f"fma.rn{reg_type(i.dst.type)} {d}, {x}, {y}, {z};")
+        elif name in BLOCK_REGS:
             e(f"mov.u32 %x1, {BLOCK_REGS[name]};")
             e(f"cvt.u64.u32 {d}, %x1;")
         elif name in SHARED:          # 공유 메모리 공간의 주소 — 이 주소로의 읽기·쓰기는 ld.shared·st.shared 가 된다
