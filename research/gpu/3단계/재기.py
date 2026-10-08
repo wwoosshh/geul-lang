@@ -16,6 +16,7 @@
 3f 긴 프롬프트 — 문장 2 의 토큰을 되풀이해 만든 128토큰·512토큰 프롬프트의 처리(+첫 토큰) 시간이 PyTorch eager 보다 짧은가.
    같은 길이로 잡은 PyTorch CUDA 그래프 판의 시간은 기록만 한다.
 3g 의미를 지킨 채 — 3b 가 통과하고, 세 프롬프트 모두 64토큰이 같고, 64걸음 상대차의 중앙값이 프롬프트마다 PyTorch 의 2배 안인가.
+--출력 <결과/파일.json> 을 주면 그 파일에 적는다(3단계 성능 2 의 3k 가 새 판으로 같은 것을 다시 잴 때 — 재기2.py).
 """
 import ctypes
 import json
@@ -256,7 +257,10 @@ def main():
                              "64걸음 상대차 중앙값의 배수": [round(g / t, 3) for g, t in meds],
                              "통과": b["통과"] and all(x["64토큰이 같은가"] for x in a) and all(g <= 2 * t for g, t in meds)}
     os.makedirs(os.path.join(HERE, "결과"), exist_ok=True)
-    json.dump(res, open(os.path.join(HERE, "결과", "3단계.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    출력 = os.path.join(HERE, "결과", "3단계.json")
+    if "--출력" in sys.argv:                  # 기록된 결과를 덮어쓰지 않고 다른 판으로 다시 잴 때 (3단계 성능 2 의 3k)
+        출력 = os.path.join(HERE, sys.argv[sys.argv.index("--출력") + 1])
+    json.dump(res, open(출력, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(json.dumps({"3a": [x["통과"] for x in a], "3b": b["통과"], "3c": c["통과"], "3e": c["3e 생성의 바닥"]["통과"],
                       "3f": c["3f 긴 프롬프트"]["통과"], "3g": res["3g 의미를 지킨 채"]["통과"],
                       "오류 칸": res["오류 칸 (__geul_err)"]}, ensure_ascii=False))

@@ -94,8 +94,11 @@ SHUFFLE = ("아래에서받기", "레인에서받기", "정수아래에서받기
 GRID = ("원자더하기", "획득읽기", "울타리")
 # 시각() = GPU 의 전역 시계(나노초, %globaltimer) — 재기 도구가 커널 안의 단계 시간을 보려고 쓴다. 값의 계산과는 상관없다.
 CLOCK = ("시각",)
+# 워프동기화() = 같은 워프의 32 레인이 여기까지 오고, 그 앞의 공유 메모리 쓰기가 서로 보인다(bar.warp.sync) — 워프 안에서만 주고받는
+# 공유 메모리 칸에 블록 전체의 동기화를 쓰지 않으려고.
+WARP = ("워프동기화",)
 INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기", "근사지수", "제곱근", "큰쪽") + tuple(BLOCK_REGS) + tuple(SHARED) + ASYNC + \
-    PREFETCH + SHUFFLE + GRID + CLOCK
+    PREFETCH + SHUFFLE + GRID + CLOCK + WARP
 
 
 class PTXError(Exception):
@@ -920,6 +923,9 @@ class FuncPTX:
         e = self.emit
         if name == "동기화":          # 블록 안의 모든 스레드가 여기까지 오고, 그 앞의 공유 메모리 쓰기가 보인다
             e("bar.sync 0;")
+            return
+        if name == "워프동기화":
+            e("bar.warp.sync -1;")
             return
         if name in ("비동기복사", "비동기복사16", "넓게미리올리기"):   # 판[i] ← 원본[j]. 공유 주소는 32 비트로, 전역 주소는 전역 공간의 것
             sp, si, gp, gi = i.args
