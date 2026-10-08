@@ -1,0 +1,43 @@
+// Hand-written vector add (probe 1a): c[i] = a[i] + b[i], i < n.
+// Params in the order the geul host program passes them: a, b, c (64-bit addresses), n (64-bit). PTX must be ASCII-only.
+.version 7.0
+.target sm_52
+.address_size 64
+
+.visible .entry vadd(
+    .param .u64 pa,
+    .param .u64 pb,
+    .param .u64 pc,
+    .param .u64 pn
+)
+{
+    .reg .pred %p<2>;
+    .reg .b32 %r<5>;
+    .reg .f32 %f<4>;
+    .reg .b64 %rd<13>;
+
+    ld.param.u64 %rd1, [pa];
+    ld.param.u64 %rd2, [pb];
+    ld.param.u64 %rd3, [pc];
+    ld.param.u64 %rd4, [pn];
+    mov.u32 %r1, %ctaid.x;
+    mov.u32 %r2, %ntid.x;
+    mov.u32 %r3, %tid.x;
+    mad.lo.s32 %r4, %r1, %r2, %r3;
+    cvt.s64.s32 %rd5, %r4;
+    setp.ge.s64 %p1, %rd5, %rd4;
+    @%p1 bra DONE;
+    cvta.to.global.u64 %rd6, %rd1;
+    cvta.to.global.u64 %rd7, %rd2;
+    cvta.to.global.u64 %rd8, %rd3;
+    shl.b64 %rd9, %rd5, 2;
+    add.s64 %rd10, %rd6, %rd9;
+    add.s64 %rd11, %rd7, %rd9;
+    add.s64 %rd12, %rd8, %rd9;
+    ld.global.f32 %f1, [%rd10];
+    ld.global.f32 %f2, [%rd11];
+    add.f32 %f3, %f1, %f2;
+    st.global.f32 [%rd12], %f3;
+DONE:
+    ret;
+}
