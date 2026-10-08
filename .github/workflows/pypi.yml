@@ -1,0 +1,52 @@
+name: pypi
+# PyPI 게시 (D-47). GitHub 릴리스를 발행하면 돌고, Actions 탭의 Run workflow 로 손으로도 돌린다.
+# 게시는 Trusted Publishing(OIDC) — 저장소에 토큰을 두지 않는다. PyPI 쪽 등록은 README 의 "PyPI 게시".
+# 휠의 geulc.exe·표준/ 이 같은 판의 GitHub 릴리스 zip 과 바이트가 같을 때만 올라간다.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: 릴리스 태그와 VERSION 이 같은가
+        if: github.event_name == 'release'
+        shell: bash
+        run: test "${{ github.event.release.tag_name }}" = "2g-$(cat VERSION)"
+      - name: 같은 판의 GitHub 릴리스 zip 받기
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "2g-$(cat VERSION)" --repo "${{ github.repository }}" --pattern "geul-$(cat VERSION)-windows-x64.zip" --dir build/release-check
+      - name: 휠 — 릴리스 zip 과 바이트 대조, 자기 컴파일 확인, 가상환경 설치 연기 시험
+        shell: bash
+        run: python build.py wheel --대조 "build/release-check/geul-$(cat VERSION)-windows-x64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: dist/*.whl
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/geul/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1

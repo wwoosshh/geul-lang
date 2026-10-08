@@ -9,6 +9,7 @@
   python build.py docs [필터]      문서의 ```글 예제를 컴파일·실행해 ```출력 과 맞춘다
   python build.py tools           프로그램/ 의 도구들을 만들어 본다
   python build.py release          배포물 만들기: dist/geul-<버전>-windows-x64/ (자기 컴파일한 geulc.exe + 표준/ + 문서) 와 zip
+  python build.py wheel [--대조 <릴리스.zip>]  PyPI 휠 (D-47): release 다음 geulc.exe·표준/ + 런처를 묶고 가상환경 설치 연기 시험
 """
 import os
 import sys
@@ -233,6 +234,141 @@ def cmd_release(args):
     print(f"배포물: {os.path.relpath(dist, ROOT)}  ({os.path.getsize(gen2)}B geulc.exe, sha256 {h2[:16]}…)")
     print(f"zip: {os.path.relpath(zpath, ROOT)}  sha256 {sha[:16]}…")
     print(f"연기 시험 통과: GEUL_ROOT 없이 안녕.gl 컴파일·실행, --version = {ver_line}")
+    return 0
+
+
+WHEEL_TAG = "py3-none-win_amd64"
+PYPI_DIR = os.path.join(ROOT, "packaging", "pypi")
+
+
+def wheel_metadata(version):
+    """휠의 METADATA (Metadata-Version 2.1). 긴 설명은 packaging/pypi/README.md."""
+    head = [
+        "Metadata-Version: 2.1",
+        "Name: geul",
+        f"Version: {version}",
+        "Summary: 글 — 한국어 문법(SOV·조사)으로 쓰는 자체호스팅 시스템 언어의 컴파일러 (Windows x64)",
+        "Author: wwoosshh",
+        "License: MIT",
+        "Project-URL: Homepage, https://github.com/wwoosshh/geul-lang/tree/v2",
+        "Project-URL: Source, https://github.com/wwoosshh/geul-lang",
+        "Project-URL: Releases, https://github.com/wwoosshh/geul-lang/releases",
+        "Keywords: korean,hangul,compiler,programming-language,self-hosting",
+        "Classifier: Environment :: Console",
+        "Classifier: Intended Audience :: Developers",
+        "Classifier: Intended Audience :: Education",
+        "Classifier: License :: OSI Approved :: MIT License",
+        "Classifier: Natural Language :: Korean",
+        "Classifier: Operating System :: Microsoft :: Windows",
+        "Classifier: Programming Language :: Other",
+        "Classifier: Topic :: Software Development :: Compilers",
+        "Requires-Python: >=3.8",
+        "Description-Content-Type: text/markdown; charset=UTF-8",
+    ]
+    return "\n".join(head) + "\n\n" + read(os.path.join(PYPI_DIR, "README.md"))
+
+
+def wheel_smoke(whl, version):
+    """임시 가상환경에 휠을 설치하고, 다른 폴더(한글·공백 경로)에서 GEUL_ROOT 없이 geulc 로 컴파일·실행해 본다."""
+    tmp = tempfile.mkdtemp(prefix="geul-wheel-")
+    try:
+        venv = os.path.join(tmp, "venv")
+        r = subprocess.run([sys.executable, "-m", "venv", venv], capture_output=True)
+        if r.returncode != 0:
+            print("휠 연기 시험 실패 (가상환경):", (r.stdout + r.stderr).decode("utf-8", "replace")[-300:])
+            return False
+        py = os.path.join(venv, "Scripts", "python.exe")
+        r = subprocess.run([py, "-m", "pip", "install", "--no-index", "--no-deps", "--disable-pip-version-check", "-q", whl],
+                           capture_output=True)
+        if r.returncode != 0:
+            print("휠 연기 시험 실패 (pip install):", (r.stdout + r.stderr).decode("utf-8", "replace")[-500:])
+            return False
+        geulc = os.path.join(venv, "Scripts", "geulc.exe")
+        work = os.path.join(tmp, "작업 폴더")
+        os.makedirs(work)
+        open(os.path.join(work, "안녕.gl"), "w", encoding="utf-8", newline=chr(10)).write(
+            '[시작하기]는 -> 정수 {' + chr(10) + '    "안녕, 글 %s\\n"을 "휠"을 쓰다.' + chr(10) + '    반환 0.' + chr(10) + '}' + chr(10))
+        open(os.path.join(work, "틀림.gl"), "w", encoding="utf-8", newline=chr(10)).write(
+            '[시작하기]는 -> 정수 { 반환 없는이름. }' + chr(10))
+        clean_env = {k: v for k, v in os.environ.items() if k != "GEUL_ROOT"}
+        r = subprocess.run([geulc, "안녕.gl"], cwd=work, env=clean_env, capture_output=True, timeout=120)
+        exe = os.path.join(work, "안녕.exe")
+        if r.returncode != 0 or not os.path.exists(exe):
+            print("휠 연기 시험 실패 (컴파일):", (r.stdout + r.stderr).decode("utf-8", "replace")[-300:])
+            return False
+        rr = subprocess.run([exe], cwd=work, capture_output=True, timeout=30)
+        out = rr.stdout.decode("utf-8", "replace").replace(chr(13), "")
+        if rr.returncode != 0 or out != "안녕, 글 휠" + chr(10):
+            print("휠 연기 시험 실패 (실행):", rr.returncode, repr(out))
+            return False
+        r = subprocess.run([geulc, "틀림.gl"], cwd=work, env=clean_env, capture_output=True, timeout=120)
+        if r.returncode != 1:
+            print(f"휠 연기 시험 실패: 틀린 프로그램의 종료 코드가 1 이 아니라 {r.returncode} — 런처가 종료 코드를 잃는다")
+            return False
+        rv = subprocess.run([py, "-m", "geul", "--version"], cwd=work, env=clean_env, capture_output=True, timeout=30)
+        rm = subprocess.run([py, "-c", "import geul; print(geul.__version__)"], cwd=work, capture_output=True, timeout=30)
+        if version not in rv.stdout.decode("utf-8", "replace") or rm.stdout.decode().strip() != version:
+            print("휠 연기 시험 실패 (판 번호):", repr(rv.stdout), repr(rm.stdout))
+            return False
+        return True
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def cmd_wheel(args):
+    """PyPI 휠 (D-47): release 가 검증한 배포 디렉터리의 geulc.exe 와 표준/ 을 geul-<버전>-py3-none-win_amd64.whl 로 묶는다.
+    --대조 <릴리스.zip> 이면 먼저 그 zip 의 geulc.exe·표준/ 과 바이트가 같은지 본다 (게시 워크플로가 GitHub 릴리스로 쓴다)."""
+    import base64, hashlib, zipfile
+    version = read_version()
+    name = f"geul-{version}-windows-x64"
+    ref = None
+    if "--대조" in args:
+        k = args.index("--대조")
+        if k + 1 >= len(args):
+            print("사용법: build.py wheel [--대조 <릴리스.zip>]")
+            return 3
+        # release 가 dist/ 의 zip 을 다시 쓰므로 비교할 내용은 먼저 읽어 둔다
+        with zipfile.ZipFile(args[k + 1]) as z:
+            ref = {n[len(name) + 1:]: z.read(n) for n in z.namelist()
+                   if n == f"{name}/geulc.exe" or n.startswith(f"{name}/표준/")}
+    rc = cmd_release([])
+    if rc != 0:
+        return rc
+    rel = os.path.join(ROOT, "dist", name)
+    payload = [("geulc.exe", open(os.path.join(rel, "geulc.exe"), "rb").read())]
+    payload += [(f"표준/{f}", open(os.path.join(rel, "표준", f), "rb").read()) for f in sorted(os.listdir(os.path.join(rel, "표준")))]
+    if ref is not None:
+        bad = [p for p, data in payload if ref.get(p) != data] + sorted(set(ref) - {p for p, _ in payload})
+        if bad:
+            print(f"릴리스 대조 실패: {os.path.basename(args[args.index('--대조') + 1])} 와 다른 파일 {bad}")
+            return 1
+        print(f"릴리스 대조: geulc.exe·표준/ {len(payload)}개 파일이 릴리스 zip 과 바이트 동일")
+    entries = [(f"geul/{f}", open(os.path.join(PYPI_DIR, "geul", f), "rb").read()) for f in ("__init__.py", "__main__.py")]
+    entries += [(f"geul/{p}", data) for p, data in payload]
+    info = f"geul-{version}.dist-info"
+    entries += [
+        (f"{info}/METADATA", wheel_metadata(version).encode("utf-8")),
+        (f"{info}/WHEEL", f"Wheel-Version: 1.0\nGenerator: geul build.py wheel\nRoot-Is-Purelib: false\nTag: {WHEEL_TAG}\n".encode()),
+        (f"{info}/entry_points.txt", b"[console_scripts]\ngeulc = geul.__main__:main\n"),
+        (f"{info}/LICENSE", open(os.path.join(ROOT, "LICENSE"), "rb").read()),
+    ]
+    record = [f"{n},sha256={base64.urlsafe_b64encode(hashlib.sha256(d).digest()).rstrip(b'=').decode()},{len(d)}" for n, d in entries]
+    record.append(f"{info}/RECORD,,")
+    entries.append((f"{info}/RECORD", ("\n".join(record) + "\n").encode("utf-8")))
+    whl = os.path.join(ROOT, "dist", f"geul-{version}-{WHEEL_TAG}.whl")
+    if os.path.exists(whl):
+        os.remove(whl)
+    with zipfile.ZipFile(whl, "w") as z:          # 결정적: 고정 시각, 고정 순서, 고정 권한
+        for n, d in entries:
+            zi = zipfile.ZipInfo(n, date_time=(1980, 1, 1, 0, 0, 0))
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            zi.external_attr = 0o644 << 16
+            z.writestr(zi, d)
+    sha = hashlib.sha256(open(whl, "rb").read()).hexdigest()
+    print(f"휠: {os.path.relpath(whl, ROOT)}  ({os.path.getsize(whl)}B, 파일 {len(entries)}개, sha256 {sha[:16]}…)")
+    if not wheel_smoke(whl, version):
+        return 1
+    print("휠 연기 시험 통과: 임시 가상환경에 설치, 한글·공백 폴더에서 GEUL_ROOT 없이 geulc 로 컴파일·실행, 오류 종료 코드 전달, python -m geul --version")
     return 0
 
 
@@ -604,7 +740,7 @@ def cmd_tools(args):
 
 
 def main(argv):
-    if not argv or argv[0] not in ("test", "check", "selfhost", "release", "docs", "tools"):
+    if not argv or argv[0] not in ("test", "check", "selfhost", "release", "wheel", "docs", "tools"):
         print(__doc__)
         return 3
     if argv[0] == "test":
@@ -613,6 +749,8 @@ def main(argv):
         return cmd_selfhost(argv[1:])
     if argv[0] == "release":
         return cmd_release(argv[1:])
+    if argv[0] == "wheel":
+        return cmd_wheel(argv[1:])
     if argv[0] == "docs":
         return cmd_docs(argv[1:])
     if argv[0] == "tools":

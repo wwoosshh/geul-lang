@@ -22,3 +22,5 @@ jobs:
         run: python build.py test --self
       - name: 핫스왑 투명성 (글로 쓴 컴파일러)
         run: python build.py test --self --핫스왑
+      - name: 배포물 — release 자기 컴파일 확인 + PyPI 휠 가상환경 설치 연기 시험 (D-47)
+        run: python build.py wheel
