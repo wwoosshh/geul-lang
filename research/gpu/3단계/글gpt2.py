@@ -201,7 +201,7 @@ class _띄움:
 
 
 class 글GPT2:
-    def __init__(self, weights, 최대행=1024, 최대문장=3, 최대길이=NCTX, 로짓행=1024):
+    def __init__(self, weights, 최대행=1024, 최대문장=3, 최대길이=NCTX, 로짓행=1024, 프롬메가=False):
         self.dr = dr = 드라이버()
 
         def build(gl):
@@ -259,6 +259,14 @@ class 글GPT2:
         self.부분값, self.부분번호, self.장벽 = dr.할당(4096), dr.할당(8192), dr.할당(256)
         self.주의셈 = self.장벽 + 64               # 메가커널의 어텐션: 머리마다 도착한 블록 수 (장벽과 함께 0 으로)
         self.메가 = dr.함수(self.mods[1], "생성메가")
+        # 프롬프트 메가커널: 장벽 [16] · 일셈 [16] · 끝셈 [층 12][단계 8][행 묶음] (정수) — 띄우기 전에 0 으로(참조는 16 바이트 정렬)
+        self.프롬 = dr.함수(build("커널프롬.gl"), "프롬메가") if 프롬메가 else None     # 3l 의 시도 — 따로 도는 커널보다 느려 기본은 끔
+        self.묶음최대 = (최대행 + 63) // 64
+        self.프롬셈크기 = 32 + 12 * 8 * self.묶음최대 * 8
+        self.프롬셈 = dr.할당(self.프롬셈크기)
+        self.블록일 = dr.할당(8 * 256)
+        self.프롬메가쓰기 = 프롬메가              # 문장 하나의 프롬프트를 메가커널로(값은 따로 도는 커널들과 같다)
+        self.프롬시각칸, self.프롬시각재기 = dr.할당(8 * 4 * (8 + 12 * 600) * self.묶음최대), 0     # 재기용: 일마다 [가져옴, 기다림 끝, 끝남, 블록]
         self.메가블록 = 120                      # 커널생성.py 의 생성메가(G) 와 같아야 한다 (SM 60 개 × 2)
         dr.cu.cuLaunchCooperativeKernel.argtypes = [ctypes.c_void_p] + [ctypes.c_uint] * 7 + [ctypes.c_void_p] * 2
         self.로짓기록칸 = None
@@ -424,13 +432,40 @@ class 글GPT2:
         self.dr.맞추기()
         return self.dr.내리기(self.logits, out)
 
+    def 프롬메가로(self, ids):
+        """문장 하나의 프롬프트를 프롬프트 메가커널로(협력 실행 한 번): KV 캐시를 채우고, 마지막 행의 로짓을 logits 에, 고른 토큰을
+        생성칸[0] 에 둔다 — 계산("끝") 과 같은 값."""
+        p = len(ids)
+        assert 2 <= p <= self.최대행 and p <= self.최대길이
+        self.토큰넣기(ids)
+        self.dr.확인(self.dr.cu.cuMemsetD8_v2(self.프롬셈, 0, self.프롬셈크기))
+        P, I = c_u64, c_i64
+        g = lambda k: P(self.묶음[k])
+        ps = [P(self.토큰칸), P(self.wte), P(self.wpe), P(self.wteT),
+              g("ln_1.weight"), g("ln_1.bias"), g("attn.c_attn.weight"), g("attn.c_attn.bias"),
+              g("attn.c_proj.weight"), g("attn.c_proj.bias"), g("ln_2.weight"), g("ln_2.bias"),
+              g("mlp.c_fc.weight"), g("mlp.c_fc.bias"), g("mlp.c_proj.weight"), g("mlp.c_proj.bias"),
+              P(self.lnf_g), P(self.lnf_b), P(self.kc바탕), P(self.vc바탕),
+              P(self.h), P(self.x), P(self.q), P(self.att), P(self.fc), P(self.logits),
+              P(self.부분값), P(self.부분번호), P(self.프롬셈), P(self.프롬셈 + 16), P(self.프롬셈 + 32), P(self.블록일), P(self.생성칸), P(self.프롬시각칸),
+              I(p), I(self.최대길이), I(self.최대문장), I(self.묶음최대), I(self.프롬시각재기)]
+        assert all(x.value % 16 == 0 for x in ps if isinstance(x, c_u64)), "프롬프트 메가커널의 참조 매개변수가 16 바이트 정렬이 아니다"
+        args = (ctypes.c_void_p * len(ps))(*[ctypes.cast(ctypes.byref(x), ctypes.c_void_p) for x in ps])
+        self._프롬인자 = (ps, args)
+        r = self.dr.cu.cuLaunchCooperativeKernel(self.프롬, self.메가블록, 1, 1, 256, 1, 1, 0, None, args)
+        if r != 0:
+            raise RuntimeError(f"프롬프트 메가커널 실행 오류 {r}")
+
     def 생성(self, ids, n, 기록=False):
         """탐욕 생성(문장 하나): 프롬프트는 따로 도는 커널들로 한 번에 처리하고(첫 토큰까지), 나머지 n − 1 개는 생성 메가커널 하나가
         GPU 안에서 차례로 만든다(협력 실행 한 번). 기록 = 참이면 걸음마다의 로짓을 남긴다(로짓기록) — 시험용."""
         p = len(ids)
         assert p + n - 1 <= self.최대길이          # 마지막에 고른 토큰은 다시 넣지 않는다
-        self.토큰넣기(ids)
-        self.계산(1, p, 0, "끝", 출력자리=self.생성칸)
+        if self.프롬메가쓰기 and p >= 2:
+            self.프롬메가로(ids)
+        else:
+            self.토큰넣기(ids)
+            self.계산(1, p, 0, "끝", 출력자리=self.생성칸)
         if n > 1:
             if 기록 and (self.로짓기록칸 is None or self._기록수 < n):
                 self.로짓기록칸, self._기록수 = self.dr.할당(n * V * 4), n
