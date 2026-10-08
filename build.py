@@ -343,14 +343,17 @@ def cmd_wheel(args):
             print(f"릴리스 대조 실패: {os.path.basename(args[args.index('--대조') + 1])} 와 다른 파일 {bad}")
             return 1
         print(f"릴리스 대조: geulc.exe·표준/ {len(payload)}개 파일이 릴리스 zip 과 바이트 동일")
-    entries = [(f"geul/{f}", open(os.path.join(PYPI_DIR, "geul", f), "rb").read()) for f in ("__init__.py", "__main__.py")]
+    def text(path):     # 줄바꿈을 LF 로 — 체크아웃 설정(이 PC 의 CRLF 작업 사본 등)과 무관하게 어디서나 같은 휠
+        return open(path, "rb").read().replace(b"\r\n", b"\n")
+
+    entries = [(f"geul/{f}", text(os.path.join(PYPI_DIR, "geul", f))) for f in ("__init__.py", "__main__.py")]
     entries += [(f"geul/{p}", data) for p, data in payload]
     info = f"geul-{version}.dist-info"
     entries += [
         (f"{info}/METADATA", wheel_metadata(version).encode("utf-8")),
         (f"{info}/WHEEL", f"Wheel-Version: 1.0\nGenerator: geul build.py wheel\nRoot-Is-Purelib: false\nTag: {WHEEL_TAG}\n".encode()),
         (f"{info}/entry_points.txt", b"[console_scripts]\ngeulc = geul.__main__:main\n"),
-        (f"{info}/LICENSE", open(os.path.join(ROOT, "LICENSE"), "rb").read()),
+        (f"{info}/LICENSE", text(os.path.join(ROOT, "LICENSE"))),
     ]
     record = [f"{n},sha256={base64.urlsafe_b64encode(hashlib.sha256(d).digest()).rstrip(b'=').decode()},{len(d)}" for n, d in entries]
     record.append(f"{info}/RECORD,,")
