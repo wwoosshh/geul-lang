@@ -1,0 +1,847 @@
+{
+ "queries": [
+  "search issues --repo pytorch/pytorch --label module: correctness (silent) --state closed closed:<2026-10-01 --sort created --order desc --limit 120 --json number,title,createdAt,closedAt,url"
+ ],
+ "items": [
+  {
+   "closedAt": "2026-09-30T19:26:15Z",
+   "createdAt": "2026-09-30T15:46:28Z",
+   "number": 199157,
+   "title": "[XPU] torch.nonzero returns empty tensor on Intel Arc B580",
+   "url": "https://github.com/pytorch/pytorch/issues/199157"
+  },
+  {
+   "closedAt": "2026-09-28T16:40:47Z",
+   "createdAt": "2026-09-28T11:56:04Z",
+   "number": 198866,
+   "title": "[Inductor] checkpoint with dropout uses inconsistent RNG state between forward and backward",
+   "url": "https://github.com/pytorch/pytorch/issues/198866"
+  },
+  {
+   "closedAt": "2026-09-29T20:53:54Z",
+   "createdAt": "2026-09-28T09:26:28Z",
+   "number": 198854,
+   "title": "torch.finfo(torch.float8_e5m2fnuz).eps is 0.125 instead of 0.25",
+   "url": "https://github.com/pytorch/pytorch/issues/198854"
+  },
+  {
+   "closedAt": "2026-09-29T07:52:37Z",
+   "createdAt": "2026-09-25T21:12:01Z",
+   "number": 198682,
+   "title": "[dynamo] deque.remove(x) always raises \"deque.pop() takes no arguments (1 given)\" under torch.compile",
+   "url": "https://github.com/pytorch/pytorch/issues/198682"
+  },
+  {
+   "closedAt": "2026-09-29T23:03:46Z",
+   "createdAt": "2026-09-25T15:58:14Z",
+   "number": 198652,
+   "title": "[compiled autograd] Chained cuDNN LSTMs silently produce a wrong weight_hh_l0 gradient",
+   "url": "https://github.com/pytorch/pytorch/issues/198652"
+  },
+  {
+   "closedAt": "2026-09-29T08:35:25Z",
+   "createdAt": "2026-09-25T09:32:13Z",
+   "number": 198609,
+   "title": "[aot_autograd] An input updated after the graph gets another input's value when the function returns that other input",
+   "url": "https://github.com/pytorch/pytorch/issues/198609"
+  },
+  {
+   "closedAt": "2026-09-25T05:59:56Z",
+   "createdAt": "2026-09-25T03:54:04Z",
+   "number": 198584,
+   "title": "torch.linalg.svdvals silently returns NaN for inf input while NaN input raises LinAlgError",
+   "url": "https://github.com/pytorch/pytorch/issues/198584"
+  },
+  {
+   "closedAt": "2026-09-29T04:00:26Z",
+   "createdAt": "2026-09-24T23:26:58Z",
+   "number": 198567,
+   "title": "torch.compile (Inductor): eager != compiled for torch.put with accumulate when input/index/source alias a computed intermediate",
+   "url": "https://github.com/pytorch/pytorch/issues/198567"
+  },
+  {
+   "closedAt": "2026-09-24T22:36:51Z",
+   "createdAt": "2026-09-24T22:22:53Z",
+   "number": 198562,
+   "title": "[inductor] Generated reduction kernel reloads global scratch written by its own earlier loop with no synchronization, giving non-deterministic gradients",
+   "url": "https://github.com/pytorch/pytorch/issues/198562"
+  },
+  {
+   "closedAt": "2026-09-26T03:55:33Z",
+   "createdAt": "2026-09-24T16:37:25Z",
+   "number": 198513,
+   "title": "flex_attention returns incorrect output under Inductor when seq_len < block size",
+   "url": "https://github.com/pytorch/pytorch/issues/198513"
+  },
+  {
+   "closedAt": "2026-09-26T22:04:07Z",
+   "createdAt": "2026-09-24T08:31:14Z",
+   "number": 198473,
+   "title": "[MPS] `torch.arange` with more than 2**32 elements silently writes only the first N mod 2**32 elements (regression in 2.14.0)",
+   "url": "https://github.com/pytorch/pytorch/issues/198473"
+  },
+  {
+   "closedAt": "2026-09-29T08:35:35Z",
+   "createdAt": "2026-09-23T14:20:56Z",
+   "number": 198379,
+   "title": "[torch.compile] dynamic=True with F.interpolate(mode='linear', align_corners=False) followed by F.pad and torch.gt produces incorrect result",
+   "url": "https://github.com/pytorch/pytorch/issues/198379"
+  },
+  {
+   "closedAt": "2026-09-28T14:49:19Z",
+   "createdAt": "2026-09-23T07:38:34Z",
+   "number": 198333,
+   "title": "Since 2.13, inductor's 4x random path corrupts CUDA dropout masks",
+   "url": "https://github.com/pytorch/pytorch/issues/198333"
+  },
+  {
+   "closedAt": "2026-09-29T03:59:08Z",
+   "createdAt": "2026-09-22T20:36:21Z",
+   "number": 198270,
+   "title": "[inductor] x.index_put_(...) followed by x.add_(x.flip(0)): the copy back into x is fused with a read of x at other positions (silent wrong results, CUDA and CPU)",
+   "url": "https://github.com/pytorch/pytorch/issues/198270"
+  },
+  {
+   "closedAt": "2026-09-30T18:30:40Z",
+   "createdAt": "2026-09-22T12:56:54Z",
+   "number": 198197,
+   "title": "`torch.compile` (dynamo) — `try/except getattr(<builtin type>, <missing attr>)` takes the wrong branch (AttributeError not raised; backend-independent)",
+   "url": "https://github.com/pytorch/pytorch/issues/198197"
+  },
+  {
+   "closedAt": "2026-09-30T20:01:45Z",
+   "createdAt": "2026-09-22T05:51:13Z",
+   "number": 198131,
+   "title": "[inductor] `dst[:] = src[:]; src.add_(1)` copies the *updated* `src` into `dst` (remove_noop_ops replaces a copy of an input by the input itself, which is mutated before the copy's user runs)",
+   "url": "https://github.com/pytorch/pytorch/issues/198131"
+  },
+  {
+   "closedAt": "2026-09-23T17:16:49Z",
+   "createdAt": "2026-09-21T14:58:50Z",
+   "number": 197898,
+   "title": "Multinomial.entropy() evaluates lgamma(total_count + 1) in the default dtype, and expand() drops _binomial so the expanded distribution has no entropy()",
+   "url": "https://github.com/pytorch/pytorch/issues/197898"
+  },
+  {
+   "closedAt": "2026-09-22T00:22:06Z",
+   "createdAt": "2026-09-20T18:06:23Z",
+   "number": 197829,
+   "title": "[inductor] `x[1:] = x[:-1].clone()` compiles to a copy over overlapping memory: silent wrong results on CUDA and CPU",
+   "url": "https://github.com/pytorch/pytorch/issues/197829"
+  },
+  {
+   "closedAt": "2026-09-21T04:34:14Z",
+   "createdAt": "2026-09-19T14:12:10Z",
+   "number": 197715,
+   "title": "[MPS] Copy from MPS into a CPU float64 or complex128 tensor silently writes nothing (2.14 regression)",
+   "url": "https://github.com/pytorch/pytorch/issues/197715"
+  },
+  {
+   "closedAt": "2026-09-23T05:20:54Z",
+   "createdAt": "2026-09-19T04:18:13Z",
+   "number": 197673,
+   "title": "[CUDA] `torch.arange` silently leaves every element from index 2**32 onward as zero when N > 2**32",
+   "url": "https://github.com/pytorch/pytorch/issues/197673"
+  },
+  {
+   "closedAt": "2026-09-18T16:59:41Z",
+   "createdAt": "2026-09-18T01:44:20Z",
+   "number": 197489,
+   "title": "Inductor] remove_noop_ops incorrectly removes clone with a different storage_offset",
+   "url": "https://github.com/pytorch/pytorch/issues/197489"
+  },
+  {
+   "closedAt": "2026-09-22T17:47:50Z",
+   "createdAt": "2026-09-17T17:33:30Z",
+   "number": 197434,
+   "title": "[torch.compile] adaptive_max_pool2d returns incorrect result for transposed tensor when return_indices=True",
+   "url": "https://github.com/pytorch/pytorch/issues/197434"
+  },
+  {
+   "closedAt": "2026-09-24T21:52:46Z",
+   "createdAt": "2026-09-16T11:01:17Z",
+   "number": 197235,
+   "title": "[MPS] `var`/`std`/`var_mean` intermittently return wrong values on large reductions (macOS 27)",
+   "url": "https://github.com/pytorch/pytorch/issues/197235"
+  },
+  {
+   "closedAt": "2026-09-15T20:32:59Z",
+   "createdAt": "2026-09-15T13:25:51Z",
+   "number": 197114,
+   "title": "[MPS] Conv3d returns incorrect results in contiguous (NCDHW) memory format",
+   "url": "https://github.com/pytorch/pytorch/issues/197114"
+  },
+  {
+   "closedAt": "2026-09-23T15:21:23Z",
+   "createdAt": "2026-09-15T12:16:05Z",
+   "number": 197110,
+   "title": "[dynamo] `str(KeyError(...))` inside a traced region omits the quotes CPython adds (`\"'k'\"` in eager, `'k'` compiled)",
+   "url": "https://github.com/pytorch/pytorch/issues/197110"
+  },
+  {
+   "closedAt": "2026-09-17T19:14:38Z",
+   "createdAt": "2026-09-15T12:08:17Z",
+   "number": 197101,
+   "title": "[dynamo] `random.seed()` inside a compiled function is ignored on the first (compiling) call — first call returns values from a different RNG state",
+   "url": "https://github.com/pytorch/pytorch/issues/197101"
+  },
+  {
+   "closedAt": "2026-09-15T17:44:59Z",
+   "createdAt": "2026-09-15T08:35:37Z",
+   "number": 197079,
+   "title": "[MPS] torch.rand and uniform_ return the exclusive upper bound for float16 and bfloat16",
+   "url": "https://github.com/pytorch/pytorch/issues/197079"
+  },
+  {
+   "closedAt": "2026-09-16T19:45:20Z",
+   "createdAt": "2026-09-15T02:58:37Z",
+   "number": 197054,
+   "title": "autograd: [Bug] in-place mutation on view tensor via .data bypasses version check during torch.autograd.grad with retain_graph=True",
+   "url": "https://github.com/pytorch/pytorch/issues/197054"
+  },
+  {
+   "closedAt": "2026-09-17T18:04:15Z",
+   "createdAt": "2026-09-14T06:34:51Z",
+   "number": 196949,
+   "title": "[MPS] reflection_pad1d backward returns wrong gradients when input length > 65536 and not a multiple of 65536",
+   "url": "https://github.com/pytorch/pytorch/issues/196949"
+  },
+  {
+   "closedAt": "2026-09-12T01:13:35Z",
+   "createdAt": "2026-09-11T02:13:30Z",
+   "number": 196680,
+   "title": "torch.ldexp drops the derivative contribution of a negative exponent",
+   "url": "https://github.com/pytorch/pytorch/issues/196680"
+  },
+  {
+   "closedAt": "2026-09-18T15:24:14Z",
+   "createdAt": "2026-09-09T16:04:36Z",
+   "number": 196467,
+   "title": "[dynamo] torch.Tensor(t.size()) is traced as torch.Tensor(tuple), silently changing shape semantics under torch.compile",
+   "url": "https://github.com/pytorch/pytorch/issues/196467"
+  },
+  {
+   "closedAt": "2026-09-09T01:27:42Z",
+   "createdAt": "2026-09-08T14:29:45Z",
+   "number": 196322,
+   "title": "Whisper large-v3 produces incorrect transcription on MPS but works on CPU",
+   "url": "https://github.com/pytorch/pytorch/issues/196322"
+  },
+  {
+   "closedAt": "2026-09-06T17:34:03Z",
+   "createdAt": "2026-09-05T14:06:24Z",
+   "number": 196113,
+   "title": "[MPS] Incorrect complex batched underdetermined lstsq solutions in PyTorch 2.14",
+   "url": "https://github.com/pytorch/pytorch/issues/196113"
+  },
+  {
+   "closedAt": "2026-09-12T19:46:04Z",
+   "createdAt": "2026-09-04T19:35:11Z",
+   "number": 196067,
+   "title": "`lerp_` of two non-negative tensors produces negative output on MPS on 2.14",
+   "url": "https://github.com/pytorch/pytorch/issues/196067"
+  },
+  {
+   "closedAt": "2026-09-28T09:02:46Z",
+   "createdAt": "2026-09-04T06:48:02Z",
+   "number": 195984,
+   "title": "SequentialLR with a Tensor view produces an unexpected learning-rate value",
+   "url": "https://github.com/pytorch/pytorch/issues/195984"
+  },
+  {
+   "closedAt": "2026-09-22T23:39:18Z",
+   "createdAt": "2026-09-04T04:19:05Z",
+   "number": 195969,
+   "title": "torch.compile: isinstance(x, ProtoA | ProtoB) silently returns False for runtime_checkable Protocols with non-method members",
+   "url": "https://github.com/pytorch/pytorch/issues/195969"
+  },
+  {
+   "closedAt": "2026-09-04T01:18:02Z",
+   "createdAt": "2026-09-03T19:51:50Z",
+   "number": 195910,
+   "title": "[MPS] scaled_dot_product_attention with is_causal=True leaks future tokens in float16/bfloat16",
+   "url": "https://github.com/pytorch/pytorch/issues/195910"
+  },
+  {
+   "closedAt": "2026-09-29T20:33:43Z",
+   "createdAt": "2026-09-03T13:18:34Z",
+   "number": 195845,
+   "title": "[inductor] mix-order reduction: split column sum ignores xmask, wrong results when rows % XBLOCK != 0",
+   "url": "https://github.com/pytorch/pytorch/issues/195845"
+  },
+  {
+   "closedAt": "2026-09-23T00:54:57Z",
+   "createdAt": "2026-09-02T03:20:40Z",
+   "number": 195675,
+   "title": "torch.clamp with a bound unrepresentable in the tensor dtype: eager raises, torch.compile ignores the bound",
+   "url": "https://github.com/pytorch/pytorch/issues/195675"
+  },
+  {
+   "closedAt": "2026-09-23T00:54:55Z",
+   "createdAt": "2026-09-02T02:23:25Z",
+   "number": 195665,
+   "title": "[inductor] torch.compile skips as_strided's storage-bounds check and reads out of bounds, returning non-reproducible memory",
+   "url": "https://github.com/pytorch/pytorch/issues/195665"
+  },
+  {
+   "closedAt": "2026-09-11T03:44:38Z",
+   "createdAt": "2026-09-01T15:36:34Z",
+   "number": 195595,
+   "title": "MPS: scatter/index_put_ raises out-of-range negative index errors on large tensors in a mesh-processing pipeline (dual contouring + QEM decimation)",
+   "url": "https://github.com/pytorch/pytorch/issues/195595"
+  },
+  {
+   "closedAt": "2026-09-25T20:01:01Z",
+   "createdAt": "2026-08-31T19:04:09Z",
+   "number": 195483,
+   "title": "[Inductor] functorch_dp_cifar10 training accuracy has failed 100% on H100 since 2026-06-13 (all configs)",
+   "url": "https://github.com/pytorch/pytorch/issues/195483"
+  },
+  {
+   "closedAt": "2026-09-14T07:28:13Z",
+   "createdAt": "2026-08-31T13:18:58Z",
+   "number": 195442,
+   "title": "[TorchInductor] `batch_aten_sub` miscompilation drops `alpha`",
+   "url": "https://github.com/pytorch/pytorch/issues/195442"
+  },
+  {
+   "closedAt": "2026-09-01T03:01:22Z",
+   "createdAt": "2026-08-31T07:52:30Z",
+   "number": 195422,
+   "title": "[inductor] torch.compile silently drops an in-place mutation of an input made through F.dropout's identity return",
+   "url": "https://github.com/pytorch/pytorch/issues/195422"
+  },
+  {
+   "closedAt": "2026-09-29T19:02:40Z",
+   "createdAt": "2026-08-30T12:04:50Z",
+   "number": 195338,
+   "title": "torch.aminmax silently returns wrong values when out= tensors alias",
+   "url": "https://github.com/pytorch/pytorch/issues/195338"
+  },
+  {
+   "closedAt": "2026-08-30T14:06:47Z",
+   "createdAt": "2026-08-30T12:04:42Z",
+   "number": 195337,
+   "title": "torch.aminmax silently returns wrong values when out= tensors alias",
+   "url": "https://github.com/pytorch/pytorch/issues/195337"
+  },
+  {
+   "closedAt": "2026-09-04T02:51:25Z",
+   "createdAt": "2026-08-30T07:49:09Z",
+   "number": 195327,
+   "title": "[inductor][while_loop] cond_fn-only mutation of a pre-mutated captured tensor is not replayed",
+   "url": "https://github.com/pytorch/pytorch/issues/195327"
+  },
+  {
+   "closedAt": "2026-09-02T16:16:01Z",
+   "createdAt": "2026-08-28T21:10:52Z",
+   "number": 195214,
+   "title": "[inductor][CUDA][bf16] Fusion skips rounding before equality, producing zero tie counts",
+   "url": "https://github.com/pytorch/pytorch/issues/195214"
+  },
+  {
+   "closedAt": "2026-08-28T14:29:01Z",
+   "createdAt": "2026-08-28T01:08:07Z",
+   "number": 195074,
+   "title": "[MPS] scatter_add_, index_add_ and index_put_(accumulate=True) write to the wrong elements on a misaligned bool view",
+   "url": "https://github.com/pytorch/pytorch/issues/195074"
+  },
+  {
+   "closedAt": "2026-09-30T13:03:37Z",
+   "createdAt": "2026-08-27T22:53:37Z",
+   "number": 195066,
+   "title": "[cpu][Inductor] torch._int_mm silent failure on CPU when an input's size-1 dim has stride 0",
+   "url": "https://github.com/pytorch/pytorch/issues/195066"
+  },
+  {
+   "closedAt": "2026-09-03T23:32:32Z",
+   "createdAt": "2026-08-27T12:52:17Z",
+   "number": 195007,
+   "title": "[torch.compile][Inductor] frexp returns a mantissa of 0 for float32 subnormals on CUDA",
+   "url": "https://github.com/pytorch/pytorch/issues/195007"
+  },
+  {
+   "closedAt": "2026-09-30T07:42:15Z",
+   "createdAt": "2026-08-26T17:24:23Z",
+   "number": 194926,
+   "title": "Gamma distribution broken on Intel GPUs",
+   "url": "https://github.com/pytorch/pytorch/issues/194926"
+  },
+  {
+   "closedAt": "2026-08-31T10:50:46Z",
+   "createdAt": "2026-08-26T17:09:21Z",
+   "number": 194922,
+   "title": "F.pad(mode=\"constant\") with temporal-axis padding silently corrupts ~80% of elements for large 5D tensors on MPS",
+   "url": "https://github.com/pytorch/pytorch/issues/194922"
+  },
+  {
+   "closedAt": "2026-09-01T06:13:12Z",
+   "createdAt": "2026-08-25T21:03:34Z",
+   "number": 194800,
+   "title": "[CPU] _adaptive_avg_pool3d_backward reads past a smaller grad_output tensor",
+   "url": "https://github.com/pytorch/pytorch/issues/194800"
+  },
+  {
+   "closedAt": "2026-09-13T05:13:18Z",
+   "createdAt": "2026-08-25T16:44:50Z",
+   "number": 194750,
+   "title": "Concurrent weights-only loads can skip sparse tensor validation",
+   "url": "https://github.com/pytorch/pytorch/issues/194750"
+  },
+  {
+   "closedAt": "2026-08-28T08:27:43Z",
+   "createdAt": "2026-08-22T09:07:46Z",
+   "number": 194442,
+   "title": "[MPS] torch.baddbmm with beta=0 propagates NaN from input, violating documented semantics",
+   "url": "https://github.com/pytorch/pytorch/issues/194442"
+  },
+  {
+   "closedAt": "2026-08-21T16:38:22Z",
+   "createdAt": "2026-08-21T11:23:04Z",
+   "number": 194357,
+   "title": "[inductor] `Cauchy.icdf(0)`/`icdf(1)` returns the opposite sign under `torch.compile` on fp16/bf16",
+   "url": "https://github.com/pytorch/pytorch/issues/194357"
+  },
+  {
+   "closedAt": "2026-08-21T16:28:52Z",
+   "createdAt": "2026-08-20T21:09:29Z",
+   "number": 194281,
+   "title": "[inductor] comprehensive_padding silently returns wrong and nondeterministic results for a Conv3d decoder at misaligned spatial strides",
+   "url": "https://github.com/pytorch/pytorch/issues/194281"
+  },
+  {
+   "closedAt": "2026-08-20T15:31:21Z",
+   "createdAt": "2026-08-18T11:52:54Z",
+   "number": 193938,
+   "title": "[inductor][cuda] `align_random_eager=True` makes compiled `torch.randn` / `randn_like` return uniform(0,1) values instead of standard normal",
+   "url": "https://github.com/pytorch/pytorch/issues/193938"
+  },
+  {
+   "closedAt": "2026-09-30T09:17:39Z",
+   "createdAt": "2026-08-17T09:23:18Z",
+   "number": 193784,
+   "title": "Windows source builds silently compute wrong results in parallel_for kernels: FindOpenMP links both vcomp140 and libomp140 into torch_cpu",
+   "url": "https://github.com/pytorch/pytorch/issues/193784"
+  },
+  {
+   "closedAt": "2026-09-30T22:20:20Z",
+   "createdAt": "2026-08-17T03:19:03Z",
+   "number": 193760,
+   "title": "[eager][cuda] Eager Does Inconsistent Extra Boolean Bit Normalization Depending on Striding",
+   "url": "https://github.com/pytorch/pytorch/issues/193760"
+  },
+  {
+   "closedAt": "2026-08-28T13:21:33Z",
+   "createdAt": "2026-08-17T00:56:54Z",
+   "number": 193751,
+   "title": "[inductor] Fused reduction + argmax/argmin mis-indexes `channels_last` inputs (logical index not preserved), CPU and CUDA",
+   "url": "https://github.com/pytorch/pytorch/issues/193751"
+  },
+  {
+   "closedAt": "2026-08-25T17:27:13Z",
+   "createdAt": "2026-08-16T02:15:56Z",
+   "number": 193704,
+   "title": "[ROCm] `nn.Embedding(sparse=True)` backward computes ~10^5x incorrect gradient magnitude on ROCm (gfx1201 / RDNA4)",
+   "url": "https://github.com/pytorch/pytorch/issues/193704"
+  },
+  {
+   "closedAt": "2026-08-31T17:40:46Z",
+   "createdAt": "2026-08-15T10:55:26Z",
+   "number": 193661,
+   "title": "[inductor] Wrong argmax after fused trailing-dim reduction on non-contiguous inputs (incl. non-unit-stride reduction window) — generic reduction fusion ignores input strides, CPU and CUDA",
+   "url": "https://github.com/pytorch/pytorch/issues/193661"
+  },
+  {
+   "closedAt": "2026-08-26T17:59:30Z",
+   "createdAt": "2026-08-13T18:19:42Z",
+   "number": 193431,
+   "title": "[vllm] [torch nightly 2.14 regression][KV offload] test_mamba_cpu_offload_boundary: CPU-offloaded generation diverges from cold",
+   "url": "https://github.com/pytorch/pytorch/issues/193431"
+  },
+  {
+   "closedAt": "2026-08-21T21:26:20Z",
+   "createdAt": "2026-08-11T23:20:27Z",
+   "number": 193061,
+   "title": "`torch.compile` silently computes wrong gradients for chained modulated LayerNorms with a shared scale/shift parameter (regression 2.9.1 → 2.10.0 due to mix_order_reduction)",
+   "url": "https://github.com/pytorch/pytorch/issues/193061"
+  },
+  {
+   "closedAt": "2026-08-13T04:34:56Z",
+   "createdAt": "2026-08-11T22:13:49Z",
+   "number": 193057,
+   "title": "MPS ignores storage offset of zero-dimensional CPU tensor views in mixed-device arithmetic",
+   "url": "https://github.com/pytorch/pytorch/issues/193057"
+  },
+  {
+   "closedAt": "2026-08-18T23:44:50Z",
+   "createdAt": "2026-08-10T15:16:19Z",
+   "number": 192810,
+   "title": "[vllm] [torch nightly 2.14 regression][Distributed] test_sharded_state_loader[2-True]: sharded_state reload returns different generations (tp=2, LoRA)",
+   "url": "https://github.com/pytorch/pytorch/issues/192810"
+  },
+  {
+   "closedAt": "2026-08-10T17:33:43Z",
+   "createdAt": "2026-08-08T03:07:58Z",
+   "number": 192577,
+   "title": "[MPS] multinomial(p, 1) intermittently returns zero-probability indices — exponential_() emits exact -0.0, Gumbel fast path turns it into a NaN that argmax selects",
+   "url": "https://github.com/pytorch/pytorch/issues/192577"
+  },
+  {
+   "closedAt": "2026-08-13T00:27:44Z",
+   "createdAt": "2026-08-07T19:10:46Z",
+   "number": 192540,
+   "title": "Differentiating the forward-mode (JVP) rule of `linalg.det` / `slogdet` / `linalg.solve` silently returns a wrong second derivative",
+   "url": "https://github.com/pytorch/pytorch/issues/192540"
+  },
+  {
+   "closedAt": "2026-08-13T00:27:44Z",
+   "createdAt": "2026-08-07T16:35:37Z",
+   "number": 192521,
+   "title": "`torch.func` second-order AD through `linalg.det` returns NaN or silently wrong values when the input has clustered singular values, while eager autograd is correct",
+   "url": "https://github.com/pytorch/pytorch/issues/192521"
+  },
+  {
+   "closedAt": "2026-08-08T01:20:06Z",
+   "createdAt": "2026-08-07T13:25:14Z",
+   "number": 192507,
+   "title": "[MPS] torch.hypot overflows and returns NaN for inf inputs, unlike CPU",
+   "url": "https://github.com/pytorch/pytorch/issues/192507"
+  },
+  {
+   "closedAt": "2026-09-04T06:37:08Z",
+   "createdAt": "2026-08-05T13:19:33Z",
+   "number": 192226,
+   "title": "BUG: Out of Bounds Reads with offset/strided views on compiled kernels",
+   "url": "https://github.com/pytorch/pytorch/issues/192226"
+  },
+  {
+   "closedAt": "2026-08-06T11:29:00Z",
+   "createdAt": "2026-08-05T12:44:48Z",
+   "number": 192219,
+   "title": "BUG: Inductor `as_strided` silently reads out of bounds",
+   "url": "https://github.com/pytorch/pytorch/issues/192219"
+  },
+  {
+   "closedAt": "2026-08-05T16:30:41Z",
+   "createdAt": "2026-08-05T01:15:01Z",
+   "number": 192158,
+   "title": "[XPU] Fused SDPA intermittently produces non-finite output in XPU wheels",
+   "url": "https://github.com/pytorch/pytorch/issues/192158"
+  },
+  {
+   "closedAt": "2026-08-05T17:59:55Z",
+   "createdAt": "2026-08-03T15:56:22Z",
+   "number": 191937,
+   "title": "SDPA EFFICIENT_ATTENTION returns wrong output for broadcasted (stride-0) k/v when kv length % 32 == 1 (bf16 + attn_mask, CUDA; MATH correct on identical tensors)",
+   "url": "https://github.com/pytorch/pytorch/issues/191937"
+  },
+  {
+   "closedAt": "2026-08-03T15:53:33Z",
+   "createdAt": "2026-08-03T14:06:30Z",
+   "number": 191929,
+   "title": "[MPS] Binary ops with a 0-dim CPU float tensor ignore storage_offset, silently using the wrong value",
+   "url": "https://github.com/pytorch/pytorch/issues/191929"
+  },
+  {
+   "closedAt": "2026-08-11T19:21:45Z",
+   "createdAt": "2026-08-02T05:13:15Z",
+   "number": 191858,
+   "title": "[symm_mem] NVSHMEM backend's barrier(), put_signal() and wait_signal() are silent no-ops - callers synchronize on nothing",
+   "url": "https://github.com/pytorch/pytorch/issues/191858"
+  },
+  {
+   "closedAt": "2026-08-06T02:02:34Z",
+   "createdAt": "2026-08-01T02:19:24Z",
+   "number": 191821,
+   "title": "[nested compile region] silently incorrect result on global mutation",
+   "url": "https://github.com/pytorch/pytorch/issues/191821"
+  },
+  {
+   "closedAt": "2026-08-08T04:12:28Z",
+   "createdAt": "2026-07-31T16:34:17Z",
+   "number": 191763,
+   "title": "Fused SGD on CPU silently skips vectorized fp16 and bf16 parameter updates in certain circumstances",
+   "url": "https://github.com/pytorch/pytorch/issues/191763"
+  },
+  {
+   "closedAt": "2026-08-10T16:06:48Z",
+   "createdAt": "2026-07-30T10:23:39Z",
+   "number": 191618,
+   "title": "[symm_mem] check_channel() multiplies by world_size instead of dividing, allowing out-of-bounds signal writes which silently corrupts peer tensor data on main",
+   "url": "https://github.com/pytorch/pytorch/issues/191618"
+  },
+  {
+   "closedAt": "2026-07-30T15:08:05Z",
+   "createdAt": "2026-07-30T02:05:16Z",
+   "number": 191571,
+   "title": "`torch.compile` silently returns stale zeros when a size-1 `scatter_add_` is gathered from in the same graph (read-before-write in a fused Triton kernel)",
+   "url": "https://github.com/pytorch/pytorch/issues/191571"
+  },
+  {
+   "closedAt": "2026-08-03T17:30:50Z",
+   "createdAt": "2026-07-29T14:23:23Z",
+   "number": 191495,
+   "title": "`float_tensor / python_scalar` on CUDA is not correctly rounded (reciprocal-multiply), diverging from CPU and from `tensor / tensor`",
+   "url": "https://github.com/pytorch/pytorch/issues/191495"
+  },
+  {
+   "closedAt": "2026-08-02T02:54:04Z",
+   "createdAt": "2026-07-27T11:36:09Z",
+   "number": 191193,
+   "title": "[Inductor] uniform_ on a non-contiguous view returns invalid values",
+   "url": "https://github.com/pytorch/pytorch/issues/191193"
+  },
+  {
+   "closedAt": "2026-07-24T19:09:15Z",
+   "createdAt": "2026-07-24T18:48:52Z",
+   "number": 191038,
+   "title": "[Inductor][MPS] torch.compile changes torch.expm1(-0.0) to +0.0",
+   "url": "https://github.com/pytorch/pytorch/issues/191038"
+  },
+  {
+   "closedAt": "2026-07-31T13:28:53Z",
+   "createdAt": "2026-07-24T14:20:57Z",
+   "number": 191014,
+   "title": "torch.onnx.export (TorchScript exporter) gives wrong results for right shift on signed integers",
+   "url": "https://github.com/pytorch/pytorch/issues/191014"
+  },
+  {
+   "closedAt": "2026-08-02T02:54:05Z",
+   "createdAt": "2026-07-23T21:55:35Z",
+   "number": 190946,
+   "title": "cumsum appears non-deterministic under torch.compile even when use_deterministic_algorithms is enabled",
+   "url": "https://github.com/pytorch/pytorch/issues/190946"
+  },
+  {
+   "closedAt": "2026-08-08T02:24:30Z",
+   "createdAt": "2026-07-22T21:26:03Z",
+   "number": 190828,
+   "title": "[ROCm] torch.nn.functional.rms_norm backward produces abnormally large BF16 RMSNorm weight gradients",
+   "url": "https://github.com/pytorch/pytorch/issues/190828"
+  },
+  {
+   "closedAt": "2026-07-28T17:00:46Z",
+   "createdAt": "2026-07-22T07:24:40Z",
+   "number": 190764,
+   "title": "Equivalent int32 graphs disagree under static CPU Inductor: factorized and PolyJuice max endpoints pass, expanded intermediate fails",
+   "url": "https://github.com/pytorch/pytorch/issues/190764"
+  },
+  {
+   "closedAt": "2026-07-22T07:24:15Z",
+   "createdAt": "2026-07-22T07:20:47Z",
+   "number": 190763,
+   "title": "[Superseded] CPU Inductor int32 add/sum mismatch",
+   "url": "https://github.com/pytorch/pytorch/issues/190763"
+  },
+  {
+   "closedAt": "2026-07-28T00:38:59Z",
+   "createdAt": "2026-07-22T03:00:23Z",
+   "number": 190755,
+   "title": "Some Dynamo descriptors (`tp_descr_get_impl`) are missing a `descr_check` equivalent",
+   "url": "https://github.com/pytorch/pytorch/issues/190755"
+  },
+  {
+   "closedAt": "2026-08-26T22:17:55Z",
+   "createdAt": "2026-07-22T00:21:38Z",
+   "number": 190740,
+   "title": "[MPS] nextafter returns zero instead of the smallest bfloat16 subnormal when stepping away from zero",
+   "url": "https://github.com/pytorch/pytorch/issues/190740"
+  },
+  {
+   "closedAt": "2026-07-23T01:36:07Z",
+   "createdAt": "2026-07-20T20:56:08Z",
+   "number": 190584,
+   "title": "BuiltinVariable.call_next diverges from CPython builtin_next semantics",
+   "url": "https://github.com/pytorch/pytorch/issues/190584"
+  },
+  {
+   "closedAt": "2026-07-27T23:35:02Z",
+   "createdAt": "2026-07-20T08:07:39Z",
+   "number": 190517,
+   "title": "[inductor] Missing barrier on same-kernel global buffer read-back (RAW) causes accuracy failure",
+   "url": "https://github.com/pytorch/pytorch/issues/190517"
+  },
+  {
+   "closedAt": "2026-07-20T13:17:00Z",
+   "createdAt": "2026-07-19T18:39:56Z",
+   "number": 190491,
+   "title": "[MPS] layer_norm forward kernel variance computation causes divergence from CPU reference",
+   "url": "https://github.com/pytorch/pytorch/issues/190491"
+  },
+  {
+   "closedAt": "2026-07-19T13:41:18Z",
+   "createdAt": "2026-07-19T13:38:10Z",
+   "number": 190484,
+   "title": "Withdrawn",
+   "url": "https://github.com/pytorch/pytorch/issues/190484"
+  },
+  {
+   "closedAt": "2026-07-20T12:48:07Z",
+   "createdAt": "2026-07-19T03:23:33Z",
+   "number": 190476,
+   "title": "[MPS] `torch.nextafter` is a no-op for bfloat16",
+   "url": "https://github.com/pytorch/pytorch/issues/190476"
+  },
+  {
+   "closedAt": "2026-07-25T21:34:28Z",
+   "createdAt": "2026-07-19T00:36:02Z",
+   "number": 190449,
+   "title": "_scaled_mm: scale_result silently ignored on fp8 output path (CUDA, torch 2.10 / nightly / main)",
+   "url": "https://github.com/pytorch/pytorch/issues/190449"
+  },
+  {
+   "closedAt": "2026-08-08T16:40:36Z",
+   "createdAt": "2026-07-15T17:00:10Z",
+   "number": 190064,
+   "title": "[MPS] adaptive_max_pool2d returns wrong values, indices, and even wrong output shape for non-divisible geometry",
+   "url": "https://github.com/pytorch/pytorch/issues/190064"
+  },
+  {
+   "closedAt": "2026-07-18T19:06:28Z",
+   "createdAt": "2026-07-15T16:49:44Z",
+   "number": 190063,
+   "title": "embedding_bag CPU dense backward scales gradients by the wrong frequency for mixed-count indices",
+   "url": "https://github.com/pytorch/pytorch/issues/190063"
+  },
+  {
+   "closedAt": "2026-07-19T20:52:51Z",
+   "createdAt": "2026-07-15T16:29:59Z",
+   "number": 190056,
+   "title": "[MPS] Multilayer LSTM backward ignores dropout, silently corrupting training gradients",
+   "url": "https://github.com/pytorch/pytorch/issues/190056"
+  },
+  {
+   "closedAt": "2026-07-21T14:49:09Z",
+   "createdAt": "2026-07-15T16:24:40Z",
+   "number": 190054,
+   "title": "[MPS] LayerNorm with fp32 weight/bias and fp16/bf16 input reinterprets the affine params; backward aborts",
+   "url": "https://github.com/pytorch/pytorch/issues/190054"
+  },
+  {
+   "closedAt": "2026-09-25T02:19:30Z",
+   "createdAt": "2026-07-15T02:29:46Z",
+   "number": 189971,
+   "title": "[MPS] embedding_bag accepts index == num_embeddings and reads one row past the weight table",
+   "url": "https://github.com/pytorch/pytorch/issues/189971"
+  },
+  {
+   "closedAt": "2026-07-20T16:02:29Z",
+   "createdAt": "2026-07-15T01:24:13Z",
+   "number": 189961,
+   "title": "[MPS] MPS-to-CPU copy_ between equal-strided non-dense views copies wrong elements and writes outside the destination view",
+   "url": "https://github.com/pytorch/pytorch/issues/189961"
+  },
+  {
+   "closedAt": "2026-09-18T06:16:13Z",
+   "createdAt": "2026-07-15T01:24:05Z",
+   "number": 189960,
+   "title": "[MPS] torch.cat silently corrupts output and writes out of bounds when the output exceeds 2^31 elements",
+   "url": "https://github.com/pytorch/pytorch/issues/189960"
+  },
+  {
+   "closedAt": "2026-07-16T14:42:07Z",
+   "createdAt": "2026-07-14T17:09:38Z",
+   "number": 189895,
+   "title": "[inductor] Silent wrong results: constant_pad_nd fused into a split reduction drops the pad's boundary select (corrupts flash-attn cu_seqlens)",
+   "url": "https://github.com/pytorch/pytorch/issues/189895"
+  },
+  {
+   "closedAt": "2026-08-28T23:38:52Z",
+   "createdAt": "2026-07-14T09:23:20Z",
+   "number": 189849,
+   "title": "Flash SDPA wrong output for head_dim=512 on gfx1151 (ROCm 7.15 regression)",
+   "url": "https://github.com/pytorch/pytorch/issues/189849"
+  },
+  {
+   "closedAt": "2026-07-21T16:16:16Z",
+   "createdAt": "2026-07-14T01:09:14Z",
+   "number": 189804,
+   "title": "Inductor vectorized GELU kernel produces tiny negative value (~-1.65e-7) where eager produces -0.0, causing sign() mismatch",
+   "url": "https://github.com/pytorch/pytorch/issues/189804"
+  },
+  {
+   "closedAt": "2026-07-11T07:33:01Z",
+   "createdAt": "2026-07-10T20:24:23Z",
+   "number": 189581,
+   "title": "[Bug] nn.RMSNorm produces wildly incorrect normalization constants for bfloat16 tensors with small variances",
+   "url": "https://github.com/pytorch/pytorch/issues/189581"
+  },
+  {
+   "closedAt": "2026-07-14T20:49:19Z",
+   "createdAt": "2026-07-10T16:50:25Z",
+   "number": 189563,
+   "title": "[MPS] Dtype-converting MPS-to-CPU copy can silently overwrite source tensor",
+   "url": "https://github.com/pytorch/pytorch/issues/189563"
+  },
+  {
+   "closedAt": "2026-07-12T06:37:18Z",
+   "createdAt": "2026-07-10T06:24:46Z",
+   "number": 189518,
+   "title": "Inductor's pointless_cumsum_replacement drops cumsum's explicit dtype argument",
+   "url": "https://github.com/pytorch/pytorch/issues/189518"
+  },
+  {
+   "closedAt": "2026-07-21T14:05:23Z",
+   "createdAt": "2026-07-09T22:56:54Z",
+   "number": 189495,
+   "title": "[MPS] F.linear with bias silently returns wrong results when 3D batch dim exceeds 2^16 (65536)",
+   "url": "https://github.com/pytorch/pytorch/issues/189495"
+  },
+  {
+   "closedAt": "2026-07-28T19:38:08Z",
+   "createdAt": "2026-07-09T14:24:41Z",
+   "number": 189401,
+   "title": "[inductor] Unrolled sum reduction produces wrong results for non-contiguous (transposed) inputs after `unsqueeze+expand`",
+   "url": "https://github.com/pytorch/pytorch/issues/189401"
+  },
+  {
+   "closedAt": "2026-07-26T16:53:03Z",
+   "createdAt": "2026-07-09T09:25:56Z",
+   "number": 189375,
+   "title": "`F.linear` broken for some inputs on RX9070/gfx1201",
+   "url": "https://github.com/pytorch/pytorch/issues/189375"
+  },
+  {
+   "closedAt": "2026-07-08T14:46:27Z",
+   "createdAt": "2026-07-08T01:56:52Z",
+   "number": 189225,
+   "title": "torch.onnx.export(dynamo=True) exports nn.GRU with wrong linear_before_reset=0",
+   "url": "https://github.com/pytorch/pytorch/issues/189225"
+  },
+  {
+   "closedAt": "2026-07-08T13:12:56Z",
+   "createdAt": "2026-07-07T07:56:26Z",
+   "number": 189134,
+   "title": "[MPS] `linalg.solve` returns wrong results when B is broadcast against a batched A",
+   "url": "https://github.com/pytorch/pytorch/issues/189134"
+  },
+  {
+   "closedAt": "2026-08-06T22:46:21Z",
+   "createdAt": "2026-07-03T17:34:24Z",
+   "number": 188912,
+   "title": "vit_base_patch16_siglip_256 amp training accuracy regression on H100 (2.13.0)",
+   "url": "https://github.com/pytorch/pytorch/issues/188912"
+  },
+  {
+   "closedAt": "2026-07-03T04:05:48Z",
+   "createdAt": "2026-07-03T04:02:42Z",
+   "number": 188878,
+   "title": "[FlexAttention] FLASH backend silently wrong: wrapped gather index misclassified as lane-uniform in vectorized score_mod groups",
+   "url": "https://github.com/pytorch/pytorch/issues/188878"
+  },
+  {
+   "closedAt": "2026-08-03T16:02:07Z",
+   "createdAt": "2026-07-01T23:17:06Z",
+   "number": 188756,
+   "title": "[MPS] index_select / F.embedding silently return all-zero rows when the source tensor exceeds 2**31 elements (fixed on main, still broken in release/2.13)",
+   "url": "https://github.com/pytorch/pytorch/issues/188756"
+  },
+  {
+   "closedAt": "2026-07-13T19:13:15Z",
+   "createdAt": "2026-06-30T12:05:14Z",
+   "number": 188545,
+   "title": "[PT2] Output mismatch between eager and torch.compile for torch.special.bessel_y0 with +inf input on CUDA",
+   "url": "https://github.com/pytorch/pytorch/issues/188545"
+  }
+ ]
+}

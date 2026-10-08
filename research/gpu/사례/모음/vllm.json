@@ -1,0 +1,380 @@
+[
+  {
+    "번호": 59262,
+    "url": "https://github.com/vllm-project/vllm/pull/59262",
+    "제목": "[ROCm][CI] Run Basic Correctness Sleep Mode on MI300 for now",
+    "생성일": "2026-09-29",
+    "결정": "제외",
+    "제외_이유": "조건 1: CI 설정(.buildkite yaml)에서 Sleep Mode 작업을 MI300에서 돌리도록 바꾼 것뿐, 결과 오류 수정이 아님"
+  },
+  {
+    "번호": 59201,
+    "url": "https://github.com/vllm-project/vllm/pull/59201",
+    "제목": "[CI][ROCm] Fix stale basic_correctness path in Model Runner V2 Distributed",
+    "생성일": "2026-09-29",
+    "결정": "제외",
+    "제외_이유": "조건 1: CI 설정(.buildkite/test-amd.yaml)의 옛 테스트 경로만 고침"
+  },
+  {
+    "번호": 59008,
+    "url": "https://github.com/vllm-project/vllm/pull/59008",
+    "제목": "[CI][Bugfix] Relax packed_qk_rope_ correctness test to one ULP",
+    "생성일": "2026-09-28",
+    "결정": "제외",
+    "제외_이유": "조건 1: 테스트의 비트 단위 일치 요구를 1 ULP 허용으로 완화한 것 — 커널은 docstring만 바뀌고 동작 불변, 결과가 틀린 버그가 아님"
+  },
+  {
+    "번호": 58364,
+    "url": "https://github.com/vllm-project/vllm/pull/58364",
+    "제목": "[Bugfix] Fix TorchCodec audio IO correctness",
+    "생성일": "2026-09-23",
+    "결정": "제외",
+    "제외_이유": "조건 2: 정확도 하락의 원인이 오디오 디코딩(FFmpeg<5.0에서 vorbis 오디오 끝에 남는 패딩)으로 입출력에 해당"
+  },
+  {
+    "번호": 58095,
+    "url": "https://github.com/vllm-project/vllm/pull/58095",
+    "제목": "[ROCm][CI] Validate Mooncake and NIXL prefill/decode accuracy",
+    "생성일": "2026-09-22",
+    "결정": "제외",
+    "제외_이유": "조건 1: ROCm용 Mooncake·NIXL PD 정확도 테스트와 CI 작업 추가만"
+  },
+  {
+    "번호": 57779,
+    "url": "https://github.com/vllm-project/vllm/pull/57779",
+    "제목": "[XPU][UT]Bugfix when the process can't see all the world_size meet accuracy issue.",
+    "생성일": "2026-09-20",
+    "결정": "포함",
+    "증상": "XPU에서 DP 프로세스가 world_size 전체 장치를 볼 수 없는 구성(external LB DP, TP=1·DP=2, ibm-research/PowerMoE-3b)에서 출력이 깨짐: 스트리밍 출력 'PictureContinueContinueContinueContinue'(같은 토큰 반복)와 비스트리밍 출력 'PictureıFallıdw'가 서로 달라 테스트 실패.",
+    "원인": "`xpu_communicator.py`의 `reduce_scatterv`는 랭크별 `sizes`가 서로 다르면 입력을 `split`한 리스트로 `dist.reduce_scatter`(크기가 고르지 않은 reduce_scatter)를 호출했는데, 프로세스가 그룹의 모든 장치를 볼 수 없는 경우(`torch.xpu.device_count() < self.world_size`, 예: external LB DP)에는 이 uneven reduce_scatter가 지원되지 않는다(수정 코드 주석).",
+    "수정": "그 경우를 따로 분기해 각 랭크 조각을 `max(sizes)` 길이의 0 패딩 텐서에 채운 뒤 `dist.reduce_scatter_tensor`로 리듀스하고, 결과에서 앞쪽 `chunk_size`만 잘라 쓰게 했다.",
+    "근거": "uneven reduce_scatter is not supported when the process cannot see every device in the group",
+    "장치": "XPU",
+    "부분": "분산 통신 연산 (vllm/distributed/device_communicators/xpu_communicator.py의 reduce_scatterv)"
+  },
+  {
+    "번호": 57563,
+    "url": "https://github.com/vllm-project/vllm/pull/57563",
+    "제목": "[fix] Mistral-Large-3 accuracy regression on `main`",
+    "생성일": "2026-09-18",
+    "결정": "포함",
+    "증상": "Mistral-Large-3(675B NVFP4) GSM8K 정확도 하락: 5회 평균 88.05%(수정 전 main) 대 92.63%(수정 후), 약 4.6%p 차이. 수정 후 값은 #56446 머지 전 측정치(92.2/92.8%)와 같음.",
+    "원인": "#56446 이후 Mistral 형식 설정을 변환하면 `rope_parameters`에 YaRN `apply_scale: false`가 `attention_factor: 1.0`으로만 들어가고 `apply_yarn_scaling` 키는 없는데, DeepSeek 계열 어텐션 코드는 `rope_parameters.get(\"apply_yarn_scaling\", True)`로 rope 종류를 골라 기본값 True에 따라 `deepseek_yarn`을 택했다. 그래서 `deepseek_llama_scaling`이어야 할 Mistral-Large-3에 불필요한 `yarn_get_mscale(factor)^2` 어텐션 스케일이 걸렸다.",
+    "수정": "deepseek_v2.py·AXK1.py·deepseek_v32·deepseek_v4·deepseek_v41·glm5next·kimi_k3의 rope 종류 선택 조건을 `attention_factor == 1.0`이면 `deepseek_llama_scaling`, 아니면 `deepseek_yarn`으로 바꾸고 설정 변환 테스트를 추가했다.",
+    "근거": "without it Mistral-Large-3 runs with a spurious yarn_get_mscale(factor)^2 attention scaling.",
+    "장치": "CUDA (NVFP4 체크포인트·FlashInfer TRTLLM MoE 환경에서 측정)",
+    "부분": "모델 어텐션 코드의 RoPE/YaRN 스케일 선택 (DeepSeek 계열 MLA 어텐션)"
+  },
+  {
+    "번호": 57454,
+    "url": "https://github.com/vllm-project/vllm/pull/57454",
+    "제목": "[Bugfix][DSv4.1] Preserve NaN-scored candidate block indices",
+    "생성일": "2026-09-17",
+    "결정": "제외",
+    "제외_이유": "조건 1: 증상이 시작 시(dummy prefill/autotuning) DeepGEMM sparse-slot 단언(assertion) 실패뿐이고 틀린 출력 보고가 없음; PR도 dummy-run NaN의 수치 원인은 고치지 않는다고 밝힘"
+  },
+  {
+    "번호": 57295,
+    "url": "https://github.com/vllm-project/vllm/pull/57295",
+    "제목": "[Bugfix] Fix wrong vLLM version reported by pip install (proto-v* tag collision)",
+    "생성일": "2026-09-17",
+    "결정": "제외",
+    "제외_이유": "조건 1: pip install 시 보고되는 vLLM 버전 문자열 문제(빌드·설치)"
+  },
+  {
+    "번호": 57132,
+    "url": "https://github.com/vllm-project/vllm/pull/57132",
+    "제목": "[ROCm][Bugfix] Revert #56433 + #51692 to fix accuracy breakdown for DeepSeek-V4",
+    "생성일": "2026-09-16",
+    "결정": "제외",
+    "제외_이유": "조건 3: 원인 불명 — #56433·#51692를 통째로 되돌려 DeepSeek-V4(ROCm) GSM8K를 0.0053에서 0.9538로 복구했지만, 정확도 붕괴를 일으킨 구체적 코드·연산은 PR·diff에서 밝혀지지 않음"
+  },
+  {
+    "번호": 57071,
+    "url": "https://github.com/vllm-project/vllm/pull/57071",
+    "제목": "[Bugfix][ROCm] AMD-Quark mixed-precision DeepSeek-V4.1 support",
+    "생성일": "2026-09-15",
+    "결정": "제외",
+    "제외_이유": "조건 1: 증상이 혼합 정밀도 AMD-Quark 체크포인트(DeepSeek-V4.1-Flash-MXFP4)의 로드 실패(NotImplementedError 등)이고, 새 형식(32×32 per-block MXFP8) 지원을 추가한 것 — 틀린 출력이 관측되지 않음"
+  },
+  {
+    "번호": 57054,
+    "url": "https://github.com/vllm-project/vllm/pull/57054",
+    "제목": "[CI] Split (H200 MIG/MI300) Basic Correctness into named jobs",
+    "생성일": "2026-09-15",
+    "결정": "제외",
+    "제외_이유": "조건 1: CI 작업 분할과 테스트 파일 이동만"
+  },
+  {
+    "번호": 57050,
+    "url": "https://github.com/vllm-project/vllm/pull/57050",
+    "제목": "[Bugfix] Fix incorrect Mamba block allocation estimate that prevents request admission",
+    "생성일": "2026-09-15",
+    "결정": "제외",
+    "제외_이유": "조건 1·2: 증상은 요청 수락 실패로 인한 시스템 멈춤이고, 원인은 Mamba 블록 할당 추정(get_num_blocks_to_allocate) 즉 요청 배정·스케줄링 논리"
+  },
+  {
+    "번호": 56773,
+    "url": "https://github.com/vllm-project/vllm/pull/56773",
+    "제목": "[Bugfix][CPU] Fix DeepSeek-R1 (FP8 MLA + MoE) correctness on CPU backend",
+    "생성일": "2026-09-14",
+    "결정": "포함",
+    "증상": "CPU 백엔드에서 DeepSeek-R1(FP8, TP=4) 생성이 앞뒤 안 맞는 쓰레기 출력. 층별 비교에서 FP8일 때만 어텐션 출력이 HF 대비 cos_sim 약 0.25~0.48, 노름은 약 15배 작음(bf16 역양자화 대조 실행은 cos_sim 1.0000).",
+    "원인": "`CPUFp8BlockScaledMMKernel.process_weights_after_loading`이 MLA absorb 최적화가 `kv_b_proj`에 세우는 `layer._cpu_skip_gemm_dispatch`를 무시하고 FP8 가중치 바이트를 AMX BRGEMM용 VNNI 형식으로 무조건 prepack했다. 이어서 `get_and_maybe_dequant_weights`가 그 바이트를 여전히 row-major인 것처럼 역양자화해 `W_UK`/`W_UV`가 블록별 스케일과 어긋나게 뒤섞였다.",
+    "수정": "`process_weights_after_loading` 첫머리에서 `_cpu_skip_gemm_dispatch`가 참이면 바로 반환해 prepack을 건너뛰게 했다(같은 PR에서 CPU FP8 MoE 라우팅 허용 목록에 `RoutingMethodType.DeepSeekV3`를 넣어 로드 실패도 고침).",
+    "근거": "dequantized those prepacked bytes as if still row-major, scrambling `W_UK`/`W_UV` against mismatched per-block scales",
+    "장치": "CPU",
+    "부분": "FP8 block-scaled GEMM 커널(CPU)의 가중치 전처리(VNNI prepack)와 MLA kv_b_proj 역양자화 — 가중치 배치"
+  },
+  {
+    "번호": 56579,
+    "url": "https://github.com/vllm-project/vllm/pull/56579",
+    "제목": "[Bugfix][Attention] Avoid NaN in the Triton softcap for large attention logits",
+    "생성일": "2026-09-12",
+    "결정": "포함",
+    "증상": "softcap을 쓰는 Triton 어텐션에서 큰 어텐션 로짓에 NaN/inf가 나와 어텐션 행 전체가 오염됨. soft_cap=50에서 점수 5000·10000·-10000 → NaN, 4400 → inf (수정 후 ±50). Gemma-2 계열(attn_logit_softcapping=50)은 softcap 전 점수가 4400을 넘으면 해당.",
+    "원인": "`apply_softcap`이 `x * tanh(S / x)`를 `x * (exp(S/x) - exp(-S/x)) / (exp(S/x) + exp(-S/x))`로 계산해, `|S / x|`가 약 88을 넘으면 두 지수가 모두 inf로 넘치고 `inf / inf = NaN`이 됐다.",
+    "수정": "같은 값을 `x * (1 - 2 / (exp(2 * S / x) + 1))`로 계산해 부호와 상관없이 ±1로 포화되게 바꿨다(unified·DiffKV·INT4 어텐션 커널이 공유하는 helper).",
+    "근거": "Both exponentials overflow to `inf` when `|S / x| > ~88`, so the ratio becomes `inf / inf = NaN`",
+    "장치": "CUDA (Triton; GTX 1650 Ti에서 확인)",
+    "부분": "Triton 어텐션 커널 helper (vllm/v1/attention/ops/triton_attention_helpers.py의 apply_softcap)"
+  },
+  {
+    "번호": 56431,
+    "url": "https://github.com/vllm-project/vllm/pull/56431",
+    "제목": "[XPU] Fix incorrect context-key normalization for Qwen DFlash-based models",
+    "생성일": "2026-09-11",
+    "결정": "포함",
+    "증상": "XPU에서 DFlash/DSpark 초안 모델을 쓴 추측 디코딩의 정확도·수락률 하락: Qwen3-4B-FP8 + dspark_qwen3_4b_block7에서 GSM8K 정확도 0.487(기준 0.801), acceptance_rate 0.011 → 수정 후 0.859, 0.459.",
+    "원인": "DFlash는 층별 K-norm 가중치를 쌓아 `rms_norm`을 입력 `[num_layers, num_context_tokens, num_kv_heads, head_dim]`, 가중치 `[num_layers, head_dim]`로 한 번에 호출하는데, vLLM이 쓰던 XPU 커널은 2D 가중치를 1D 벡터로 취급해 항상 첫 층의 가중치 행만 적용했다. 그래서 나머지 초안 층의 context K가 틀린 가중치로 정규화된 채 KV 캐시에 쓰였다.",
+    "수정": "qwen3_dflash.py의 `_normalize_context_k`에 XPU 전용 분기를 넣어 층마다 해당 층 가중치로 `ops.rms_norm`을 따로 호출하게 했다(올바른 커널은 vllm-xpu-kernels 다음 릴리스에 포함 예정).",
+    "근거": "The current XPU kernel used by vLLM treated the 2D weight as a 1D vector and always applied the first layer's weight row.",
+    "장치": "XPU",
+    "부분": "RMSNorm 커널(XPU)과 추측 디코딩 초안 모델(qwen3_dflash)의 context K 정규화"
+  },
+  {
+    "번호": 55899,
+    "url": "https://github.com/vllm-project/vllm/pull/55899",
+    "제목": "[Perf] Improve BF16x3 router GEMM accuracy and make it default on sm100",
+    "생성일": "2026-09-08",
+    "결정": "제외",
+    "제외_이유": "조건 1: 버그 보고가 아닌 성능·정밀도 개선 PR — 옵트인이던 BF16x3 router GEMM에 긴 누산 체인용 누산기를 추가해 FP64 기준 오차를 FP32 수준 이하로 낮추고 sm100 기본값으로 바꿈; 사용자에게 나타난 틀린 결과 보고 없음"
+  },
+  {
+    "번호": 54871,
+    "url": "https://github.com/vllm-project/vllm/pull/54871",
+    "제목": "[XPU] fix incorrect gdn kernel log for XPU path",
+    "생성일": "2026-09-02",
+    "결정": "제외",
+    "제외_이유": "조건 1: XPU 경로의 GDN 커널 선택 로그 메시지만 고침"
+  },
+  {
+    "번호": 54099,
+    "url": "https://github.com/vllm-project/vllm/pull/54099",
+    "제목": "Remove wrongly added e2e test",
+    "생성일": "2026-08-27",
+    "결정": "제외",
+    "제외_이유": "조건 1: 잘못 추가된 e2e 테스트 설정 파일 제거만"
+  },
+  {
+    "번호": 53409,
+    "url": "https://github.com/vllm-project/vllm/pull/53409",
+    "제목": "[Bugfix] Fix int32 token offset overflow in fused SiLU block quant",
+    "생성일": "2026-08-22",
+    "결정": "포함",
+    "증상": "토큰 수가 큰 배치에서 `silu_and_mul_per_block_quant` 실행 시 CUDA illegal memory access(`CUDA error: an illegal memory access was encountered`). 회귀 테스트는 hidden_size=16384에서 마지막 토큰의 입력 오프셋이 INT32_MAX를 처음 넘는 토큰 수로 재현.",
+    "원인": "커널이 전역 입력·출력 행 오프셋 계산에 32비트 `int const token_idx = blockIdx.x;`를 써서, `token_idx * (2 * hidden_size)`가 INT32_MAX를 넘으면 넘쳐 입력 포인터가 wrap됐다.",
+    "수정": "`token_idx`를 `int64_t`로 넓혀(형제 activation 커널과 동일) 행 오프셋을 64비트로 계산하게 하고, 처음 넘치는 토큰 수에서의 회귀 테스트를 추가했다.",
+    "근거": "For sufficiently large token batches, `token_idx * (2 * hidden_size)` overflowed `INT32_MAX`, wrapped the input pointer, and caused an illegal CUDA memory access.",
+    "장치": "CUDA",
+    "부분": "CUDA 커널 (csrc/libtorch_stable/quantization/fused_kernels/fused_silu_mul_block_quant.cu)"
+  },
+  {
+    "번호": 53034,
+    "url": "https://github.com/vllm-project/vllm/pull/53034",
+    "제목": "[Bugfix] Fix int32 index overflow in LoRA punica kernels at long context",
+    "생성일": "2026-08-20",
+    "결정": "포함",
+    "증상": "LoRA를 켠 긴 컨텍스트에서 `lora_expand` illegal memory access. Gemma 4 E2B는 max_model_len 87382에서는 정상, 87383부터 실패하며, 청크 prefill을 끄면 프로파일 실행 때문에 `LLM()` 생성 중에 크래시(SM120 NVFP4·H100 FP8, 어텐션 백엔드와 무관).",
+    "원인": "`do_expand_kernel`·`do_shrink_kernel`이 int32인 토큰 인덱스 `ram`을 그대로 `output_d0_stride`/`input_d0_stride`와 곱해 포인터 오프셋을 만들어, 요청이 충분히 길면 바이트 오프셋이 2^31에서 wrap됐다(Gemma 4 E2B의 merged gate_up 출력 행은 24576바이트라 2**31/24576 = 87383).",
+    "수정": "두 커널에서 `ram[:, None].to(tl.int64)`로 int64로 바꾼 뒤 stride와 곱하게 했다.",
+    "근거": "`do_expand_kernel` and `do_shrink_kernel` index the token dimension with an int32 `ram`, so the byte offset wraps once a request is long enough.",
+    "장치": "CUDA (Triton; SM120·H100에서 재현)",
+    "부분": "LoRA punica Triton 커널 (vllm/lora/ops/triton_ops/kernel_utils.py)"
+  },
+  {
+    "번호": 53024,
+    "url": "https://github.com/vllm-project/vllm/pull/53024",
+    "제목": "[ROCm][CI] Stabilize MI355 FlyDSL MoE accuracy test",
+    "생성일": "2026-08-20",
+    "결정": "제외",
+    "제외_이유": "조건 1: 테스트 입력 시드 고정과 허용 기준 조정만(커널·변환 코드는 변경 없음)"
+  },
+  {
+    "번호": 53023,
+    "url": "https://github.com/vllm-project/vllm/pull/53023",
+    "제목": "[CI] Fix MultiConnector accuracy test lifecycle",
+    "생성일": "2026-08-20",
+    "결정": "제외",
+    "제외_이유": "조건 1: CI 테스트 스크립트의 프로세스 수명 관리·헬스체크만 고침"
+  },
+  {
+    "번호": 53008,
+    "url": "https://github.com/vllm-project/vllm/pull/53008",
+    "제목": "[Bugfix] Fix ncclCommQueryProperties heap overflow with NCCL >= 2.31",
+    "생성일": "2026-08-19",
+    "결정": "제외",
+    "제외_이유": "조건 1·2: 증상은 호스트 힙 손상에 따른 간헐적 SIGSEGV(크래시)이고, 원인은 계산이 아니라 ncclCommQueryProperties에 넘기는 ctypes 구조체 레이아웃·선언 버전 불일치(라이브러리 바인딩)"
+  },
+  {
+    "번호": 52881,
+    "url": "https://github.com/vllm-project/vllm/pull/52881",
+    "제목": "[BugFix] Revert incorrect MM keep_on_cpu=True changes",
+    "생성일": "2026-08-19",
+    "결정": "제외",
+    "제외_이유": "조건 1·2: 설명은 CI 회귀 수정뿐 틀린 결과 보고가 없고, 변경은 멀티모달 입력 텐서의 CPU 유지(keep_on_cpu)·장치 전송 설정을 되돌린 것(입력 처리)"
+  },
+  {
+    "번호": 52588,
+    "url": "https://github.com/vllm-project/vllm/pull/52588",
+    "제목": "docs: fix incorrect --custom-skip-chat-template flag reference",
+    "생성일": "2026-08-17",
+    "결정": "제외",
+    "제외_이유": "조건 1: 문서만 수정"
+  },
+  {
+    "번호": 52501,
+    "url": "https://github.com/vllm-project/vllm/pull/52501",
+    "제목": "[Bugfix] Detect unloaded NVFP4 weight scales with a NaN sentinel",
+    "생성일": "2026-08-16",
+    "결정": "제외",
+    "제외_이유": "조건 2: NaN 출력의 원인은 연산 코드가 아니라 체크포인트 설정 불일치(혼합 정밀도 체크포인트에서 BF16으로 저장된 층이 NVFP4 양자화에서 제외되지 않아 weight_scale이 로드되지 않음)이고, 수정도 NaN 센티넬로 로드 시 RuntimeError를 내는 검출 추가뿐"
+  },
+  {
+    "번호": 51915,
+    "url": "https://github.com/vllm-project/vllm/pull/51915",
+    "제목": "[ROCm][Model][Bugfix] Enable GLM-5.2-MXFP4 on the deepseek_v32 path and fix sparse attention correctness",
+    "생성일": "2026-08-12",
+    "결정": "포함",
+    "증상": "ROCm의 deepseek_v32 AMD 경로(GLM-5.2, DeepSeek-V3.2도 동일)에서 시퀀스가 `index_topk=2048`을 넘으면 오류 없이 출력이 퇴화함 — sparse attention 인덱서가 쓰레기 K로 점수를 매김.",
+    "원인": "AMD 경로는 indexer-K 캐시를 공유 Triton 커널 `fused_norm_rope`로 쓰는데, 이 커널은 평면 배치 `[n_blocks, blk, head_dim]`(row-major)만 구현했고 읽는 쪽(aiter gather)은 블록 크기 1 초과에서 셔플 배치 `[n_blocks, blk/16, head_dim/16, 16, 16]`를 기대했다. 쓰기와 읽기의 캐시 배치가 달라 인덱서가 틀린 K를 읽었다.",
+    "수정": "캐시가 `uses_shuffled_layout` 속성으로 자기 배치를 알리게 하고(ROCm 인덱서 캐시는 블록 크기 1 초과면 True, 기본 클래스는 False), `fused_norm_rope`의 캐시 쓰기(`_fp8_quant_and_cache_write`)가 `SHUFFLE`일 때 16×16 타일 셔플 오프셋으로 저장하게 했다(같은 PR에 GLM-5.2 활성화용 다른 수정도 포함).",
+    "근거": "the write kept storing row-major, but the reader expected shuffled, so the indexer scored garbage K and output degenerated",
+    "장치": "ROCm (gfx942/gfx950)",
+    "부분": "deepseek_v32 공유 Triton 커널 fused_norm_rope의 indexer-K 캐시 쓰기 배치 (sparse attention 인덱서)"
+  },
+  {
+    "번호": 51457,
+    "url": "https://github.com/vllm-project/vllm/pull/51457",
+    "제목": "[Test] Add ROCm AITER FP8 MLA prefill accuracy test",
+    "생성일": "2026-08-07",
+    "결정": "제외",
+    "제외_이유": "조건 1: ROCm AITER FP8 MLA prefill 정확도 테스트 추가만"
+  },
+  {
+    "번호": 51304,
+    "url": "https://github.com/vllm-project/vllm/pull/51304",
+    "제목": "[V1] Copy NaN-in-logits counts to host asynchronously",
+    "생성일": "2026-08-06",
+    "결정": "제외",
+    "제외_이유": "조건 1: logits NaN 개수의 호스트 복사를 비동기로 바꾼 성능 변경(동작 불변)"
+  },
+  {
+    "번호": 51271,
+    "url": "https://github.com/vllm-project/vllm/pull/51271",
+    "제목": "[CI] Run basic fullgraph correctness on one GPU",
+    "생성일": "2026-08-06",
+    "결정": "제외",
+    "제외_이유": "조건 1: CI 단계와 테스트 파라미터 정리만"
+  },
+  {
+    "번호": 51160,
+    "url": "https://github.com/vllm-project/vllm/pull/51160",
+    "제목": "[XPU][Test] Support MultiConnector accuracy testing on XPU",
+    "생성일": "2026-08-05",
+    "결정": "제외",
+    "제외_이유": "조건 1: XPU용 테스트 스크립트 지원 추가만"
+  },
+  {
+    "번호": 51068,
+    "url": "https://github.com/vllm-project/vllm/pull/51068",
+    "제목": "Prune redundant tests points in `correctness_e2e/[test_sequence_parallel,test_async_tp]`",
+    "생성일": "2026-08-04",
+    "결정": "제외",
+    "제외_이유": "조건 1: 중복 테스트 지점 정리와 CI 설정 변경만"
+  },
+  {
+    "번호": 51026,
+    "url": "https://github.com/vllm-project/vllm/pull/51026",
+    "제목": "[Bugfix][Rust Frontend] Tolerate NaN-corrupted logprobs in engine-core",
+    "생성일": "2026-08-04",
+    "결정": "제외",
+    "제외_이유": "조건 1·2: 증상은 Rust 프런트엔드가 NaN logprob의 sampled rank 0을 디코드 오류로 거부해 서버 전체가 장애(/health 503)가 되는 것이고, 원인은 엔진-코어 클라이언트의 메시지 디코드 검증(입출력)이지 연산이 아님"
+  },
+  {
+    "번호": 50649,
+    "url": "https://github.com/vllm-project/vllm/pull/50649",
+    "제목": "[ROCm][Bugfix] Kimi-K3 Fix KDA NaN on mixed batches and racy autotune config",
+    "생성일": "2026-08-01",
+    "결정": "포함",
+    "증상": "ROCm(MI355X)에서 Kimi-K3의 KDA 층이 decode+prefill 혼합 배치의 decode 시퀀스에 NaN을 내고, 오토튠 설정에 따라 ~1e38 크기의 쓰레기 값이 나와 이후 계산을 오염시킴. GSM8K(5-shot) 0.8901 → 수정 후 0.9689.",
+    "원인": "(1) `KimiGatedDeltaNetAttention._forward`가 비추측 혼합 배치의 decode 시퀀스까지 chunk 커널 `chunk_kda_with_fused_gate`로 보냈는데, 이 커널은 각 decode를 길이 1 시퀀스로 다루며 NaN을 반환했다. (2) `recompute_w_u_fwd_kernel` 오토튠 후보의 `num_stages=4`는 반복 2회인 `u` 루프에 소비자 없는 세 번째 비동기 LDS 복사를 만들고 `w` 루프가 그 LDS를 재사용해, `num_warps=4`일 때 gfx950에서 경쟁이 일어나 배치가 4096 토큰에 이르면 `u`에 비결정적 O(1e38) 쓰레기 값이 나왔다.",
+    "수정": "ROCm 전용 KDA 층(kda.py)을 추가해 혼합 배치의 decode 토큰은 `fused_recurrent_kda`로, prefill 부분만 chunk 커널로 보내고, `recompute_w_u_fwd_kernel` 오토튠 후보에서 `num_stages=4`를 뺐다.",
+    "근거": "The chunk kernel treats each decode as length=1 sequence, and returns NaN for them.",
+    "장치": "ROCm (MI355X, gfx950)",
+    "부분": "KDA(선형 어텐션) Triton 커널과 층의 커널 분배, Triton 오토튠 설정 (vllm/models/kimi_k3/amd)"
+  },
+  {
+    "번호": 50632,
+    "url": "https://github.com/vllm-project/vllm/pull/50632",
+    "제목": "[CI] Add GSM8K accuracy test for amd/DeepSeek-V4-Flash-MXFP4",
+    "생성일": "2026-07-31",
+    "결정": "제외",
+    "제외_이유": "조건 1: GSM8K 정확도 CI 테스트 추가만"
+  },
+  {
+    "번호": 50480,
+    "url": "https://github.com/vllm-project/vllm/pull/50480",
+    "제목": "[ROCm][CI] Add MLA decode accuracy and determinism tests",
+    "생성일": "2026-07-30",
+    "결정": "제외",
+    "제외_이유": "조건 1: MLA decode 정확도·결정성 테스트와 CI 작업 추가만"
+  },
+  {
+    "번호": 50373,
+    "url": "https://github.com/vllm-project/vllm/pull/50373",
+    "제목": "[XPU][CI]Adjust source_file_dependencies for NixlConnector PD accuracy (4 GPUs)",
+    "생성일": "2026-07-30",
+    "결정": "제외",
+    "제외_이유": "조건 1: CI 설정(source_file_dependencies) 조정만"
+  },
+  {
+    "번호": 50323,
+    "url": "https://github.com/vllm-project/vllm/pull/50323",
+    "제목": "[CI] Add option to raise an exception when NaNs are detected in logits",
+    "생성일": "2026-07-29",
+    "결정": "제외",
+    "제외_이유": "조건 1: logits에서 NaN이 검출되면 예외를 내는 옵션과 테스트 추가(검사 기능) — 버그 수정이 아님"
+  },
+  {
+    "번호": 50190,
+    "url": "https://github.com/vllm-project/vllm/pull/50190",
+    "제목": "[ROCm][CI] Stabilize ngram and suffix correctness test",
+    "생성일": "2026-07-28",
+    "결정": "제외",
+    "제외_이유": "조건 1: ROCm 테스트 안정화(컴파일 캐시 격리·엔진 종료 명시)만이며, PR도 커널 원인을 확인하지 않았다고 밝힘"
+  },
+  {
+    "번호": 50183,
+    "url": "https://github.com/vllm-project/vllm/pull/50183",
+    "제목": "[Bugfix][Spec Decode] Fix NaN handling in rejection sampler tl.argmax",
+    "생성일": "2026-07-28",
+    "결정": "포함",
+    "증상": "Kimi-K3(8×B300, TP=8) DSpark 추측 디코딩 warmup 중 illegal memory access. 댓글 보고: 샘플링 토큰 슬롯에 범위 밖 값이 들어가 이후 커널에서 device assert·Xid 13(Out Of Range Address)이 났고, 다른 환경(A800, 하위 포크)에서는 도구 호출 출력 손상('0000…' 반복 등)으로 나타남.",
+    "원인": "rejection sampler의 Triton 커널 `_compute_global_target_argmax`·`_insert_resampled_kernel`에서 블록별 최대값이 모두 NaN이면(NaN target logits) `tl.argmax`가 패딩 영역을 가리키는 범위 밖 블록 인덱스를 돌려주고, 그 인덱스로 local-argmax 텐서를 읽어 범위 밖 읽기가 일어났다.",
+    "수정": "두 커널에서 `tl.argmax` 전에 `tl.where(x != x, -inf, x)`로 NaN을 -inf로 바꿔 인덱스가 범위 안에 머물게 했다.",
+    "근거": "`tl.argmax` on an all-NaN block returns an out-of-range block index (pointing into the padded region beyond `num_blocks - 1`).",
+    "장치": "CUDA (Triton; B300·RTX 4090에서 확인)",
+    "부분": "추측 디코딩 rejection sampler Triton 커널 (vllm/v1/worker/gpu/spec_decode/rejection_sampler_utils.py)"
+  }
+]

@@ -1,0 +1,1870 @@
+{
+ "queries": [
+  "search prs --repo vllm-project/vllm --merged merged:<2026-10-01 --match title incorrect --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo vllm-project/vllm --merged merged:<2026-10-01 --match title wrong --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo vllm-project/vllm --merged merged:<2026-10-01 --match title accuracy --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo vllm-project/vllm --merged merged:<2026-10-01 --match title NaN --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo vllm-project/vllm --merged merged:<2026-10-01 --match title garbage --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo vllm-project/vllm --merged merged:<2026-10-01 --match title gibberish --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo vllm-project/vllm --merged merged:<2026-10-01 --match title precision --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo vllm-project/vllm --merged merged:<2026-10-01 --match title correctness --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo vllm-project/vllm --merged merged:<2026-10-01 --match title overflow --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url"
+ ],
+ "items": [
+  {
+   "closedAt": "2026-09-29T19:25:02Z",
+   "createdAt": "2026-09-29T18:21:44Z",
+   "number": 59262,
+   "title": "[ROCm][CI] Run Basic Correctness Sleep Mode on MI300 for now",
+   "url": "https://github.com/vllm-project/vllm/pull/59262"
+  },
+  {
+   "closedAt": "2026-09-29T16:32:05Z",
+   "createdAt": "2026-09-29T10:13:45Z",
+   "number": 59201,
+   "title": "[CI][ROCm] Fix stale basic_correctness path in Model Runner V2 Distributed",
+   "url": "https://github.com/vllm-project/vllm/pull/59201"
+  },
+  {
+   "closedAt": "2026-09-28T17:30:00Z",
+   "createdAt": "2026-09-28T09:41:15Z",
+   "number": 59008,
+   "title": "[CI][Bugfix] Relax packed_qk_rope_ correctness test to one ULP",
+   "url": "https://github.com/vllm-project/vllm/pull/59008"
+  },
+  {
+   "closedAt": "2026-09-29T16:34:49Z",
+   "createdAt": "2026-09-23T13:23:12Z",
+   "number": 58364,
+   "title": "[Bugfix] Fix TorchCodec audio IO correctness",
+   "url": "https://github.com/vllm-project/vllm/pull/58364"
+  },
+  {
+   "closedAt": "2026-09-23T16:16:32Z",
+   "createdAt": "2026-09-22T06:46:23Z",
+   "number": 58095,
+   "title": "[ROCm][CI] Validate Mooncake and NIXL prefill/decode accuracy",
+   "url": "https://github.com/vllm-project/vllm/pull/58095"
+  },
+  {
+   "closedAt": "2026-09-20T22:50:26Z",
+   "createdAt": "2026-09-20T09:50:47Z",
+   "number": 57779,
+   "title": "[XPU][UT]Bugfix when the process can't see all the world_size meet accuracy issue.",
+   "url": "https://github.com/vllm-project/vllm/pull/57779"
+  },
+  {
+   "closedAt": "2026-09-18T14:19:17Z",
+   "createdAt": "2026-09-18T12:37:37Z",
+   "number": 57563,
+   "title": "[fix] Mistral-Large-3 accuracy regression on `main`",
+   "url": "https://github.com/vllm-project/vllm/pull/57563"
+  },
+  {
+   "closedAt": "2026-09-18T02:00:11Z",
+   "createdAt": "2026-09-17T23:08:27Z",
+   "number": 57454,
+   "title": "[Bugfix][DSv4.1] Preserve NaN-scored candidate block indices",
+   "url": "https://github.com/vllm-project/vllm/pull/57454"
+  },
+  {
+   "closedAt": "2026-09-17T15:50:15Z",
+   "createdAt": "2026-09-17T05:12:11Z",
+   "number": 57295,
+   "title": "[Bugfix] Fix wrong vLLM version reported by pip install (proto-v* tag collision)",
+   "url": "https://github.com/vllm-project/vllm/pull/57295"
+  },
+  {
+   "closedAt": "2026-09-16T18:58:24Z",
+   "createdAt": "2026-09-16T07:20:09Z",
+   "number": 57132,
+   "title": "[ROCm][Bugfix] Revert #56433 + #51692 to fix accuracy breakdown for DeepSeek-V4",
+   "url": "https://github.com/vllm-project/vllm/pull/57132"
+  },
+  {
+   "closedAt": "2026-09-26T01:51:19Z",
+   "createdAt": "2026-09-15T20:20:10Z",
+   "number": 57071,
+   "title": "[Bugfix][ROCm] AMD-Quark mixed-precision DeepSeek-V4.1 support",
+   "url": "https://github.com/vllm-project/vllm/pull/57071"
+  },
+  {
+   "closedAt": "2026-09-26T00:05:34Z",
+   "createdAt": "2026-09-15T18:31:50Z",
+   "number": 57054,
+   "title": "[CI] Split (H200 MIG/MI300) Basic Correctness into named jobs",
+   "url": "https://github.com/vllm-project/vllm/pull/57054"
+  },
+  {
+   "closedAt": "2026-09-16T07:23:21Z",
+   "createdAt": "2026-09-15T18:14:29Z",
+   "number": 57050,
+   "title": "[Bugfix] Fix incorrect Mamba block allocation estimate that prevents request admission",
+   "url": "https://github.com/vllm-project/vllm/pull/57050"
+  },
+  {
+   "closedAt": "2026-09-14T09:30:29Z",
+   "createdAt": "2026-09-14T07:16:41Z",
+   "number": 56773,
+   "title": "[Bugfix][CPU] Fix DeepSeek-R1 (FP8 MLA + MoE) correctness on CPU backend",
+   "url": "https://github.com/vllm-project/vllm/pull/56773"
+  },
+  {
+   "closedAt": "2026-09-22T16:11:06Z",
+   "createdAt": "2026-09-12T07:02:41Z",
+   "number": 56579,
+   "title": "[Bugfix][Attention] Avoid NaN in the Triton softcap for large attention logits",
+   "url": "https://github.com/vllm-project/vllm/pull/56579"
+  },
+  {
+   "closedAt": "2026-09-17T23:52:02Z",
+   "createdAt": "2026-09-11T08:56:51Z",
+   "number": 56431,
+   "title": "[XPU] Fix incorrect context-key normalization for Qwen DFlash-based models",
+   "url": "https://github.com/vllm-project/vllm/pull/56431"
+  },
+  {
+   "closedAt": "2026-09-09T14:33:13Z",
+   "createdAt": "2026-09-08T13:01:52Z",
+   "number": 55899,
+   "title": "[Perf] Improve BF16x3 router GEMM accuracy and make it default on sm100",
+   "url": "https://github.com/vllm-project/vllm/pull/55899"
+  },
+  {
+   "closedAt": "2026-09-20T06:00:31Z",
+   "createdAt": "2026-09-02T02:44:38Z",
+   "number": 54871,
+   "title": "[XPU] fix incorrect gdn kernel log for XPU path",
+   "url": "https://github.com/vllm-project/vllm/pull/54871"
+  },
+  {
+   "closedAt": "2026-08-28T02:04:17Z",
+   "createdAt": "2026-08-27T19:28:45Z",
+   "number": 54099,
+   "title": "Remove wrongly added e2e test",
+   "url": "https://github.com/vllm-project/vllm/pull/54099"
+  },
+  {
+   "closedAt": "2026-08-28T20:23:37Z",
+   "createdAt": "2026-08-22T23:12:51Z",
+   "number": 53409,
+   "title": "[Bugfix] Fix int32 token offset overflow in fused SiLU block quant",
+   "url": "https://github.com/vllm-project/vllm/pull/53409"
+  },
+  {
+   "closedAt": "2026-08-21T10:37:07Z",
+   "createdAt": "2026-08-20T02:25:14Z",
+   "number": 53034,
+   "title": "[Bugfix] Fix int32 index overflow in LoRA punica kernels at long context",
+   "url": "https://github.com/vllm-project/vllm/pull/53034"
+  },
+  {
+   "closedAt": "2026-08-21T20:17:19Z",
+   "createdAt": "2026-08-20T00:49:40Z",
+   "number": 53024,
+   "title": "[ROCm][CI] Stabilize MI355 FlyDSL MoE accuracy test",
+   "url": "https://github.com/vllm-project/vllm/pull/53024"
+  },
+  {
+   "closedAt": "2026-08-21T20:19:19Z",
+   "createdAt": "2026-08-20T00:47:58Z",
+   "number": 53023,
+   "title": "[CI] Fix MultiConnector accuracy test lifecycle",
+   "url": "https://github.com/vllm-project/vllm/pull/53023"
+  },
+  {
+   "closedAt": "2026-08-29T00:25:01Z",
+   "createdAt": "2026-08-19T21:53:06Z",
+   "number": 53008,
+   "title": "[Bugfix] Fix ncclCommQueryProperties heap overflow with NCCL >= 2.31",
+   "url": "https://github.com/vllm-project/vllm/pull/53008"
+  },
+  {
+   "closedAt": "2026-08-19T07:07:41Z",
+   "createdAt": "2026-08-19T05:47:22Z",
+   "number": 52881,
+   "title": "[BugFix] Revert incorrect MM keep_on_cpu=True changes",
+   "url": "https://github.com/vllm-project/vllm/pull/52881"
+  },
+  {
+   "closedAt": "2026-08-17T08:48:12Z",
+   "createdAt": "2026-08-17T07:34:36Z",
+   "number": 52588,
+   "title": "docs: fix incorrect --custom-skip-chat-template flag reference",
+   "url": "https://github.com/vllm-project/vllm/pull/52588"
+  },
+  {
+   "closedAt": "2026-09-13T14:58:10Z",
+   "createdAt": "2026-08-16T07:15:42Z",
+   "number": 52501,
+   "title": "[Bugfix] Detect unloaded NVFP4 weight scales with a NaN sentinel",
+   "url": "https://github.com/vllm-project/vllm/pull/52501"
+  },
+  {
+   "closedAt": "2026-09-22T23:08:52Z",
+   "createdAt": "2026-08-12T02:59:15Z",
+   "number": 51915,
+   "title": "[ROCm][Model][Bugfix] Enable GLM-5.2-MXFP4 on the deepseek_v32 path and fix sparse attention correctness",
+   "url": "https://github.com/vllm-project/vllm/pull/51915"
+  },
+  {
+   "closedAt": "2026-08-09T00:42:26Z",
+   "createdAt": "2026-08-07T22:17:08Z",
+   "number": 51457,
+   "title": "[Test] Add ROCm AITER FP8 MLA prefill accuracy test",
+   "url": "https://github.com/vllm-project/vllm/pull/51457"
+  },
+  {
+   "closedAt": "2026-08-07T00:05:04Z",
+   "createdAt": "2026-08-06T19:33:07Z",
+   "number": 51304,
+   "title": "[V1] Copy NaN-in-logits counts to host asynchronously",
+   "url": "https://github.com/vllm-project/vllm/pull/51304"
+  },
+  {
+   "closedAt": "2026-08-06T16:09:30Z",
+   "createdAt": "2026-08-06T14:42:53Z",
+   "number": 51271,
+   "title": "[CI] Run basic fullgraph correctness on one GPU",
+   "url": "https://github.com/vllm-project/vllm/pull/51271"
+  },
+  {
+   "closedAt": "2026-08-06T05:49:48Z",
+   "createdAt": "2026-08-05T12:26:13Z",
+   "number": 51160,
+   "title": "[XPU][Test] Support MultiConnector accuracy testing on XPU",
+   "url": "https://github.com/vllm-project/vllm/pull/51160"
+  },
+  {
+   "closedAt": "2026-08-05T02:18:51Z",
+   "createdAt": "2026-08-04T18:48:16Z",
+   "number": 51068,
+   "title": "Prune redundant tests points in `correctness_e2e/[test_sequence_parallel,test_async_tp]`",
+   "url": "https://github.com/vllm-project/vllm/pull/51068"
+  },
+  {
+   "closedAt": "2026-09-16T03:10:58Z",
+   "createdAt": "2026-08-04T13:26:00Z",
+   "number": 51026,
+   "title": "[Bugfix][Rust Frontend] Tolerate NaN-corrupted logprobs in engine-core",
+   "url": "https://github.com/vllm-project/vllm/pull/51026"
+  },
+  {
+   "closedAt": "2026-08-05T08:07:22Z",
+   "createdAt": "2026-08-01T02:45:57Z",
+   "number": 50649,
+   "title": "[ROCm][Bugfix] Kimi-K3 Fix KDA NaN on mixed batches and racy autotune config",
+   "url": "https://github.com/vllm-project/vllm/pull/50649"
+  },
+  {
+   "closedAt": "2026-08-25T16:06:58Z",
+   "createdAt": "2026-07-31T22:44:24Z",
+   "number": 50632,
+   "title": "[CI] Add GSM8K accuracy test for amd/DeepSeek-V4-Flash-MXFP4",
+   "url": "https://github.com/vllm-project/vllm/pull/50632"
+  },
+  {
+   "closedAt": "2026-08-06T01:35:57Z",
+   "createdAt": "2026-07-30T21:22:56Z",
+   "number": 50480,
+   "title": "[ROCm][CI] Add MLA decode accuracy and determinism tests",
+   "url": "https://github.com/vllm-project/vllm/pull/50480"
+  },
+  {
+   "closedAt": "2026-07-31T06:06:09Z",
+   "createdAt": "2026-07-30T03:33:04Z",
+   "number": 50373,
+   "title": "[XPU][CI]Adjust source_file_dependencies for NixlConnector PD accuracy (4 GPUs)",
+   "url": "https://github.com/vllm-project/vllm/pull/50373"
+  },
+  {
+   "closedAt": "2026-08-04T23:02:59Z",
+   "createdAt": "2026-07-29T20:52:47Z",
+   "number": 50323,
+   "title": "[CI] Add option to raise an exception when NaNs are detected in logits",
+   "url": "https://github.com/vllm-project/vllm/pull/50323"
+  },
+  {
+   "closedAt": "2026-07-29T02:29:00Z",
+   "createdAt": "2026-07-28T23:24:35Z",
+   "number": 50190,
+   "title": "[ROCm][CI] Stabilize ngram and suffix correctness test",
+   "url": "https://github.com/vllm-project/vllm/pull/50190"
+  },
+  {
+   "closedAt": "2026-08-06T01:01:10Z",
+   "createdAt": "2026-07-28T21:06:00Z",
+   "number": 50183,
+   "title": "[Bugfix][Spec Decode] Fix NaN handling in rejection sampler tl.argmax",
+   "url": "https://github.com/vllm-project/vllm/pull/50183"
+  },
+  {
+   "closedAt": "2026-07-28T23:47:49Z",
+   "createdAt": "2026-07-28T08:26:54Z",
+   "number": 50110,
+   "title": "[Test] Make EPD correctness tests configurable for XPU",
+   "url": "https://github.com/vllm-project/vllm/pull/50110"
+  },
+  {
+   "closedAt": "2026-08-06T09:23:55Z",
+   "createdAt": "2026-07-27T18:26:42Z",
+   "number": 50029,
+   "title": "[Quantization] Preserve precision in online NVFP4 expert packing",
+   "url": "https://github.com/vllm-project/vllm/pull/50029"
+  },
+  {
+   "closedAt": "2026-07-27T10:11:07Z",
+   "createdAt": "2026-07-26T22:19:18Z",
+   "number": 49909,
+   "title": "[ROCm] Use backend-default dot precision for ReplaySSM",
+   "url": "https://github.com/vllm-project/vllm/pull/49909"
+  },
+  {
+   "closedAt": "2026-07-26T06:24:07Z",
+   "createdAt": "2026-07-26T04:23:34Z",
+   "number": 49853,
+   "title": "[CI] Fix speech correctness check rejecting improved WER",
+   "url": "https://github.com/vllm-project/vllm/pull/49853"
+  },
+  {
+   "closedAt": "2026-07-27T21:47:07Z",
+   "createdAt": "2026-07-24T07:49:31Z",
+   "number": 49690,
+   "title": "[CI][ROCm] Fix `test_ocp_mx_wikitext_correctness` reference value",
+   "url": "https://github.com/vllm-project/vllm/pull/49690"
+  },
+  {
+   "closedAt": "2026-07-30T00:50:45Z",
+   "createdAt": "2026-07-24T03:33:23Z",
+   "number": 49660,
+   "title": "[Bugfix][Kernel] Fix integer overflow in libtorch_stable/activation_kernels.cu",
+   "url": "https://github.com/vllm-project/vllm/pull/49660"
+  },
+  {
+   "closedAt": "2026-07-24T03:07:07Z",
+   "createdAt": "2026-07-23T16:59:32Z",
+   "number": 49623,
+   "title": "[Bugfix] Detect mixed precision in packed KV cache specs",
+   "url": "https://github.com/vllm-project/vllm/pull/49623"
+  },
+  {
+   "closedAt": "2026-07-23T21:49:55Z",
+   "createdAt": "2026-07-23T13:28:47Z",
+   "number": 49593,
+   "title": "[CI][PD] Add hybrid SSM P_TP>D_TP accuracy sweep entry",
+   "url": "https://github.com/vllm-project/vllm/pull/49593"
+  },
+  {
+   "closedAt": "2026-08-05T14:25:46Z",
+   "createdAt": "2026-07-17T08:10:58Z",
+   "number": 48929,
+   "title": "[Bugfix][Model] Fix MiniMax-M3 NVFP4 inference correctness",
+   "url": "https://github.com/vllm-project/vllm/pull/48929"
+  },
+  {
+   "closedAt": "2026-07-17T05:19:12Z",
+   "createdAt": "2026-07-17T01:47:17Z",
+   "number": 48901,
+   "title": "[Bugfix][Pooling] Fix wrong scores for chunked prefill under torch.compile",
+   "url": "https://github.com/vllm-project/vllm/pull/48901"
+  },
+  {
+   "closedAt": "2026-07-16T05:49:15Z",
+   "createdAt": "2026-07-15T20:05:25Z",
+   "number": 48784,
+   "title": "[ROCm][CI] Set \"highest\" matmul precision for reference hf_runner in `test_bert_for_masked_lm`",
+   "url": "https://github.com/vllm-project/vllm/pull/48784"
+  },
+  {
+   "closedAt": "2026-07-29T06:16:16Z",
+   "createdAt": "2026-07-15T06:38:35Z",
+   "number": 48703,
+   "title": "[XPU] [UT] [CI] add xpu config to run gpt-oss accuracy in ut and ci",
+   "url": "https://github.com/vllm-project/vllm/pull/48703"
+  },
+  {
+   "closedAt": "2026-07-20T13:39:29Z",
+   "createdAt": "2026-07-14T05:21:12Z",
+   "number": 48563,
+   "title": "[Bugfix][Gemma4] Fix ModelOpt mixed-precision MoE config mapping",
+   "url": "https://github.com/vllm-project/vllm/pull/48563"
+  },
+  {
+   "closedAt": "2026-07-16T07:04:39Z",
+   "createdAt": "2026-07-13T20:16:50Z",
+   "number": 48530,
+   "title": "[Bugfix] Fix offloading set_ overflow for packed non-uniform KV caches",
+   "url": "https://github.com/vllm-project/vllm/pull/48530"
+  },
+  {
+   "closedAt": "2026-07-21T21:42:52Z",
+   "createdAt": "2026-07-13T18:34:16Z",
+   "number": 48524,
+   "title": "[Bugfix] DFlash fc sized wrong when num_target_layers != num_hidden_layers",
+   "url": "https://github.com/vllm-project/vllm/pull/48524"
+  },
+  {
+   "closedAt": "2026-07-27T01:06:08Z",
+   "createdAt": "2026-07-11T18:41:39Z",
+   "number": 48366,
+   "title": "[Bugfix] Prevent NaN poisoning in xpu_mla_sparse for fully-masked index chunks",
+   "url": "https://github.com/vllm-project/vllm/pull/48366"
+  },
+  {
+   "closedAt": "2026-08-19T02:45:42Z",
+   "createdAt": "2026-07-09T09:26:30Z",
+   "number": 48109,
+   "title": "[Bugfix][XPU] Fix Mamba state pointer overflow",
+   "url": "https://github.com/vllm-project/vllm/pull/48109"
+  },
+  {
+   "closedAt": "2026-08-21T16:07:00Z",
+   "createdAt": "2026-07-08T20:17:50Z",
+   "number": 48040,
+   "title": "[Bugfix] test_batch_inference_correctness now uses batch invariance",
+   "url": "https://github.com/vllm-project/vllm/pull/48040"
+  },
+  {
+   "closedAt": "2026-07-14T14:00:24Z",
+   "createdAt": "2026-07-08T19:04:35Z",
+   "number": 48036,
+   "title": "[CI Bug] Fully solve accuracy issue for DSv3.2 + MTP + Sequence Parallel",
+   "url": "https://github.com/vllm-project/vllm/pull/48036"
+  },
+  {
+   "closedAt": "2026-07-07T22:51:22Z",
+   "createdAt": "2026-07-07T19:27:07Z",
+   "number": 47910,
+   "title": "[Bugfix] Patch Hopper MXFP4 OOB scales reads leading to NaN",
+   "url": "https://github.com/vllm-project/vllm/pull/47910"
+  },
+  {
+   "closedAt": "2026-07-07T20:36:04Z",
+   "createdAt": "2026-07-07T17:47:23Z",
+   "number": 47902,
+   "title": "[CI Bug Fix] Temp fix for v3.2 accuracy",
+   "url": "https://github.com/vllm-project/vllm/pull/47902"
+  },
+  {
+   "closedAt": "2026-07-06T14:36:16Z",
+   "createdAt": "2026-07-06T01:23:42Z",
+   "number": 47671,
+   "title": "[Bugfix] Fix int32 overflow in triton_decode_attention page offsets",
+   "url": "https://github.com/vllm-project/vllm/pull/47671"
+  },
+  {
+   "closedAt": "2026-07-08T04:04:33Z",
+   "createdAt": "2026-07-03T00:43:56Z",
+   "number": 47493,
+   "title": "[Bugfix] DSV4 TP16 garbage output",
+   "url": "https://github.com/vllm-project/vllm/pull/47493"
+  },
+  {
+   "closedAt": "2026-07-07T13:51:23Z",
+   "createdAt": "2026-07-02T18:40:02Z",
+   "number": 47466,
+   "title": "[Bugfix] Fix PD disagg + MTP correctness for Qwen3.5(GDN)",
+   "url": "https://github.com/vllm-project/vllm/pull/47466"
+  },
+  {
+   "closedAt": "2026-07-02T14:32:38Z",
+   "createdAt": "2026-07-02T04:15:26Z",
+   "number": 47383,
+   "title": "[Bugfix][Model Runner V2][Spec Decode] Fix int32 offset overflow in block verification kernels",
+   "url": "https://github.com/vllm-project/vllm/pull/47383"
+  },
+  {
+   "closedAt": "2026-07-10T02:14:39Z",
+   "createdAt": "2026-07-02T01:38:07Z",
+   "number": 47366,
+   "title": "[CI/Build][AMD] Fix ROCm OOM in eagle_correctness_heavy by reserving CUDA graph memory",
+   "url": "https://github.com/vllm-project/vllm/pull/47366"
+  },
+  {
+   "closedAt": "2026-07-07T11:45:14Z",
+   "createdAt": "2026-07-01T17:46:56Z",
+   "number": 47318,
+   "title": "[BugFix] Fix ModelOpt mixed-precision quantization for sparse `quantized_layers` configs.",
+   "url": "https://github.com/vllm-project/vllm/pull/47318"
+  },
+  {
+   "closedAt": "2026-07-07T01:17:27Z",
+   "createdAt": "2026-07-01T07:15:56Z",
+   "number": 47253,
+   "title": "[XPU] Fix PP accuracy on XPU device",
+   "url": "https://github.com/vllm-project/vllm/pull/47253"
+  },
+  {
+   "closedAt": "2026-07-14T08:50:17Z",
+   "createdAt": "2026-07-01T02:00:21Z",
+   "number": 47231,
+   "title": "[XPU][CI] Add tests/v1/e2e/general/test_correctness_sliding_window.py in Intel GPU CI",
+   "url": "https://github.com/vllm-project/vllm/pull/47231"
+  },
+  {
+   "closedAt": "2026-07-24T20:35:27Z",
+   "createdAt": "2026-06-30T21:00:07Z",
+   "number": 47206,
+   "title": "[AMD][Bugfix][EPLB] Fix elastic EP scaling accuracy on ROCm",
+   "url": "https://github.com/vllm-project/vllm/pull/47206"
+  },
+  {
+   "closedAt": "2026-06-27T20:23:59Z",
+   "createdAt": "2026-06-26T10:19:04Z",
+   "number": 46818,
+   "title": "[Misc] Fix incorrect layer type annotation in Fp8LinearMethod",
+   "url": "https://github.com/vllm-project/vllm/pull/46818"
+  },
+  {
+   "closedAt": "2026-06-25T04:18:58Z",
+   "createdAt": "2026-06-24T05:09:37Z",
+   "number": 46573,
+   "title": "[ROCm][CI] Expand basic correctness target suites",
+   "url": "https://github.com/vllm-project/vllm/pull/46573"
+  },
+  {
+   "closedAt": "2026-06-24T18:00:58Z",
+   "createdAt": "2026-06-24T02:06:06Z",
+   "number": 46560,
+   "title": "[Bugfix][Model Runner V2][Spec Decode] Fix int32 offset overflow in sampler kernels",
+   "url": "https://github.com/vllm-project/vllm/pull/46560"
+  },
+  {
+   "closedAt": "2026-06-23T10:24:52Z",
+   "createdAt": "2026-06-23T08:12:43Z",
+   "number": 46463,
+   "title": "fix(security): prevent infinite loop in split_audio with NaN audio sa…",
+   "url": "https://github.com/vllm-project/vllm/pull/46463"
+  },
+  {
+   "closedAt": "2026-06-22T11:30:42Z",
+   "createdAt": "2026-06-22T08:42:57Z",
+   "number": 46356,
+   "title": "[XPU][CI]Skip v1/spec_decode/test_speculators_correctness.py in intel GPU nightly",
+   "url": "https://github.com/vllm-project/vllm/pull/46356"
+  },
+  {
+   "closedAt": "2026-06-19T18:24:03Z",
+   "createdAt": "2026-06-19T17:22:53Z",
+   "number": 46176,
+   "title": "[ROCm] Use vLLM's fp8 quant max in AITER hipBLASLt accuracy test",
+   "url": "https://github.com/vllm-project/vllm/pull/46176"
+  },
+  {
+   "closedAt": "2026-06-22T23:19:43Z",
+   "createdAt": "2026-06-19T13:39:34Z",
+   "number": 46161,
+   "title": "[CI] Add TP=4 requirement to `test_mixed_precision_model_accuracies`",
+   "url": "https://github.com/vllm-project/vllm/pull/46161"
+  },
+  {
+   "closedAt": "2026-06-22T09:25:55Z",
+   "createdAt": "2026-06-18T22:09:39Z",
+   "number": 46108,
+   "title": "[Model] ColQwen3.5: fix retrieval correctness (bias + bidirectional)",
+   "url": "https://github.com/vllm-project/vllm/pull/46108"
+  },
+  {
+   "closedAt": "2026-06-17T22:02:25Z",
+   "createdAt": "2026-06-16T17:40:06Z",
+   "number": 45849,
+   "title": "[BUG] fix hidden states nan for hybrid attention models",
+   "url": "https://github.com/vllm-project/vllm/pull/45849"
+  },
+  {
+   "closedAt": "2026-06-18T00:54:40Z",
+   "createdAt": "2026-06-12T20:17:21Z",
+   "number": 45448,
+   "title": "[Bugfix] Complete one-shot fused all-reduce PDL at end to avoid NaN",
+   "url": "https://github.com/vllm-project/vllm/pull/45448"
+  },
+  {
+   "closedAt": "2026-06-20T03:27:46Z",
+   "createdAt": "2026-06-11T07:53:52Z",
+   "number": 45255,
+   "title": "[Bugfix] Fix gridDim.y overflow for large row counts",
+   "url": "https://github.com/vllm-project/vllm/pull/45255"
+  },
+  {
+   "closedAt": "2026-06-10T17:16:25Z",
+   "createdAt": "2026-06-09T16:05:31Z",
+   "number": 45037,
+   "title": "[Bugfix] Fix nemotron accuracy drop introduced by #41184",
+   "url": "https://github.com/vllm-project/vllm/pull/45037"
+  },
+  {
+   "closedAt": "2026-08-02T22:02:42Z",
+   "createdAt": "2026-06-09T07:10:37Z",
+   "number": 44972,
+   "title": "[Test][V1] Add sleep/wake correctness regression test for hybrid GDN/…",
+   "url": "https://github.com/vllm-project/vllm/pull/44972"
+  },
+  {
+   "closedAt": "2026-06-21T06:00:50Z",
+   "createdAt": "2026-06-05T16:09:00Z",
+   "number": 44665,
+   "title": "Fix memory pointer overflow in Mamba state buffers",
+   "url": "https://github.com/vllm-project/vllm/pull/44665"
+  },
+  {
+   "closedAt": "2026-06-12T04:11:16Z",
+   "createdAt": "2026-06-04T22:30:45Z",
+   "number": 44587,
+   "title": "[ASR] Add Long Audio benchmark and correctness test",
+   "url": "https://github.com/vllm-project/vllm/pull/44587"
+  },
+  {
+   "closedAt": "2026-06-04T15:39:04Z",
+   "createdAt": "2026-06-02T21:58:27Z",
+   "number": 44363,
+   "title": "[Core] Freeze garbage collector in workers after model initialization",
+   "url": "https://github.com/vllm-project/vllm/pull/44363"
+  },
+  {
+   "closedAt": "2026-05-28T05:58:43Z",
+   "createdAt": "2026-05-28T04:34:58Z",
+   "number": 43830,
+   "title": "minor docs: fix incorrect example path",
+   "url": "https://github.com/vllm-project/vllm/pull/43830"
+  },
+  {
+   "closedAt": "2026-05-28T10:37:15Z",
+   "createdAt": "2026-05-27T10:54:15Z",
+   "number": 43781,
+   "title": "[Bugfix][ROCm] Fix Accuracy Drop in Sparse Indexer on gfx950",
+   "url": "https://github.com/vllm-project/vllm/pull/43781"
+  },
+  {
+   "closedAt": "2026-06-01T09:42:50Z",
+   "createdAt": "2026-05-27T09:48:53Z",
+   "number": 43770,
+   "title": "[Bugfix] fix wrong partial_rotary_factor calculation for bailing_moe model.",
+   "url": "https://github.com/vllm-project/vllm/pull/43770"
+  },
+  {
+   "closedAt": "2026-05-27T22:34:08Z",
+   "createdAt": "2026-05-25T19:12:36Z",
+   "number": 43617,
+   "title": "Fix Qwen3-VL and Qwen3-omni-thinker accuracy degradation from deepstack inputs under torch.compile",
+   "url": "https://github.com/vllm-project/vllm/pull/43617"
+  },
+  {
+   "closedAt": "2026-05-25T09:10:02Z",
+   "createdAt": "2026-05-25T08:58:47Z",
+   "number": 43583,
+   "title": "[Misc] Print accuracy value for PD tests even on success ",
+   "url": "https://github.com/vllm-project/vllm/pull/43583"
+  },
+  {
+   "closedAt": "2026-09-22T16:48:21Z",
+   "createdAt": "2026-05-23T00:42:16Z",
+   "number": 43462,
+   "title": "[Bugfix] hadacore_transform: respect inplace parameter to fix garbage outputs with QuIP transforms",
+   "url": "https://github.com/vllm-project/vllm/pull/43462"
+  },
+  {
+   "closedAt": "2026-05-22T19:33:33Z",
+   "createdAt": "2026-05-22T13:23:57Z",
+   "number": 43427,
+   "title": "[Bugfix] Detect wrong libcute_dsl_runtime.so variant in FlashInfer GDN",
+   "url": "https://github.com/vllm-project/vllm/pull/43427"
+  },
+  {
+   "closedAt": "2026-05-20T17:00:25Z",
+   "createdAt": "2026-05-20T05:44:56Z",
+   "number": 43186,
+   "title": "[CI] Lower granite-4.0-h-tiny gsm8k threshold for Hybrid SSM NixlConnector PD accuracy tests (4 GPUs)",
+   "url": "https://github.com/vllm-project/vllm/pull/43186"
+  },
+  {
+   "closedAt": "2026-06-05T11:04:14Z",
+   "createdAt": "2026-05-19T21:35:17Z",
+   "number": 43150,
+   "title": "[BUG] Fix FP64 Gumbel precision coverage",
+   "url": "https://github.com/vllm-project/vllm/pull/43150"
+  },
+  {
+   "closedAt": "2026-05-17T16:18:50Z",
+   "createdAt": "2026-05-16T03:23:07Z",
+   "number": 42810,
+   "title": "[ROCm] [Bugfix] Fix DeepSeek V4 Functionality and Accuracy",
+   "url": "https://github.com/vllm-project/vllm/pull/42810"
+  },
+  {
+   "closedAt": "2026-05-15T03:52:53Z",
+   "createdAt": "2026-05-14T16:31:57Z",
+   "number": 42660,
+   "title": "[Bugfix] Fix incorrect chat template format for Qwen3.5",
+   "url": "https://github.com/vllm-project/vllm/pull/42660"
+  },
+  {
+   "closedAt": "2026-05-22T20:51:50Z",
+   "createdAt": "2026-05-13T19:32:20Z",
+   "number": 42566,
+   "title": "[Quantization][ModelOpt] W4A16 NVFP4 fused MoE + mixed-precision dispatch",
+   "url": "https://github.com/vllm-project/vllm/pull/42566"
+  },
+  {
+   "closedAt": "2026-05-11T18:52:32Z",
+   "createdAt": "2026-05-10T03:49:00Z",
+   "number": 42201,
+   "title": "[Bugfix] Fix int32 overflow in DeepGEMM SiLU/mul FP8 Triton kernel",
+   "url": "https://github.com/vllm-project/vllm/pull/42201"
+  },
+  {
+   "closedAt": "2026-05-09T13:08:47Z",
+   "createdAt": "2026-05-08T14:51:50Z",
+   "number": 42076,
+   "title": "[Bugfix] Fix GDN KKT precision loss on Hopper GPUs by aligning tl.dot operand layout with WGMMA",
+   "url": "https://github.com/vllm-project/vllm/pull/42076"
+  },
+  {
+   "closedAt": "2026-05-13T11:59:50Z",
+   "createdAt": "2026-05-07T03:35:59Z",
+   "number": 41892,
+   "title": "[Bugfix][Quark] Fix W8A8 INT8 garbage outputs on Step-3.5-Flash (and other 3-key fused-MoE Quark exports)",
+   "url": "https://github.com/vllm-project/vllm/pull/41892"
+  },
+  {
+   "closedAt": "2026-05-04T17:30:03Z",
+   "createdAt": "2026-05-04T16:17:51Z",
+   "number": 41649,
+   "title": "Limit gpu utils and lower max BS on test_transcription_api_correctness.py",
+   "url": "https://github.com/vllm-project/vllm/pull/41649"
+  },
+  {
+   "closedAt": "2026-05-03T16:19:59Z",
+   "createdAt": "2026-05-03T00:18:39Z",
+   "number": 41524,
+   "title": "Disable flashinfer autotune temporarily due to correctness issues",
+   "url": "https://github.com/vllm-project/vllm/pull/41524"
+  },
+  {
+   "closedAt": "2026-05-02T03:19:07Z",
+   "createdAt": "2026-05-01T19:33:53Z",
+   "number": 41478,
+   "title": "Limit concurrency on `test_transcription_api_correctness.py`",
+   "url": "https://github.com/vllm-project/vllm/pull/41478"
+  },
+  {
+   "closedAt": "2026-05-06T18:07:32Z",
+   "createdAt": "2026-04-28T12:50:54Z",
+   "number": 41133,
+   "title": "[Bugfix] Fix token loss in PP mode which causes degraded accuracy",
+   "url": "https://github.com/vllm-project/vllm/pull/41133"
+  },
+  {
+   "closedAt": "2026-04-23T22:11:37Z",
+   "createdAt": "2026-04-23T03:58:53Z",
+   "number": 40673,
+   "title": "[Bugfix] Fix DeepSeek V2-Lite Accuracy drop",
+   "url": "https://github.com/vllm-project/vllm/pull/40673"
+  },
+  {
+   "closedAt": "2026-04-24T20:40:08Z",
+   "createdAt": "2026-04-22T15:51:59Z",
+   "number": 40629,
+   "title": "[Bugfix][CI] Fix wrong residual shape in TestFusedAddRMSNorm.example_inputs that causes flaky test",
+   "url": "https://github.com/vllm-project/vllm/pull/40629"
+  },
+  {
+   "closedAt": "2026-04-22T00:46:54Z",
+   "createdAt": "2026-04-21T20:22:46Z",
+   "number": 40553,
+   "title": "test: add nan/inf clamp regression test for fused_topk_bias",
+   "url": "https://github.com/vllm-project/vllm/pull/40553"
+  },
+  {
+   "closedAt": "2026-04-30T19:24:09Z",
+   "createdAt": "2026-04-21T15:15:25Z",
+   "number": 40472,
+   "title": "[CI] Add MTP coverage: Qwen3.5 correctness + no-sync spec decode",
+   "url": "https://github.com/vllm-project/vllm/pull/40472"
+  },
+  {
+   "closedAt": "2026-04-22T09:38:18Z",
+   "createdAt": "2026-04-21T03:08:15Z",
+   "number": 40428,
+   "title": "[Bugfix][CPU][RISC-V] Clamp exp() input to prevent NaN",
+   "url": "https://github.com/vllm-project/vllm/pull/40428"
+  },
+  {
+   "closedAt": "2026-04-22T01:58:34Z",
+   "createdAt": "2026-04-20T01:27:33Z",
+   "number": 40310,
+   "title": "[Bugfix] Fix W4A8_FP8 MoE tp>1 correctness and view() TypeError",
+   "url": "https://github.com/vllm-project/vllm/pull/40310"
+  },
+  {
+   "closedAt": "2026-04-17T20:08:38Z",
+   "createdAt": "2026-04-15T23:50:45Z",
+   "number": 39953,
+   "title": "[ROCm] Fix TurboQuant on ROCm: backend routing, flash-attn compat, int64 overflow",
+   "url": "https://github.com/vllm-project/vllm/pull/39953"
+  },
+  {
+   "closedAt": "2026-04-18T02:33:07Z",
+   "createdAt": "2026-04-15T00:17:55Z",
+   "number": 39844,
+   "title": "[XPU] fix all_reduce all-zero accuracy issue under torch.compile",
+   "url": "https://github.com/vllm-project/vllm/pull/39844"
+  },
+  {
+   "closedAt": "2026-04-21T16:30:33Z",
+   "createdAt": "2026-04-14T21:07:28Z",
+   "number": 39833,
+   "title": "[MRv2]fix: model accuracy regression caused by reusing the stale last_sampled_tokens and draft_tokens",
+   "url": "https://github.com/vllm-project/vllm/pull/39833"
+  },
+  {
+   "closedAt": "2026-04-21T02:04:49Z",
+   "createdAt": "2026-04-11T02:26:48Z",
+   "number": 39554,
+   "title": "[Bugfix] Fix `_CONFIG_REGISTRY` types getting wrong config class when on-disk model_type differs",
+   "url": "https://github.com/vllm-project/vllm/pull/39554"
+  },
+  {
+   "closedAt": "2026-04-11T00:07:32Z",
+   "createdAt": "2026-04-10T16:08:05Z",
+   "number": 39512,
+   "title": "Revert \"Add nightly b200 test for spec decode eagle correctness (#38577)\"",
+   "url": "https://github.com/vllm-project/vllm/pull/39512"
+  },
+  {
+   "closedAt": "2026-04-10T08:09:47Z",
+   "createdAt": "2026-04-09T19:14:13Z",
+   "number": 39444,
+   "title": "[Bugfix] Fix V1 dummy run writing NaN to KV cache null block",
+   "url": "https://github.com/vllm-project/vllm/pull/39444"
+  },
+  {
+   "closedAt": "2026-04-21T11:04:41Z",
+   "createdAt": "2026-04-09T06:33:42Z",
+   "number": 39391,
+   "title": "fix: clamp NaN/Inf in topk_softmax to prevent duplicate expert IDs",
+   "url": "https://github.com/vllm-project/vllm/pull/39391"
+  },
+  {
+   "closedAt": "2026-05-05T18:56:57Z",
+   "createdAt": "2026-04-07T18:15:45Z",
+   "number": 39213,
+   "title": "Fix DeepGEMM ep_scatter output address overflow",
+   "url": "https://github.com/vllm-project/vllm/pull/39213"
+  },
+  {
+   "closedAt": "2026-04-08T21:47:49Z",
+   "createdAt": "2026-04-07T11:50:13Z",
+   "number": 39181,
+   "title": "[Bugfix]Fix EP precision for Qwen3.5, Qwen3-Next",
+   "url": "https://github.com/vllm-project/vllm/pull/39181"
+  },
+  {
+   "closedAt": "2026-04-09T03:19:07Z",
+   "createdAt": "2026-04-03T18:58:15Z",
+   "number": 38935,
+   "title": "[PD][HeteroArch]Fix accuracy issue with CPU_ATTN as Decoder and Flash_ATTN as prefiller",
+   "url": "https://github.com/vllm-project/vllm/pull/38935"
+  },
+  {
+   "closedAt": "2026-04-09T20:09:10Z",
+   "createdAt": "2026-03-30T19:41:15Z",
+   "number": 38577,
+   "title": "Add nightly b200 test for spec decode eagle correctness",
+   "url": "https://github.com/vllm-project/vllm/pull/38577"
+  },
+  {
+   "closedAt": "2026-04-01T13:11:10Z",
+   "createdAt": "2026-03-27T12:18:25Z",
+   "number": 38359,
+   "title": "[Bugfix] Revert \"Zero-init MLA attention output buffers to prevent NaN from CUDA graph padding\"",
+   "url": "https://github.com/vllm-project/vllm/pull/38359"
+  },
+  {
+   "closedAt": "2026-03-26T11:57:00Z",
+   "createdAt": "2026-03-25T23:40:23Z",
+   "number": 38161,
+   "title": "[ROCm][CI] Fix flaky GPTQ compile correctness test",
+   "url": "https://github.com/vllm-project/vllm/pull/38161"
+  },
+  {
+   "closedAt": "2026-04-01T02:15:00Z",
+   "createdAt": "2026-03-25T21:24:59Z",
+   "number": 38148,
+   "title": "Fix NaN from stale FP4 scale padding in create_fp4_scale_tensor",
+   "url": "https://github.com/vllm-project/vllm/pull/38148"
+  },
+  {
+   "closedAt": "2026-04-23T13:14:45Z",
+   "createdAt": "2026-03-25T14:40:16Z",
+   "number": 38112,
+   "title": "[CPU] Added faster exp routine for lower precision data types.",
+   "url": "https://github.com/vllm-project/vllm/pull/38112"
+  },
+  {
+   "closedAt": "2026-03-26T08:21:47Z",
+   "createdAt": "2026-03-25T07:58:30Z",
+   "number": 38083,
+   "title": "[Bugfix] Fix DeepGemm E8M0 accuracy degradation for Qwen3.5 FP8 on Blackwell",
+   "url": "https://github.com/vllm-project/vllm/pull/38083"
+  },
+  {
+   "closedAt": "2026-03-23T11:42:52Z",
+   "createdAt": "2026-03-23T09:47:04Z",
+   "number": 37877,
+   "title": "[Bugfix][LoRA] Fix incorrect LoRA Log",
+   "url": "https://github.com/vllm-project/vllm/pull/37877"
+  },
+  {
+   "closedAt": "2026-03-25T15:18:25Z",
+   "createdAt": "2026-03-20T23:45:02Z",
+   "number": 37725,
+   "title": "[Bugfix] Preserve CUDA arch suffix (a/f) for SM12x — fixes NVFP4 NaN on desktop Blackwell",
+   "url": "https://github.com/vllm-project/vllm/pull/37725"
+  },
+  {
+   "closedAt": "2026-03-20T17:16:59Z",
+   "createdAt": "2026-03-19T23:40:14Z",
+   "number": 37613,
+   "title": "[ROCm][CI] Fix accuracy for llama-nemotron-vl pooling tests",
+   "url": "https://github.com/vllm-project/vllm/pull/37613"
+  },
+  {
+   "closedAt": "2026-03-19T09:21:55Z",
+   "createdAt": "2026-03-19T07:50:46Z",
+   "number": 37532,
+   "title": "[CI] Fix wrong path test file, missing `rlhf_async_new_apis.py`",
+   "url": "https://github.com/vllm-project/vllm/pull/37532"
+  },
+  {
+   "closedAt": "2026-03-19T00:28:37Z",
+   "createdAt": "2026-03-18T14:28:00Z",
+   "number": 37442,
+   "title": "[Bugfix] Zero-init MLA attention output buffers to prevent NaN from CUDA graph padding",
+   "url": "https://github.com/vllm-project/vllm/pull/37442"
+  },
+  {
+   "closedAt": "2026-03-18T18:36:34Z",
+   "createdAt": "2026-03-18T14:06:16Z",
+   "number": 37439,
+   "title": "[Bugfix] Fix incorrect use of merge_size in Qwen3-VL video timestamp calculation",
+   "url": "https://github.com/vllm-project/vllm/pull/37439"
+  },
+  {
+   "closedAt": "2026-03-18T10:30:30Z",
+   "createdAt": "2026-03-17T16:35:30Z",
+   "number": 37322,
+   "title": "[Bugfix] Fix EP weight filter breaking EPLB and NVFP4 accuracy",
+   "url": "https://github.com/vllm-project/vllm/pull/37322"
+  },
+  {
+   "closedAt": "2026-03-16T22:03:55Z",
+   "createdAt": "2026-03-16T17:19:56Z",
+   "number": 37217,
+   "title": "[MoE/EPLB] Fix FlashInfer nvfp4 experts + EPLB correctness",
+   "url": "https://github.com/vllm-project/vllm/pull/37217"
+  },
+  {
+   "closedAt": "2026-03-16T05:27:22Z",
+   "createdAt": "2026-03-15T22:41:28Z",
+   "number": 37127,
+   "title": "[CI][Bugfix] Fix 500 errors from priority overflow and TemplateError subclasses in schema fuzz tests",
+   "url": "https://github.com/vllm-project/vllm/pull/37127"
+  },
+  {
+   "closedAt": "2026-03-18T23:07:29Z",
+   "createdAt": "2026-03-14T15:00:13Z",
+   "number": 37054,
+   "title": "[Bugfix] Fix KV scales inconsistency in fp8 MLA & FlashInfer kv_cache_dtype \"auto\" leading to gibberish",
+   "url": "https://github.com/vllm-project/vllm/pull/37054"
+  },
+  {
+   "closedAt": "2026-03-23T20:19:06Z",
+   "createdAt": "2026-03-11T00:39:53Z",
+   "number": 36725,
+   "title": "[Bug][MoE] Fix TRTLLM NVFP4 Routing Kernel Precision",
+   "url": "https://github.com/vllm-project/vllm/pull/36725"
+  },
+  {
+   "closedAt": "2026-07-07T17:03:07Z",
+   "createdAt": "2026-03-10T22:26:28Z",
+   "number": 36715,
+   "title": "[Doc] Fix grammatically incorrect error message in gpu_worker and xpu_worker",
+   "url": "https://github.com/vllm-project/vllm/pull/36715"
+  },
+  {
+   "closedAt": "2026-06-16T14:09:00Z",
+   "createdAt": "2026-03-10T08:55:03Z",
+   "number": 36616,
+   "title": "[Bugfix] Fix FlashMLA sparse accuracy with topk_length and zero-init padding",
+   "url": "https://github.com/vllm-project/vllm/pull/36616"
+  },
+  {
+   "closedAt": "2026-03-11T16:27:36Z",
+   "createdAt": "2026-03-09T23:49:29Z",
+   "number": 36560,
+   "title": "[CI] Add bfcl tool call correctness eval",
+   "url": "https://github.com/vllm-project/vllm/pull/36560"
+  },
+  {
+   "closedAt": "2026-03-10T03:02:02Z",
+   "createdAt": "2026-03-09T22:24:16Z",
+   "number": 36553,
+   "title": "[BugFix] Remove incorrect assert in split_decodes_and_prefills",
+   "url": "https://github.com/vllm-project/vllm/pull/36553"
+  },
+  {
+   "closedAt": "2026-03-13T03:33:04Z",
+   "createdAt": "2026-03-08T05:06:16Z",
+   "number": 36379,
+   "title": "[Frontend] Fix usage incorrectly returned with empty stream_options`",
+   "url": "https://github.com/vllm-project/vllm/pull/36379"
+  },
+  {
+   "closedAt": "2026-03-06T06:01:03Z",
+   "createdAt": "2026-03-06T04:18:09Z",
+   "number": 36209,
+   "title": "docs: fix wrong cc in int8.md",
+   "url": "https://github.com/vllm-project/vllm/pull/36209"
+  },
+  {
+   "closedAt": "2026-03-04T19:41:22Z",
+   "createdAt": "2026-03-03T14:44:23Z",
+   "number": 35871,
+   "title": "[CI] Add Blackwell AsyncTP correctness test",
+   "url": "https://github.com/vllm-project/vllm/pull/35871"
+  },
+  {
+   "closedAt": "2026-03-03T05:58:16Z",
+   "createdAt": "2026-03-02T17:52:38Z",
+   "number": 35773,
+   "title": "[BugFix] Fix cmake based incremental install (wrong vllm install dir)",
+   "url": "https://github.com/vllm-project/vllm/pull/35773"
+  },
+  {
+   "closedAt": "2026-02-26T12:22:06Z",
+   "createdAt": "2026-02-25T08:54:45Z",
+   "number": 35275,
+   "title": "[Bugfix] Fix uint32 overflow in Mamba selective scan state pointer arithmetic",
+   "url": "https://github.com/vllm-project/vllm/pull/35275"
+  },
+  {
+   "closedAt": "2026-02-26T21:56:24Z",
+   "createdAt": "2026-02-22T05:32:01Z",
+   "number": 35047,
+   "title": "add mixed precision support for modelopt",
+   "url": "https://github.com/vllm-project/vllm/pull/35047"
+  },
+  {
+   "closedAt": "2026-02-19T08:25:26Z",
+   "createdAt": "2026-02-19T06:43:47Z",
+   "number": 34878,
+   "title": "[ROCm][Test] Fix beam search determinism failures from batch-size-dependent FP divergence and removed wrong marker",
+   "url": "https://github.com/vllm-project/vllm/pull/34878"
+  },
+  {
+   "closedAt": "2026-02-19T07:20:31Z",
+   "createdAt": "2026-02-19T04:50:34Z",
+   "number": 34876,
+   "title": "[Bug] Fix DeepSeek V3 weight loading caused by incorrect prefix",
+   "url": "https://github.com/vllm-project/vllm/pull/34876"
+  },
+  {
+   "closedAt": "2026-03-04T14:01:31Z",
+   "createdAt": "2026-02-18T06:50:11Z",
+   "number": 34783,
+   "title": "[BugFix] Fix implicit and incorrect assumption on ECConnector is_producer",
+   "url": "https://github.com/vllm-project/vllm/pull/34783"
+  },
+  {
+   "closedAt": "2026-02-18T21:03:25Z",
+   "createdAt": "2026-02-17T06:30:52Z",
+   "number": 34673,
+   "title": "[Bugfix][MoE Kernel] Fix incorrect routing selection for models without expert groups (e.g., MiniMax-M2.1)",
+   "url": "https://github.com/vllm-project/vllm/pull/34673"
+  },
+  {
+   "closedAt": "2026-02-17T01:58:49Z",
+   "createdAt": "2026-02-13T09:12:51Z",
+   "number": 34507,
+   "title": "[Bugfix] Fix fused MoE int32 overflow in stride*offset without perf regression",
+   "url": "https://github.com/vllm-project/vllm/pull/34507"
+  },
+  {
+   "closedAt": "2026-02-15T07:25:17Z",
+   "createdAt": "2026-02-13T00:27:21Z",
+   "number": 34476,
+   "title": "[BUGFIX] Fix accuracy regression for NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4 with TP>1",
+   "url": "https://github.com/vllm-project/vllm/pull/34476"
+  },
+  {
+   "closedAt": "2026-02-15T07:08:39Z",
+   "createdAt": "2026-02-12T21:35:01Z",
+   "number": 34468,
+   "title": "[CI][Entrypoints] Validate detokenize token IDs to prevent int64 overflow causing 500",
+   "url": "https://github.com/vllm-project/vllm/pull/34468"
+  },
+  {
+   "closedAt": "2026-02-12T03:08:19Z",
+   "createdAt": "2026-02-11T23:30:40Z",
+   "number": 34385,
+   "title": "[Bugfix] Fix MTP accuracy for GLM-5",
+   "url": "https://github.com/vllm-project/vllm/pull/34385"
+  },
+  {
+   "closedAt": "2026-02-10T15:57:12Z",
+   "createdAt": "2026-02-08T04:31:28Z",
+   "number": 34077,
+   "title": "[BUGFIX] Fix accuracy bugs in Qwen3-Next MTP",
+   "url": "https://github.com/vllm-project/vllm/pull/34077"
+  },
+  {
+   "closedAt": "2026-02-09T15:05:14Z",
+   "createdAt": "2026-02-07T01:56:18Z",
+   "number": 34031,
+   "title": "[CI][torch.compile] Fix incorrect filtering for E2E fusion tests on B200",
+   "url": "https://github.com/vllm-project/vllm/pull/34031"
+  },
+  {
+   "closedAt": "2026-03-27T23:36:09Z",
+   "createdAt": "2026-02-06T07:21:52Z",
+   "number": 33972,
+   "title": "[Bugfix]fix output Nan/Inf in marlin if dtype=float16",
+   "url": "https://github.com/vllm-project/vllm/pull/33972"
+  },
+  {
+   "closedAt": "2026-02-02T17:11:44Z",
+   "createdAt": "2026-02-02T14:54:19Z",
+   "number": 33565,
+   "title": "Remove incorrect tokenizer info test",
+   "url": "https://github.com/vllm-project/vllm/pull/33565"
+  },
+  {
+   "closedAt": "2026-01-20T21:40:49Z",
+   "createdAt": "2026-01-20T20:08:06Z",
+   "number": 32717,
+   "title": "[ROCm][CI] Remove DS async eplb accuracy test from AMD CI",
+   "url": "https://github.com/vllm-project/vllm/pull/32717"
+  },
+  {
+   "closedAt": "2026-01-15T16:35:49Z",
+   "createdAt": "2026-01-15T13:53:46Z",
+   "number": 32413,
+   "title": "[ROCm][Bugfix] Disable hip sampler to fix deepseek's accuracy issue on ROCm",
+   "url": "https://github.com/vllm-project/vllm/pull/32413"
+  },
+  {
+   "closedAt": "2026-01-14T05:29:42Z",
+   "createdAt": "2026-01-13T17:32:27Z",
+   "number": 32275,
+   "title": "[ROCm][CI] Disable Async Scheduling For Qwen3-Next-80B-A3B-Instruct MTP Async EPLB Accuracy Test",
+   "url": "https://github.com/vllm-project/vllm/pull/32275"
+  },
+  {
+   "closedAt": "2026-01-12T09:19:30Z",
+   "createdAt": "2026-01-12T06:25:46Z",
+   "number": 32150,
+   "title": "[Model] Remove incorrect `SupportsPP` from MTP models",
+   "url": "https://github.com/vllm-project/vllm/pull/32150"
+  },
+  {
+   "closedAt": "2026-01-13T05:46:53Z",
+   "createdAt": "2026-01-10T23:23:51Z",
+   "number": 32099,
+   "title": "[ROCm][Bugfix] Fix Mamba batched decode producing incorrect output",
+   "url": "https://github.com/vllm-project/vllm/pull/32099"
+  },
+  {
+   "closedAt": "2026-01-07T11:25:03Z",
+   "createdAt": "2026-01-07T08:43:39Z",
+   "number": 31880,
+   "title": "[ROCm][AITER] fix wrong argument passed to  AITER `flash_attn_varlen_func`",
+   "url": "https://github.com/vllm-project/vllm/pull/31880"
+  },
+  {
+   "closedAt": "2026-01-07T01:12:24Z",
+   "createdAt": "2026-01-06T20:12:30Z",
+   "number": 31829,
+   "title": "[ROCm][CI] Fix plugin tests (2 GPUs) failures on ROCm and removing `VLLM_FLOAT32_MATMUL_PRECISION` from all ROCm tests",
+   "url": "https://github.com/vllm-project/vllm/pull/31829"
+  },
+  {
+   "closedAt": "2026-01-10T09:52:53Z",
+   "createdAt": "2026-01-04T00:02:09Z",
+   "number": 31657,
+   "title": "[Bugfix] Fix integer overflow in Gemma3n audio processing",
+   "url": "https://github.com/vllm-project/vllm/pull/31657"
+  },
+  {
+   "closedAt": "2026-01-05T17:25:39Z",
+   "createdAt": "2026-01-03T08:54:45Z",
+   "number": 31643,
+   "title": "[Bugfix][CPU] Fix RotaryEmbedding fallback causing gibberish with --enforce-eager",
+   "url": "https://github.com/vllm-project/vllm/pull/31643"
+  },
+  {
+   "closedAt": "2025-12-30T19:27:11Z",
+   "createdAt": "2025-12-29T19:45:30Z",
+   "number": 31505,
+   "title": "[Bugfix]Fix pooling model always disabled due to incorrect PP rank check",
+   "url": "https://github.com/vllm-project/vllm/pull/31505"
+  },
+  {
+   "closedAt": "2025-12-24T03:21:51Z",
+   "createdAt": "2025-12-23T21:22:22Z",
+   "number": 31242,
+   "title": "[ROCm][CI] Set VLLM_FLOAT32_MATMUL_PRECISION=\"tf32\" For terratorch Tests In AMD CI",
+   "url": "https://github.com/vllm-project/vllm/pull/31242"
+  },
+  {
+   "closedAt": "2025-12-19T08:00:33Z",
+   "createdAt": "2025-12-18T17:07:29Z",
+   "number": 30974,
+   "title": "[Bugfix] Fix incorrect tiles creation for mm prefix triton attention",
+   "url": "https://github.com/vllm-project/vllm/pull/30974"
+  },
+  {
+   "closedAt": "2025-12-16T22:21:17Z",
+   "createdAt": "2025-12-16T07:39:23Z",
+   "number": 30754,
+   "title": "[Bugfix][DSV32] Fix overflow in topk.",
+   "url": "https://github.com/vllm-project/vllm/pull/30754"
+  },
+  {
+   "closedAt": "2025-12-11T04:05:56Z",
+   "createdAt": "2025-12-10T21:34:42Z",
+   "number": 30428,
+   "title": "[Chore] Fix torch precision warning",
+   "url": "https://github.com/vllm-project/vllm/pull/30428"
+  },
+  {
+   "closedAt": "2025-12-09T18:00:49Z",
+   "createdAt": "2025-12-06T16:48:04Z",
+   "number": 30187,
+   "title": "[Model Runner V2] Support num NaNs in logits",
+   "url": "https://github.com/vllm-project/vllm/pull/30187"
+  },
+  {
+   "closedAt": "2025-12-03T10:05:11Z",
+   "createdAt": "2025-12-03T07:53:41Z",
+   "number": 29950,
+   "title": "[Bugfix] Fix incorrect `image_grid_thw` rank for HunyuanOCR from missing `merge_by_field_config=True`",
+   "url": "https://github.com/vllm-project/vllm/pull/29950"
+  },
+  {
+   "closedAt": "2025-12-02T22:51:20Z",
+   "createdAt": "2025-12-02T18:47:21Z",
+   "number": 29908,
+   "title": "[BUGFIX] llama_4_scaling wrongly passed to DeepseekAttention",
+   "url": "https://github.com/vllm-project/vllm/pull/29908"
+  },
+  {
+   "closedAt": "2025-12-09T15:40:37Z",
+   "createdAt": "2025-12-02T16:37:22Z",
+   "number": 29897,
+   "title": "[Compile] Add env `VLLM_FLOAT32_MATMUL_PRECISION` to fix torch warning `TensorFloat32 tensor cores for float32 matrix multiplication available but not enabled`",
+   "url": "https://github.com/vllm-project/vllm/pull/29897"
+  },
+  {
+   "closedAt": "2025-12-02T16:03:53Z",
+   "createdAt": "2025-12-02T13:16:14Z",
+   "number": 29881,
+   "title": "[Bugfix] Fix incorrect channel order for idefics3 in edge case",
+   "url": "https://github.com/vllm-project/vllm/pull/29881"
+  },
+  {
+   "closedAt": "2026-01-13T12:56:01Z",
+   "createdAt": "2025-12-02T11:00:13Z",
+   "number": 29867,
+   "title": "[Quantization] fix: overflow with static per-tensor scaling",
+   "url": "https://github.com/vllm-project/vllm/pull/29867"
+  },
+  {
+   "closedAt": "2025-11-29T02:30:41Z",
+   "createdAt": "2025-11-28T23:29:48Z",
+   "number": 29704,
+   "title": "[Bugfix] Fix wrong mock attribute",
+   "url": "https://github.com/vllm-project/vllm/pull/29704"
+  },
+  {
+   "closedAt": "2025-12-12T10:27:21Z",
+   "createdAt": "2025-11-28T17:23:05Z",
+   "number": 29692,
+   "title": "[Bugfix] Schedule failure due to wrong get_image_size_with_most_features",
+   "url": "https://github.com/vllm-project/vllm/pull/29692"
+  },
+  {
+   "closedAt": "2025-12-02T04:53:28Z",
+   "createdAt": "2025-11-22T19:34:11Z",
+   "number": 29243,
+   "title": "[CI][ROCm] Fix test_correctness_sliding_window",
+   "url": "https://github.com/vllm-project/vllm/pull/29243"
+  },
+  {
+   "closedAt": "2025-11-20T03:50:38Z",
+   "createdAt": "2025-11-19T00:17:19Z",
+   "number": 28972,
+   "title": "[Bugfix] Fix precision loss in LoRA-wrapped RowParallelLinear by fusing bias into GEMM",
+   "url": "https://github.com/vllm-project/vllm/pull/28972"
+  },
+  {
+   "closedAt": "2025-11-19T19:30:57Z",
+   "createdAt": "2025-11-18T12:55:48Z",
+   "number": 28942,
+   "title": "[Bugfix]  Fix precision corruption when shared_experts_stream=None",
+   "url": "https://github.com/vllm-project/vllm/pull/28942"
+  },
+  {
+   "closedAt": "2025-11-17T23:32:22Z",
+   "createdAt": "2025-11-17T21:12:04Z",
+   "number": 28880,
+   "title": "[Misc] Fix wrong comment in scheduler",
+   "url": "https://github.com/vllm-project/vllm/pull/28880"
+  },
+  {
+   "closedAt": "2025-11-18T04:30:29Z",
+   "createdAt": "2025-11-17T17:37:33Z",
+   "number": 28872,
+   "title": "[Bugfix] Fix wrong CLI defaults for dynamic `SchedulerConfig` fields",
+   "url": "https://github.com/vllm-project/vllm/pull/28872"
+  },
+  {
+   "closedAt": "2025-11-30T06:24:25Z",
+   "createdAt": "2025-11-15T17:59:27Z",
+   "number": 28783,
+   "title": "[Bugfix][sleepmode][fp8 kv cache]: Fix FP8 KV cache + sleep(level=2) gibberish output",
+   "url": "https://github.com/vllm-project/vllm/pull/28783"
+  },
+  {
+   "closedAt": "2025-11-14T22:13:46Z",
+   "createdAt": "2025-11-14T17:17:39Z",
+   "number": 28740,
+   "title": "[Bugfix] Fix incorrect use of hidden_states for shared_experts due to do_naive_dispatch_combine",
+   "url": "https://github.com/vllm-project/vllm/pull/28740"
+  },
+  {
+   "closedAt": "2025-11-09T16:04:59Z",
+   "createdAt": "2025-11-09T14:30:49Z",
+   "number": 28364,
+   "title": "[CI] Fix flaky `test_eagle_correctness` test",
+   "url": "https://github.com/vllm-project/vllm/pull/28364"
+  },
+  {
+   "closedAt": "2025-11-04T15:38:17Z",
+   "createdAt": "2025-11-04T06:17:46Z",
+   "number": 28025,
+   "title": "[BugFix] Fix incorrect preallocated sampled_token_ids tensor size",
+   "url": "https://github.com/vllm-project/vllm/pull/28025"
+  },
+  {
+   "closedAt": "2025-11-04T07:20:51Z",
+   "createdAt": "2025-11-04T05:35:09Z",
+   "number": 28022,
+   "title": "[CI/Build] Fix OpenAI API correctness on AMD CI",
+   "url": "https://github.com/vllm-project/vllm/pull/28022"
+  },
+  {
+   "closedAt": "2025-10-31T17:38:02Z",
+   "createdAt": "2025-10-31T15:18:31Z",
+   "number": 27885,
+   "title": "fix incorrect type annotation in KimiMLP",
+   "url": "https://github.com/vllm-project/vllm/pull/27885"
+  },
+  {
+   "closedAt": "2025-10-31T16:58:43Z",
+   "createdAt": "2025-10-31T12:13:05Z",
+   "number": 27876,
+   "title": "[Bugfix] Allow 64-bit integer values for LoRA IDs to avoid overflow/truncation",
+   "url": "https://github.com/vllm-project/vllm/pull/27876"
+  },
+  {
+   "closedAt": "2025-10-29T13:01:05Z",
+   "createdAt": "2025-10-28T03:34:49Z",
+   "number": 27627,
+   "title": "Fix MiniMax-M2 rmsnorm precision and remove useless code",
+   "url": "https://github.com/vllm-project/vllm/pull/27627"
+  },
+  {
+   "closedAt": "2025-10-27T06:17:19Z",
+   "createdAt": "2025-10-27T05:54:51Z",
+   "number": 27550,
+   "title": "[Docs] reemove the incorrect `enable_reasoning` parameter ",
+   "url": "https://github.com/vllm-project/vllm/pull/27550"
+  },
+  {
+   "closedAt": "2025-11-05T09:58:14Z",
+   "createdAt": "2025-10-26T01:27:38Z",
+   "number": 27518,
+   "title": "[bugfix] fix wrong `dcp_local_seq_lens` calc",
+   "url": "https://github.com/vllm-project/vllm/pull/27518"
+  },
+  {
+   "closedAt": "2025-10-18T16:51:57Z",
+   "createdAt": "2025-10-18T13:26:46Z",
+   "number": 27149,
+   "title": "Fix incorrect string formatting in barrier timeout exceptions",
+   "url": "https://github.com/vllm-project/vllm/pull/27149"
+  },
+  {
+   "closedAt": "2025-10-23T03:58:37Z",
+   "createdAt": "2025-10-17T23:28:42Z",
+   "number": 27133,
+   "title": "[Bugfix] Fix incorrect kv cache metrics in grafana.json",
+   "url": "https://github.com/vllm-project/vllm/pull/27133"
+  },
+  {
+   "closedAt": "2025-10-17T16:26:33Z",
+   "createdAt": "2025-10-17T13:48:43Z",
+   "number": 27104,
+   "title": "[bugfix] Qwen3-VL fix video incorrect timestamp calculations while do_sample_frames=True",
+   "url": "https://github.com/vllm-project/vllm/pull/27104"
+  },
+  {
+   "closedAt": "2025-10-17T13:30:24Z",
+   "createdAt": "2025-10-17T13:10:01Z",
+   "number": 27101,
+   "title": "Fix incorrect docstring for stop_profile() method",
+   "url": "https://github.com/vllm-project/vllm/pull/27101"
+  },
+  {
+   "closedAt": "2025-10-15T07:13:59Z",
+   "createdAt": "2025-10-15T03:04:48Z",
+   "number": 26873,
+   "title": "[Bugfix][Multi Modal] Fix incorrect Molmo token processing",
+   "url": "https://github.com/vllm-project/vllm/pull/26873"
+  },
+  {
+   "closedAt": "2025-10-13T03:59:01Z",
+   "createdAt": "2025-10-13T03:51:59Z",
+   "number": 26677,
+   "title": "docs: wrong command in structured_outputs README",
+   "url": "https://github.com/vllm-project/vllm/pull/26677"
+  },
+  {
+   "closedAt": "2025-10-18T04:11:26Z",
+   "createdAt": "2025-10-12T18:19:40Z",
+   "number": 26663,
+   "title": "[CI/Build] tests(v1): feed Triton attention the (num_blocks, 2, …) KV cache layout in backend-correctness tests",
+   "url": "https://github.com/vllm-project/vllm/pull/26663"
+  },
+  {
+   "closedAt": "2025-10-11T05:28:23Z",
+   "createdAt": "2025-10-10T04:32:29Z",
+   "number": 26563,
+   "title": "[Bugfix][Multi Modal] Fix incorrect Molmo image processing",
+   "url": "https://github.com/vllm-project/vllm/pull/26563"
+  },
+  {
+   "closedAt": "2025-10-10T04:03:55Z",
+   "createdAt": "2025-10-09T18:13:41Z",
+   "number": 26515,
+   "title": "[Chore]: One pythonic tool parser test uses the wrong parser",
+   "url": "https://github.com/vllm-project/vllm/pull/26515"
+  },
+  {
+   "closedAt": "2025-10-09T05:58:46Z",
+   "createdAt": "2025-10-09T04:01:32Z",
+   "number": 26462,
+   "title": "[Bugfix] Incorrect another MM data format in vllm bench throughput",
+   "url": "https://github.com/vllm-project/vllm/pull/26462"
+  },
+  {
+   "closedAt": "2025-10-08T05:52:19Z",
+   "createdAt": "2025-10-08T03:21:17Z",
+   "number": 26395,
+   "title": "[Bugfix] Incorrect MM data format in `vllm bench throughput`",
+   "url": "https://github.com/vllm-project/vllm/pull/26395"
+  },
+  {
+   "closedAt": "2025-10-06T18:24:22Z",
+   "createdAt": "2025-10-04T15:25:40Z",
+   "number": 26231,
+   "title": "[Bugfix][Spec Decode] Fix wrong valid_mask for padded speculation when chunked prefill occurs",
+   "url": "https://github.com/vllm-project/vllm/pull/26231"
+  },
+  {
+   "closedAt": "2025-10-03T09:11:49Z",
+   "createdAt": "2025-10-03T09:06:25Z",
+   "number": 26159,
+   "title": "[test utils] correct wrong typing",
+   "url": "https://github.com/vllm-project/vllm/pull/26159"
+  },
+  {
+   "closedAt": "2025-10-03T15:52:26Z",
+   "createdAt": "2025-10-02T18:38:38Z",
+   "number": 26123,
+   "title": "[BugFix][QWEN-VL]fix wrong apply_rotary_emb_torch selection introduced by #24642",
+   "url": "https://github.com/vllm-project/vllm/pull/26123"
+  },
+  {
+   "closedAt": "2025-09-30T08:15:23Z",
+   "createdAt": "2025-09-30T04:40:09Z",
+   "number": 25925,
+   "title": "[Model][Bugfix] Fix MiDashengLM audio encoder mask by removing incorrect `logical_not`",
+   "url": "https://github.com/vllm-project/vllm/pull/25925"
+  },
+  {
+   "closedAt": "2025-09-25T13:00:45Z",
+   "createdAt": "2025-09-25T09:37:32Z",
+   "number": 25660,
+   "title": "[mypy] Fix wrong type annotations related to tuple",
+   "url": "https://github.com/vllm-project/vllm/pull/25660"
+  },
+  {
+   "closedAt": "2025-09-23T13:05:11Z",
+   "createdAt": "2025-09-23T13:04:30Z",
+   "number": 25474,
+   "title": "[docs] Benchmark Serving Incorrect Arg",
+   "url": "https://github.com/vllm-project/vllm/pull/25474"
+  },
+  {
+   "closedAt": "2025-09-25T05:32:21Z",
+   "createdAt": "2025-09-12T08:39:03Z",
+   "number": 24734,
+   "title": "[Bugfix] fix apply_temperature to avoid nan in probs",
+   "url": "https://github.com/vllm-project/vllm/pull/24734"
+  },
+  {
+   "closedAt": "2025-09-11T08:48:26Z",
+   "createdAt": "2025-09-11T05:26:27Z",
+   "number": 24631,
+   "title": "[Bugfix] Fix incorrect import of CacheConfig",
+   "url": "https://github.com/vllm-project/vllm/pull/24631"
+  },
+  {
+   "closedAt": "2025-11-11T17:05:23Z",
+   "createdAt": "2025-09-04T09:37:23Z",
+   "number": 24239,
+   "title": "[ROCm][Quantization] extend AMD Quark to support mixed-precision quantized model",
+   "url": "https://github.com/vllm-project/vllm/pull/24239"
+  },
+  {
+   "closedAt": "2025-09-09T14:38:11Z",
+   "createdAt": "2025-09-02T22:33:42Z",
+   "number": 24128,
+   "title": "[Core] Run garbage collector after CUDA graph capture to fix throughput regression",
+   "url": "https://github.com/vllm-project/vllm/pull/24128"
+  },
+  {
+   "closedAt": "2025-08-29T04:25:34Z",
+   "createdAt": "2025-08-28T18:56:36Z",
+   "number": 23854,
+   "title": "[tests] Improve speed and reliability of test_transcription_api_correctness",
+   "url": "https://github.com/vllm-project/vllm/pull/23854"
+  },
+  {
+   "closedAt": "2025-08-26T19:01:26Z",
+   "createdAt": "2025-08-26T16:14:04Z",
+   "number": 23672,
+   "title": "[Bugfix] Fix incorrect original shape in hashing",
+   "url": "https://github.com/vllm-project/vllm/pull/23672"
+  },
+  {
+   "closedAt": "2025-08-20T14:19:30Z",
+   "createdAt": "2025-08-20T11:42:14Z",
+   "number": 23254,
+   "title": "[Bugfix] Ensure correctness of HCXVision processing",
+   "url": "https://github.com/vllm-project/vllm/pull/23254"
+  },
+  {
+   "closedAt": "2025-08-15T23:25:05Z",
+   "createdAt": "2025-08-15T05:14:30Z",
+   "number": 22963,
+   "title": "[Structured Outputs] [Bug] Fix misalignment in apply_grammar_bitmask causing unintended masking and NaN logits",
+   "url": "https://github.com/vllm-project/vllm/pull/22963"
+  },
+  {
+   "closedAt": "2025-08-30T20:39:38Z",
+   "createdAt": "2025-08-12T20:01:41Z",
+   "number": 22761,
+   "title": "Fix wrong truncate_prompt_tokens type hint",
+   "url": "https://github.com/vllm-project/vllm/pull/22761"
+  },
+  {
+   "closedAt": "2025-08-14T21:32:09Z",
+   "createdAt": "2025-08-07T19:49:59Z",
+   "number": 22468,
+   "title": "[Quantization]: Support compressed-tensors mixed-precision model loading",
+   "url": "https://github.com/vllm-project/vllm/pull/22468"
+  },
+  {
+   "closedAt": "2025-08-07T03:05:20Z",
+   "createdAt": "2025-08-07T02:43:35Z",
+   "number": 22417,
+   "title": "[Bugfix] Fix wrong method name in Intern-S1 image processor",
+   "url": "https://github.com/vllm-project/vllm/pull/22417"
+  },
+  {
+   "closedAt": "2025-07-24T08:52:43Z",
+   "createdAt": "2025-07-23T07:01:07Z",
+   "number": 21435,
+   "title": "remove GLM-4 quantization wrong Code",
+   "url": "https://github.com/vllm-project/vllm/pull/21435"
+  },
+  {
+   "closedAt": "2025-07-15T15:53:16Z",
+   "createdAt": "2025-07-15T15:51:20Z",
+   "number": 20994,
+   "title": "[CI/Build] Fix wrong path in Transformers Nightly Models Test",
+   "url": "https://github.com/vllm-project/vllm/pull/20994"
+  },
+  {
+   "closedAt": "2025-07-14T21:43:07Z",
+   "createdAt": "2025-07-14T18:16:20Z",
+   "number": 20938,
+   "title": "Fix overflow indexing in causal_conv1d kernel",
+   "url": "https://github.com/vllm-project/vllm/pull/20938"
+  },
+  {
+   "closedAt": "2025-07-15T20:08:26Z",
+   "createdAt": "2025-07-11T19:30:06Z",
+   "number": 20838,
+   "title": "[BugFix] fix 3 issues: (1) using metadata for causal-conv1d, (2) indexing overflow in v1 vLLM, and (3) init_states in v0",
+   "url": "https://github.com/vllm-project/vllm/pull/20838"
+  },
+  {
+   "closedAt": "2025-07-09T20:17:56Z",
+   "createdAt": "2025-06-18T20:50:03Z",
+   "number": 19818,
+   "title": "[Kernel] Add Conch backend for mixed-precision linear layer",
+   "url": "https://github.com/vllm-project/vllm/pull/19818"
+  },
+  {
+   "closedAt": "2025-06-13T12:08:20Z",
+   "createdAt": "2025-06-13T02:48:28Z",
+   "number": 19592,
+   "title": "[Model] Fix minimax model cache & lm_head precision",
+   "url": "https://github.com/vllm-project/vllm/pull/19592"
+  },
+  {
+   "closedAt": "2025-06-04T11:48:57Z",
+   "createdAt": "2025-06-03T14:48:25Z",
+   "number": 19092,
+   "title": "Improve the output precision of embedding models",
+   "url": "https://github.com/vllm-project/vllm/pull/19092"
+  },
+  {
+   "closedAt": "2025-06-01T11:26:15Z",
+   "createdAt": "2025-06-01T04:41:46Z",
+   "number": 19000,
+   "title": "[doc] wrong output",
+   "url": "https://github.com/vllm-project/vllm/pull/19000"
+  },
+  {
+   "closedAt": "2025-06-20T14:47:16Z",
+   "createdAt": "2025-05-27T19:04:16Z",
+   "number": 18777,
+   "title": "Export NaNs in logits to scheduler_stats if output is corrupted",
+   "url": "https://github.com/vllm-project/vllm/pull/18777"
+  },
+  {
+   "closedAt": "2025-05-28T02:45:42Z",
+   "createdAt": "2025-05-27T14:56:05Z",
+   "number": 18764,
+   "title": "[rocm] Fix wrong attention log",
+   "url": "https://github.com/vllm-project/vllm/pull/18764"
+  },
+  {
+   "closedAt": "2025-05-14T03:36:17Z",
+   "createdAt": "2025-05-13T15:59:58Z",
+   "number": 18086,
+   "title": "[Bugfix][V1] Fix FlashInfer V1 backend using the wrong VllmConfig",
+   "url": "https://github.com/vllm-project/vllm/pull/18086"
+  },
+  {
+   "closedAt": "2025-05-12T04:58:02Z",
+   "createdAt": "2025-05-11T10:39:51Z",
+   "number": 17958,
+   "title": "[bugfix] fix the wrong parser",
+   "url": "https://github.com/vllm-project/vllm/pull/17958"
+  },
+  {
+   "closedAt": "2025-04-28T11:20:51Z",
+   "createdAt": "2025-04-28T06:57:13Z",
+   "number": 17287,
+   "title": "[doc] update wrong model id",
+   "url": "https://github.com/vllm-project/vllm/pull/17287"
+  },
+  {
+   "closedAt": "2025-04-28T03:09:12Z",
+   "createdAt": "2025-04-28T01:39:42Z",
+   "number": 17274,
+   "title": "[Doc] Fix wrong github link in LMCache examples",
+   "url": "https://github.com/vllm-project/vllm/pull/17274"
+  },
+  {
+   "closedAt": "2025-04-25T16:40:58Z",
+   "createdAt": "2025-04-25T11:30:23Z",
+   "number": 17184,
+   "title": "[doc] update wrong hf model links",
+   "url": "https://github.com/vllm-project/vllm/pull/17184"
+  },
+  {
+   "closedAt": "2025-04-23T19:12:35Z",
+   "createdAt": "2025-04-17T22:23:15Z",
+   "number": 16806,
+   "title": "[BugFix][V1] Fix int32 token index overflow when preparing input ids",
+   "url": "https://github.com/vllm-project/vllm/pull/16806"
+  },
+  {
+   "closedAt": "2025-04-10T13:02:38Z",
+   "createdAt": "2025-04-10T09:24:34Z",
+   "number": 16401,
+   "title": "[doc] update the wrong link",
+   "url": "https://github.com/vllm-project/vllm/pull/16401"
+  },
+  {
+   "closedAt": "2025-04-04T15:52:41Z",
+   "createdAt": "2025-04-03T15:48:28Z",
+   "number": 16023,
+   "title": "[V1][Spec Decode] Avoid logging useless nan metrics",
+   "url": "https://github.com/vllm-project/vllm/pull/16023"
+  },
+  {
+   "closedAt": "2025-03-21T10:54:12Z",
+   "createdAt": "2025-03-21T08:22:36Z",
+   "number": 15280,
+   "title": "[V1] Fix wrong import path of get_flash_attn_version",
+   "url": "https://github.com/vllm-project/vllm/pull/15280"
+  },
+  {
+   "closedAt": "2025-03-10T02:49:46Z",
+   "createdAt": "2025-03-09T21:45:46Z",
+   "number": 14527,
+   "title": "[Bugfix] Wrong requirements path - rocm",
+   "url": "https://github.com/vllm-project/vllm/pull/14527"
+  },
+  {
+   "closedAt": "2025-03-07T08:01:18Z",
+   "createdAt": "2025-03-07T07:10:11Z",
+   "number": 14414,
+   "title": "correct wrong markdown syntax",
+   "url": "https://github.com/vllm-project/vllm/pull/14414"
+  },
+  {
+   "closedAt": "2025-02-27T17:30:39Z",
+   "createdAt": "2025-02-27T14:49:28Z",
+   "number": 13968,
+   "title": "[Bugfix] Fix qwen2.5-vl overflow issue",
+   "url": "https://github.com/vllm-project/vllm/pull/13968"
+  },
+  {
+   "closedAt": "2025-03-11T03:47:00Z",
+   "createdAt": "2025-02-13T17:03:18Z",
+   "number": 13232,
+   "title": "[Bugfix] Fix FP16 overflow for DeepSeek V2",
+   "url": "https://github.com/vllm-project/vllm/pull/13232"
+  },
+  {
+   "closedAt": "2025-01-07T01:10:55Z",
+   "createdAt": "2025-01-06T13:28:50Z",
+   "number": 11772,
+   "title": "[Bugfix] Fix LLaVA-NeXT feature size precision error (for real)",
+   "url": "https://github.com/vllm-project/vllm/pull/11772"
+  },
+  {
+   "closedAt": "2025-01-04T15:45:57Z",
+   "createdAt": "2025-01-04T11:51:49Z",
+   "number": 11735,
+   "title": "[Bugfix] Fix precision error in LLaVA-NeXT feature size calculation",
+   "url": "https://github.com/vllm-project/vllm/pull/11735"
+  },
+  {
+   "closedAt": "2024-10-16T23:46:06Z",
+   "createdAt": "2024-10-16T15:59:06Z",
+   "number": 9425,
+   "title": "[Bugfix][Kernel] Prevent integer overflow in fp8 dynamic per-token quantize kernel",
+   "url": "https://github.com/vllm-project/vllm/pull/9425"
+  },
+  {
+   "closedAt": "2024-10-10T06:16:17Z",
+   "createdAt": "2024-10-10T02:42:20Z",
+   "number": 9212,
+   "title": "[Bugfix] Machete garbage results for some models (large K dim)",
+   "url": "https://github.com/vllm-project/vllm/pull/9212"
+  },
+  {
+   "closedAt": "2024-08-30T00:49:04Z",
+   "createdAt": "2024-08-29T14:48:05Z",
+   "number": 7998,
+   "title": "[VLM] Disallow overflowing `max_model_len` for multimodal models",
+   "url": "https://github.com/vllm-project/vllm/pull/7998"
+  },
+  {
+   "closedAt": "2024-08-20T13:09:34Z",
+   "createdAt": "2024-08-05T23:44:20Z",
+   "number": 7174,
+   "title": "[Kernel] (1/N) Machete - Hopper Optimized Mixed Precision Linear Kernel ",
+   "url": "https://github.com/vllm-project/vllm/pull/7174"
+  },
+  {
+   "closedAt": "2024-07-27T21:52:34Z",
+   "createdAt": "2024-07-25T19:25:49Z",
+   "number": 6795,
+   "title": "[Kernel] Increase precision of GPTQ/AWQ Marlin kernel",
+   "url": "https://github.com/vllm-project/vllm/pull/6795"
+  },
+  {
+   "closedAt": "2024-07-15T17:14:49Z",
+   "createdAt": "2024-07-13T04:21:03Z",
+   "number": 6409,
+   "title": "[Bugfix] use float32 precision in samplers/test_logprobs.py for comparing with HF ",
+   "url": "https://github.com/vllm-project/vllm/pull/6409"
+  },
+  {
+   "closedAt": "2025-04-22T08:01:37Z",
+   "createdAt": "2024-07-01T16:30:04Z",
+   "number": 6036,
+   "title": "[Kernel] Support Microsoft Runtime Kernel Lib for our Low Precision Computation - BitBLAS",
+   "url": "https://github.com/vllm-project/vllm/pull/6036"
+  },
+  {
+   "closedAt": "2024-06-29T03:10:21Z",
+   "createdAt": "2024-06-27T16:28:41Z",
+   "number": 5913,
+   "title": "[Bugfix] Fix precisions in Gemma 1",
+   "url": "https://github.com/vllm-project/vllm/pull/5913"
+  },
+  {
+   "closedAt": "2024-06-19T06:21:29Z",
+   "createdAt": "2024-06-18T14:48:01Z",
+   "number": 5641,
+   "title": "[Bugfix][CI/Build][AMD][ROCm]Fixed the cmake build bug which generate garbage on certain devices",
+   "url": "https://github.com/vllm-project/vllm/pull/5641"
+  },
+  {
+   "closedAt": "2024-05-03T01:35:18Z",
+   "createdAt": "2024-05-02T21:34:39Z",
+   "number": 4567,
+   "title": "[BugFix] Prevent the task of `_force_log` from being garbage collected",
+   "url": "https://github.com/vllm-project/vllm/pull/4567"
+  },
+  {
+   "closedAt": "2023-10-31T22:19:30Z",
+   "createdAt": "2023-10-31T04:33:02Z",
+   "number": 1514,
+   "title": "Fix integer overflows in attention & cache ops",
+   "url": "https://github.com/vllm-project/vllm/pull/1514"
+  },
+  {
+   "closedAt": "2023-10-11T07:19:53Z",
+   "createdAt": "2023-10-09T09:10:29Z",
+   "number": 1295,
+   "title": "Fix overflow in awq kernel",
+   "url": "https://github.com/vllm-project/vllm/pull/1295"
+  },
+  {
+   "closedAt": "2023-09-04T00:20:07Z",
+   "createdAt": "2023-09-03T03:23:38Z",
+   "number": 936,
+   "title": "[BugFix] Fix NaN errors in paged attention kernel",
+   "url": "https://github.com/vllm-project/vllm/pull/936"
+  },
+  {
+   "closedAt": "2023-08-04T17:35:23Z",
+   "createdAt": "2023-08-04T11:49:22Z",
+   "number": 676,
+   "title": "Fix gibberish outputs of GPT-BigCode-based models",
+   "url": "https://github.com/vllm-project/vllm/pull/676"
+  }
+ ]
+}

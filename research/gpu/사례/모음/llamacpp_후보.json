@@ -1,0 +1,932 @@
+{
+ "queries": [
+  "search prs --repo ggml-org/llama.cpp --merged merged:<2026-10-01 --match title incorrect --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo ggml-org/llama.cpp --merged merged:<2026-10-01 --match title wrong --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo ggml-org/llama.cpp --merged merged:<2026-10-01 --match title accuracy --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo ggml-org/llama.cpp --merged merged:<2026-10-01 --match title NaN --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo ggml-org/llama.cpp --merged merged:<2026-10-01 --match title garbage --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo ggml-org/llama.cpp --merged merged:<2026-10-01 --match title gibberish --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo ggml-org/llama.cpp --merged merged:<2026-10-01 --match title precision --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo ggml-org/llama.cpp --merged merged:<2026-10-01 --match title correctness --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url",
+  "search prs --repo ggml-org/llama.cpp --merged merged:<2026-10-01 --match title overflow --sort created --order desc --limit 40 --json number,title,createdAt,closedAt,url"
+ ],
+ "items": [
+  {
+   "closedAt": "2026-09-28T23:21:38Z",
+   "createdAt": "2026-09-28T19:04:47Z",
+   "number": 29607,
+   "title": "mtmd: fix GCC 15 CI stringop-overflow in decode_embd_batch",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/29607"
+  },
+  {
+   "closedAt": "2026-09-30T14:59:01Z",
+   "createdAt": "2026-09-24T15:22:32Z",
+   "number": 29384,
+   "title": "Ggml integer overflow",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/29384"
+  },
+  {
+   "closedAt": "2026-09-24T05:02:18Z",
+   "createdAt": "2026-09-24T01:27:27Z",
+   "number": 29348,
+   "title": "hexagon: reject MUL_MAT_ID when src1 precision is F32",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/29348"
+  },
+  {
+   "closedAt": "2026-09-20T05:59:43Z",
+   "createdAt": "2026-09-18T23:21:31Z",
+   "number": 29108,
+   "title": "ui: Fix mobile breakpoint + content overflow issues",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/29108"
+  },
+  {
+   "closedAt": "2026-09-28T06:36:38Z",
+   "createdAt": "2026-09-15T15:46:30Z",
+   "number": 28956,
+   "title": "vulkan: fix wrong results when a mul_mat reads a slice of a larger cache",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/28956"
+  },
+  {
+   "closedAt": "2026-09-14T11:05:38Z",
+   "createdAt": "2026-09-13T20:59:09Z",
+   "number": 28868,
+   "title": "models : fix incorrect uses of get_key_or_arr",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/28868"
+  },
+  {
+   "closedAt": "2026-08-13T08:02:01Z",
+   "createdAt": "2026-08-11T17:24:16Z",
+   "number": 26920,
+   "title": "server: refactor + correctness fixes for metrics",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/26920"
+  },
+  {
+   "closedAt": "2026-07-30T06:17:31Z",
+   "createdAt": "2026-07-29T13:28:38Z",
+   "number": 26277,
+   "title": "kleidiai: Fix issue with kleidiai ci and stringop overflow warning",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/26277"
+  },
+  {
+   "closedAt": "2026-09-16T06:37:41Z",
+   "createdAt": "2026-07-28T10:32:37Z",
+   "number": 26223,
+   "title": "metal: fix NaN in mul_mm_id when activations exceed f16 range",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/26223"
+  },
+  {
+   "closedAt": "2026-07-26T22:02:57Z",
+   "createdAt": "2026-07-26T17:53:17Z",
+   "number": 26144,
+   "title": "Keep Minimax's indexer tensors at F32 for speed and accuracy",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/26144"
+  },
+  {
+   "closedAt": "2026-07-17T13:33:36Z",
+   "createdAt": "2026-07-17T12:54:53Z",
+   "number": 25822,
+   "title": "tests : initialize all tensors in test_dsv4_hc to avoid NaNs in sentinel tensors",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/25822"
+  },
+  {
+   "closedAt": "2026-07-10T09:52:21Z",
+   "createdAt": "2026-07-09T16:42:25Z",
+   "number": 25497,
+   "title": "llama-cli: fix crash on wrong server base url",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/25497"
+  },
+  {
+   "closedAt": "2026-08-04T09:12:49Z",
+   "createdAt": "2026-07-07T11:37:57Z",
+   "number": 25401,
+   "title": "gguf-py: validate n_dims and guard uint64 overflow in reader",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/25401"
+  },
+  {
+   "closedAt": "2026-07-08T05:00:05Z",
+   "createdAt": "2026-07-07T07:47:32Z",
+   "number": 25390,
+   "title": "ggml-cpu: Incorrect A indexing in simd_gemm scalar tail-column path",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/25390"
+  },
+  {
+   "closedAt": "2026-07-06T08:35:58Z",
+   "createdAt": "2026-07-02T17:23:47Z",
+   "number": 25245,
+   "title": "vulkan: fix 32-bit integer overflow in CEIL_DIV",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/25245"
+  },
+  {
+   "closedAt": "2026-07-01T07:25:19Z",
+   "createdAt": "2026-06-30T17:45:47Z",
+   "number": 25177,
+   "title": "ui Prevent tool messages from incorrectly appending to other conversations",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/25177"
+  },
+  {
+   "closedAt": "2026-09-16T11:19:47Z",
+   "createdAt": "2026-06-30T07:13:18Z",
+   "number": 25161,
+   "title": "ggml : fix wrong transpose function for int16 data",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/25161"
+  },
+  {
+   "closedAt": "2026-07-01T13:59:20Z",
+   "createdAt": "2026-06-27T23:12:54Z",
+   "number": 25085,
+   "title": "hexagon: flash attention rework (optimizations, accuracy improvements, etc)",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/25085"
+  },
+  {
+   "closedAt": "2026-06-30T18:47:06Z",
+   "createdAt": "2026-06-23T12:48:18Z",
+   "number": 24945,
+   "title": "cuda : prevent integer truncation and overflow errors when using KQ mask strides in flash_attn_mask_to_KV_max kernel",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/24945"
+  },
+  {
+   "closedAt": "2026-06-23T05:25:22Z",
+   "createdAt": "2026-06-22T23:03:08Z",
+   "number": 24923,
+   "title": "opencl: q8_0 gemv precision improvement",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/24923"
+  },
+  {
+   "closedAt": "2026-06-24T03:34:00Z",
+   "createdAt": "2026-06-22T16:23:29Z",
+   "number": 24909,
+   "title": "vulkan: Apply bias before softmax in FA, to avoid overflow",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/24909"
+  },
+  {
+   "closedAt": "2026-06-25T08:06:45Z",
+   "createdAt": "2026-06-16T20:13:59Z",
+   "number": 24706,
+   "title": "ggml : address integer overflows in binary ops CUDA implementation",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/24706"
+  },
+  {
+   "closedAt": "2026-06-14T14:15:52Z",
+   "createdAt": "2026-06-14T10:37:39Z",
+   "number": 24605,
+   "title": "ui : fix ui clipping in mobile due to incorrect height setup",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/24605"
+  },
+  {
+   "closedAt": "2026-06-09T07:24:27Z",
+   "createdAt": "2026-06-08T13:37:53Z",
+   "number": 24305,
+   "title": "ggml-cpu : fix rms_norm_back wrong output under in-place aliasing",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/24305"
+  },
+  {
+   "closedAt": "2026-06-09T09:12:58Z",
+   "createdAt": "2026-06-05T05:42:12Z",
+   "number": 24158,
+   "title": "ui: fix mobile chat form overflow and bust stale bundle cache",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/24158"
+  },
+  {
+   "closedAt": "2026-05-28T10:48:35Z",
+   "createdAt": "2026-05-25T12:59:55Z",
+   "number": 23665,
+   "title": "vulkan: Wrong Index Variable in Inner Loop",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/23665"
+  },
+  {
+   "closedAt": "2026-05-25T05:12:40Z",
+   "createdAt": "2026-05-24T16:28:29Z",
+   "number": 23623,
+   "title": "perplexity : fix even more integer overflows",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/23623"
+  },
+  {
+   "closedAt": "2026-05-28T08:55:43Z",
+   "createdAt": "2026-05-24T12:18:40Z",
+   "number": 23610,
+   "title": "cuda : fix KQ mask offset integer overflow in flash attention MMA kernel",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/23610"
+  },
+  {
+   "closedAt": "2026-05-22T12:50:45Z",
+   "createdAt": "2026-05-21T20:13:40Z",
+   "number": 23496,
+   "title": "perplexity: fix integer overflow",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/23496"
+  },
+  {
+   "closedAt": "2026-05-20T22:35:37Z",
+   "createdAt": "2026-05-19T08:40:34Z",
+   "number": 23329,
+   "title": "mtmd, model : merge HunyuanOCR into HunyuanVL and fix OCR vision precision",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/23329"
+  },
+  {
+   "closedAt": "2026-05-12T14:27:05Z",
+   "createdAt": "2026-05-07T16:57:53Z",
+   "number": 22808,
+   "title": "ggml-webgpu: address precision issues for multimodal ",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/22808"
+  },
+  {
+   "closedAt": "2026-04-23T16:39:08Z",
+   "createdAt": "2026-04-22T23:39:08Z",
+   "number": 22267,
+   "title": "server: fix heap-buffer-overflow from negative n_discard (CVE-2026-21869)",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/22267"
+  },
+  {
+   "closedAt": "2026-04-23T05:19:51Z",
+   "createdAt": "2026-04-22T12:28:15Z",
+   "number": 22247,
+   "title": "Handle ModelOpt produced mixed precision model during convert to GGUF",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/22247"
+  },
+  {
+   "closedAt": "2026-04-16T05:34:05Z",
+   "createdAt": "2026-04-08T16:11:01Z",
+   "number": 21638,
+   "title": "[SYCL] Fix Q8_0 reorder: garbage on 2nd prompt + crash on full VRAM",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/21638"
+  },
+  {
+   "closedAt": "2026-04-10T17:52:02Z",
+   "createdAt": "2026-04-06T17:55:14Z",
+   "number": 21521,
+   "title": "ggml-webgpu: address quantization precision and backend lifecycle managment",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/21521"
+  },
+  {
+   "closedAt": "2026-04-01T15:43:08Z",
+   "createdAt": "2026-04-01T08:38:22Z",
+   "number": 21251,
+   "title": "hexagon: improve RMS_NORM and DIV accuracy",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/21251"
+  },
+  {
+   "closedAt": "2026-03-25T09:48:38Z",
+   "createdAt": "2026-03-23T13:46:36Z",
+   "number": 20903,
+   "title": "[SYCL] fix wrong variable check by assert",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/20903"
+  },
+  {
+   "closedAt": "2026-03-16T09:45:50Z",
+   "createdAt": "2026-03-15T12:23:42Z",
+   "number": 20589,
+   "title": "vulkan: fix flash attention dot product precision",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/20589"
+  },
+  {
+   "closedAt": "2026-03-16T08:18:48Z",
+   "createdAt": "2026-03-14T07:21:44Z",
+   "number": 20539,
+   "title": "convert : support mixed-precision ModelOpt models with per-tensor NVFP4/FP8 quantization",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/20539"
+  },
+  {
+   "closedAt": "2026-03-15T08:47:28Z",
+   "createdAt": "2026-03-12T14:58:04Z",
+   "number": 20460,
+   "title": "Guard against sumq2 being 0 in IQ4_NL resulting in nan values",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/20460"
+  },
+  {
+   "closedAt": "2026-03-10T10:40:26Z",
+   "createdAt": "2026-03-09T19:12:17Z",
+   "number": 20313,
+   "title": "common : fix incorrect uses of stoul",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/20313"
+  },
+  {
+   "closedAt": "2026-03-01T05:40:22Z",
+   "createdAt": "2026-03-01T02:07:38Z",
+   "number": 19999,
+   "title": "cuda: fix grid.y overflow in non-contiguous dequantize/convert kernels",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/19999"
+  },
+  {
+   "closedAt": "2026-03-14T07:43:14Z",
+   "createdAt": "2026-02-27T19:25:14Z",
+   "number": 19959,
+   "title": "Use fp32 in cuBLAS V100 to avoid overflows, env variables to override cuBLAS compute type",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/19959"
+  },
+  {
+   "closedAt": "2026-02-24T18:17:12Z",
+   "createdAt": "2026-02-24T17:43:16Z",
+   "number": 19856,
+   "title": "ggml/gguf : prevent integer overflows",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/19856"
+  },
+  {
+   "closedAt": "2026-02-22T15:26:33Z",
+   "createdAt": "2026-02-22T12:03:36Z",
+   "number": 19804,
+   "title": "Fix wrong cli-argument in documentation",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/19804"
+  },
+  {
+   "closedAt": "2026-02-13T12:32:14Z",
+   "createdAt": "2026-02-12T19:34:55Z",
+   "number": 19575,
+   "title": "ggml-cpu: arm64: Fix wrong memcpy length for q4_K block_interleave == 4",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/19575"
+  },
+  {
+   "closedAt": "2026-02-13T11:31:40Z",
+   "createdAt": "2026-02-12T06:51:28Z",
+   "number": 19538,
+   "title": "CUDA: loop over ne2*ne3 in case it overflows",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/19538"
+  },
+  {
+   "closedAt": "2026-02-18T09:47:10Z",
+   "createdAt": "2026-02-11T07:29:27Z",
+   "number": 19509,
+   "title": "vulkan: split mul_mat into multiple dispatches to avoid overflow",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/19509"
+  },
+  {
+   "closedAt": "2026-01-13T11:19:38Z",
+   "createdAt": "2026-01-12T22:58:00Z",
+   "number": 18793,
+   "title": "mtmd: fix use_non_causal being reported incorrectly",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/18793"
+  },
+  {
+   "closedAt": "2026-01-10T09:16:08Z",
+   "createdAt": "2026-01-09T18:51:09Z",
+   "number": 18724,
+   "title": "Corrected: In ggml_cuda_mul_mat_q(), s13 is declared incorrectly to nb[2] instead of nb[3]",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/18724"
+  },
+  {
+   "closedAt": "2026-01-05T18:51:13Z",
+   "createdAt": "2026-01-05T10:45:16Z",
+   "number": 18614,
+   "title": "CUDA: fix FA FP16 accumulator overflow for Granite",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/18614"
+  },
+  {
+   "closedAt": "2026-03-21T17:43:35Z",
+   "createdAt": "2026-01-05T02:16:11Z",
+   "number": 18604,
+   "title": "Fix grammar parsing issues to prevent stack overflow and hangs",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/18604"
+  },
+  {
+   "closedAt": "2026-01-05T10:30:14Z",
+   "createdAt": "2025-12-31T23:49:50Z",
+   "number": 18515,
+   "title": "vulkan: handle quantize_q8_1 overflowing the max workgroup count",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/18515"
+  },
+  {
+   "closedAt": "2025-12-27T19:20:46Z",
+   "createdAt": "2025-12-24T22:13:43Z",
+   "number": 18354,
+   "title": "llama-fit-params: fix overflow check",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/18354"
+  },
+  {
+   "closedAt": "2025-12-21T09:32:59Z",
+   "createdAt": "2025-12-18T18:16:59Z",
+   "number": 18180,
+   "title": "vulkan: fix im2col overflowing maxworkgroupcount",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/18180"
+  },
+  {
+   "closedAt": "2025-12-16T10:50:44Z",
+   "createdAt": "2025-12-16T02:36:18Z",
+   "number": 18073,
+   "title": "Update README.md incorrect argument",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/18073"
+  },
+  {
+   "closedAt": "2025-12-19T17:42:28Z",
+   "createdAt": "2025-12-12T22:53:41Z",
+   "number": 17977,
+   "title": "ggml-hexagon: Implement true Q8_0 quantization on Hexagon NPU for more accurate mixed-precision matmul operations",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/17977"
+  },
+  {
+   "closedAt": "2025-12-12T16:43:58Z",
+   "createdAt": "2025-12-11T13:50:49Z",
+   "number": 17939,
+   "title": "CUDA: fix overflow in MMA kernel without stream-k",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/17939"
+  },
+  {
+   "closedAt": "2025-12-09T08:34:03Z",
+   "createdAt": "2025-12-08T23:48:40Z",
+   "number": 17875,
+   "title": "CUDA: fix FP16 overflow in tile FA kernel",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/17875"
+  },
+  {
+   "closedAt": "2025-12-05T08:18:11Z",
+   "createdAt": "2025-12-03T19:56:43Z",
+   "number": 17746,
+   "title": "CUDA: fix FA VKQ accumulator overflow",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/17746"
+  },
+  {
+   "closedAt": "2025-11-29T07:39:57Z",
+   "createdAt": "2025-11-28T21:19:13Z",
+   "number": 17582,
+   "title": "vulkan: improve topk perf for large k, fix overflow in unit tests",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/17582"
+  },
+  {
+   "closedAt": "2025-12-20T19:46:46Z",
+   "createdAt": "2025-11-24T14:40:12Z",
+   "number": 17471,
+   "title": "tests: Avoid floating point precision false positives in SUM",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/17471"
+  },
+  {
+   "closedAt": "2025-11-20T12:47:05Z",
+   "createdAt": "2025-11-19T12:05:15Z",
+   "number": 17381,
+   "title": "Fix DoS / integer overflow",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/17381"
+  },
+  {
+   "closedAt": "2025-11-18T18:11:53Z",
+   "createdAt": "2025-11-18T10:48:04Z",
+   "number": 17357,
+   "title": "chat: fix int overflow, prevent size calculation in float/double",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/17357"
+  },
+  {
+   "closedAt": "2025-11-16T07:23:37Z",
+   "createdAt": "2025-11-14T10:03:48Z",
+   "number": 17267,
+   "title": "server : handle context overflow during decode",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/17267"
+  },
+  {
+   "closedAt": "2025-10-17T05:59:31Z",
+   "createdAt": "2025-10-17T00:45:44Z",
+   "number": 16626,
+   "title": "fix: use int64_t to avoid overflows in int schema to grammar conversion",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/16626"
+  },
+  {
+   "closedAt": "2025-09-12T18:39:52Z",
+   "createdAt": "2025-09-06T14:15:52Z",
+   "number": 15839,
+   "title": "ggml-zdnn: fix #15414, activate FP16 and BF16 acceleration and incorrect zTensor free",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15839"
+  },
+  {
+   "closedAt": "2025-09-04T07:12:31Z",
+   "createdAt": "2025-09-04T03:25:51Z",
+   "number": 15784,
+   "title": "CANN: Fix precision issue on 310I DUO multi-devices",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15784"
+  },
+  {
+   "closedAt": "2025-09-03T11:35:50Z",
+   "createdAt": "2025-09-03T09:42:35Z",
+   "number": 15764,
+   "title": "llama : fix incorrect model type for  Gemma 270M",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15764"
+  },
+  {
+   "closedAt": "2025-09-02T09:12:38Z",
+   "createdAt": "2025-09-02T06:32:04Z",
+   "number": 15730,
+   "title": "CANN: Resolve soft_max precision issue",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15730"
+  },
+  {
+   "closedAt": "2025-08-21T21:09:32Z",
+   "createdAt": "2025-08-21T20:07:54Z",
+   "number": 15488,
+   "title": "sched : fix possible use of wrong ids tensor when offloading moe",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15488"
+  },
+  {
+   "closedAt": "2025-08-21T08:54:34Z",
+   "createdAt": "2025-08-21T06:31:46Z",
+   "number": 15466,
+   "title": "common : fix incorrect print of non-ascii characters in the logging",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15466"
+  },
+  {
+   "closedAt": "2025-08-20T10:33:30Z",
+   "createdAt": "2025-08-20T09:44:14Z",
+   "number": 15448,
+   "title": "Help msg about context shift is incorrect",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15448"
+  },
+  {
+   "closedAt": "2025-08-18T07:23:56Z",
+   "createdAt": "2025-08-17T19:52:52Z",
+   "number": 15379,
+   "title": "ggml-quants : fix make_qp_quants NANs and IQ1 assertion errors",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15379"
+  },
+  {
+   "closedAt": "2025-08-14T19:10:52Z",
+   "createdAt": "2025-08-14T15:40:43Z",
+   "number": 15320,
+   "title": "eval-callback : stop on first NaN",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15320"
+  },
+  {
+   "closedAt": "2025-08-11T07:59:27Z",
+   "createdAt": "2025-08-07T11:11:04Z",
+   "number": 15150,
+   "title": "kleidiai: fix unsigned overflow bug",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15150"
+  },
+  {
+   "closedAt": "2025-08-05T09:27:45Z",
+   "createdAt": "2025-08-05T02:50:00Z",
+   "number": 15080,
+   "title": "context : fix index overflow on huge outputs",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/15080"
+  },
+  {
+   "closedAt": "2025-07-23T19:43:25Z",
+   "createdAt": "2025-07-23T17:40:54Z",
+   "number": 14840,
+   "title": "CUDA: fix overflow in FA, tune performance",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/14840"
+  },
+  {
+   "closedAt": "2025-07-09T12:33:53Z",
+   "createdAt": "2025-07-09T12:03:46Z",
+   "number": 14595,
+   "title": "ggml : prevent integer overflow in tensor size calculation",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/14595"
+  },
+  {
+   "closedAt": "2025-07-07T21:35:35Z",
+   "createdAt": "2025-07-07T19:39:47Z",
+   "number": 14571,
+   "title": "llama : fix incorrect minicpm3 v_states shape",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/14571"
+  },
+  {
+   "closedAt": "2025-07-02T12:38:10Z",
+   "createdAt": "2025-07-02T03:49:10Z",
+   "number": 14490,
+   "title": "opencl: preventing buffer overflows in debugging utils",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/14490"
+  },
+  {
+   "closedAt": "2025-06-20T14:13:06Z",
+   "createdAt": "2025-06-20T13:49:06Z",
+   "number": 14301,
+   "title": "vocab : prevent tokenizer overflow",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/14301"
+  },
+  {
+   "closedAt": "2025-06-16T19:33:27Z",
+   "createdAt": "2025-06-16T18:50:17Z",
+   "number": 14225,
+   "title": "server : fix incorrect usage of llama_get_embeddings()",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/14225"
+  },
+  {
+   "closedAt": "2025-06-13T05:03:54Z",
+   "createdAt": "2025-06-12T10:05:30Z",
+   "number": 14145,
+   "title": "vocab : prevent heap overflow when vocab is too small",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/14145"
+  },
+  {
+   "closedAt": "2025-05-24T10:29:09Z",
+   "createdAt": "2025-05-24T09:44:03Z",
+   "number": 13743,
+   "title": "vocab : fix ugm tokenizer precision",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/13743"
+  },
+  {
+   "closedAt": "2025-04-27T19:57:32Z",
+   "createdAt": "2025-04-27T18:24:09Z",
+   "number": 13140,
+   "title": "fix wrong template in GLM4-0414",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/13140"
+  },
+  {
+   "closedAt": "2025-04-28T07:29:27Z",
+   "createdAt": "2025-04-27T15:08:48Z",
+   "number": 13137,
+   "title": "CUDA: fix q_nope_absorbed precision for Deepseek 2 Lite f16",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/13137"
+  },
+  {
+   "closedAt": "2025-04-16T21:25:58Z",
+   "createdAt": "2025-04-10T09:05:02Z",
+   "number": 12868,
+   "title": "opencl: fix incorrect local_size index in profiling log",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/12868"
+  },
+  {
+   "closedAt": "2025-04-06T09:03:47Z",
+   "createdAt": "2025-04-06T06:33:09Z",
+   "number": 12776,
+   "title": "vulkan: fix NaN issue in flash attention shader",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/12776"
+  },
+  {
+   "closedAt": "2025-03-28T21:13:02Z",
+   "createdAt": "2025-03-28T20:02:34Z",
+   "number": 12631,
+   "title": "llama : fix incorrect Qwen2Moe ffn_moe_out graph callback",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/12631"
+  },
+  {
+   "closedAt": "2025-02-13T16:22:44Z",
+   "createdAt": "2025-02-11T13:44:37Z",
+   "number": 11809,
+   "title": "docs(examples/server): Update wrong tool calling example",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/11809"
+  },
+  {
+   "closedAt": "2025-01-28T23:03:42Z",
+   "createdAt": "2025-01-28T22:37:33Z",
+   "number": 11473,
+   "title": "llamacpp-server: Fixed wrong function name in llamacpp server unit test",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/11473"
+  },
+  {
+   "closedAt": "2025-01-18T10:20:57Z",
+   "createdAt": "2025-01-11T09:10:09Z",
+   "number": 11186,
+   "title": "Added the ability to use guide tokens for OuteTTS, greatly improving TTS recitation accuracy over long input sequences.",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/11186"
+  },
+  {
+   "closedAt": "2024-12-08T18:19:19Z",
+   "createdAt": "2024-12-08T16:46:01Z",
+   "number": 10723,
+   "title": "Vulkan: fix NaN in tanh.comp with AMD proprietary driver on Windows",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/10723"
+  },
+  {
+   "closedAt": "2024-11-13T11:15:23Z",
+   "createdAt": "2024-11-13T02:38:33Z",
+   "number": 10272,
+   "title": "server : fix incorrect res in validate_model_chat_template",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/10272"
+  },
+  {
+   "closedAt": "2024-10-27T18:59:59Z",
+   "createdAt": "2024-10-23T11:35:17Z",
+   "number": 10015,
+   "title": "llama : switch KQ multiplication to use F32 precision by default",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/10015"
+  },
+  {
+   "closedAt": "2024-10-09T14:00:18Z",
+   "createdAt": "2024-10-08T06:16:23Z",
+   "number": 9783,
+   "title": "perplexity : fix integer overflow",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/9783"
+  },
+  {
+   "closedAt": "2024-08-27T06:58:22Z",
+   "createdAt": "2024-08-26T19:56:58Z",
+   "number": 9194,
+   "title": "Fix ChatGLM4 wrong shape, releated to THUDM/glm-4-9b-chat-1m and CausalLM/miniG",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/9194"
+  },
+  {
+   "closedAt": "2024-08-23T07:27:17Z",
+   "createdAt": "2024-08-22T08:56:55Z",
+   "number": 9130,
+   "title": "llama:use F32 precision in GLM4 attention and no FA",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/9130"
+  },
+  {
+   "closedAt": "2024-08-17T13:34:21Z",
+   "createdAt": "2024-08-17T06:33:26Z",
+   "number": 9063,
+   "title": "Fix incorrect use of `ctx_split` for bias tensors",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/9063"
+  },
+  {
+   "closedAt": "2024-08-16T10:36:30Z",
+   "createdAt": "2024-08-08T10:06:13Z",
+   "number": 8928,
+   "title": "fix: Fixes wrong input type for raw_dtype in ggml to gguf scripts",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/8928"
+  },
+  {
+   "closedAt": "2024-07-23T07:43:28Z",
+   "createdAt": "2024-07-23T05:46:12Z",
+   "number": 8642,
+   "title": "[SYCL] Fix the accuracy bug of long context length",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/8642"
+  },
+  {
+   "closedAt": "2024-07-11T07:21:30Z",
+   "createdAt": "2024-07-10T14:34:11Z",
+   "number": 8412,
+   "title": "llama : use F32 precision in Qwen2 attention and no FA",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/8412"
+  },
+  {
+   "closedAt": "2024-06-07T06:28:27Z",
+   "createdAt": "2024-06-07T04:27:28Z",
+   "number": 7811,
+   "title": "[SYCL] fix softmax r2r result wrong issue",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/7811"
+  },
+  {
+   "closedAt": "2024-06-07T06:01:29Z",
+   "createdAt": "2024-06-06T20:47:54Z",
+   "number": 7807,
+   "title": "check for nans in imatrix and quantize",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/7807"
+  },
+  {
+   "closedAt": "2024-05-22T08:24:30Z",
+   "createdAt": "2024-05-22T07:32:46Z",
+   "number": 7454,
+   "title": "CUDA: remove incorrect precision check",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/7454"
+  },
+  {
+   "closedAt": "2024-05-19T15:08:46Z",
+   "createdAt": "2024-05-19T14:51:32Z",
+   "number": 7387,
+   "title": "ggml : fix another case of quants nans",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/7387"
+  },
+  {
+   "closedAt": "2024-05-18T00:39:54Z",
+   "createdAt": "2024-05-15T21:34:23Z",
+   "number": 7313,
+   "title": "ggml : fix quants nans when all the group weights are very close to zero",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/7313"
+  },
+  {
+   "closedAt": "2024-05-07T21:07:58Z",
+   "createdAt": "2024-05-07T14:23:29Z",
+   "number": 7125,
+   "title": "server: fix incorrectly reported token probabilities",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/7125"
+  },
+  {
+   "closedAt": "2024-04-19T01:16:32Z",
+   "createdAt": "2024-04-19T00:43:15Z",
+   "number": 6755,
+   "title": "fix wrong parameter in cmd in readme-sycl.md",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/6755"
+  },
+  {
+   "closedAt": "2024-04-03T18:09:53Z",
+   "createdAt": "2024-04-03T06:20:17Z",
+   "number": 6452,
+   "title": "Handle server exception on wrong type in request",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/6452"
+  },
+  {
+   "closedAt": "2024-03-21T17:52:35Z",
+   "createdAt": "2024-03-21T14:23:10Z",
+   "number": 6199,
+   "title": "Corrected typo to wrong file",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/6199"
+  },
+  {
+   "closedAt": "2024-03-15T08:22:24Z",
+   "createdAt": "2024-03-14T23:15:31Z",
+   "number": 6069,
+   "title": "llama-bench : use random tokens to improve accuracy with mixtral",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/6069"
+  },
+  {
+   "closedAt": "2024-02-19T08:04:45Z",
+   "createdAt": "2024-02-18T22:33:21Z",
+   "number": 5574,
+   "title": "cuda : fix nans in soft_max",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/5574"
+  },
+  {
+   "closedAt": "2024-01-19T18:20:50Z",
+   "createdAt": "2024-01-19T02:44:27Z",
+   "number": 5033,
+   "title": "Fix issue #4791 alloc causes compute_size to be calculated incorrectly in train-text-from-scratch, end result core dump",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/5033"
+  },
+  {
+   "closedAt": "2024-01-09T17:37:08Z",
+   "createdAt": "2024-01-09T12:27:57Z",
+   "number": 4836,
+   "title": "metal : improve dequantize precision to match CPU",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/4836"
+  },
+  {
+   "closedAt": "2023-12-21T17:55:34Z",
+   "createdAt": "2023-12-21T17:18:40Z",
+   "number": 4568,
+   "title": "common : remove incorrect --model-draft default",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/4568"
+  },
+  {
+   "closedAt": "2023-12-21T17:02:30Z",
+   "createdAt": "2023-12-20T23:59:01Z",
+   "number": 4556,
+   "title": "cuda : replace asserts in wrong architecture checks with __trap",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/4556"
+  },
+  {
+   "closedAt": "2023-11-25T15:47:07Z",
+   "createdAt": "2023-11-23T20:34:03Z",
+   "number": 4189,
+   "title": "Update docs for yarn_ext_factor <0.0 as unspecified instead of NaN",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/4189"
+  },
+  {
+   "closedAt": "2023-11-23T21:56:53Z",
+   "createdAt": "2023-11-19T04:53:33Z",
+   "number": 4133,
+   "title": "Fix incorrect format strings and uninitialized variables.",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/4133"
+  },
+  {
+   "closedAt": "2023-11-20T09:50:04Z",
+   "createdAt": "2023-11-10T16:07:44Z",
+   "number": 4025,
+   "title": "Fix incorrect prompt tokenization in speculative example",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/4025"
+  },
+  {
+   "closedAt": "2023-10-09T11:32:17Z",
+   "createdAt": "2023-10-07T08:24:36Z",
+   "number": 3523,
+   "title": "refact : fix convert script + zero out KV cache to avoid nans",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/3523"
+  },
+  {
+   "closedAt": "2023-10-10T07:31:21Z",
+   "createdAt": "2023-10-06T17:06:54Z",
+   "number": 3508,
+   "title": "fixes infill incorrect tokenization",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/3508"
+  },
+  {
+   "closedAt": "2023-10-05T14:02:55Z",
+   "createdAt": "2023-10-05T00:46:43Z",
+   "number": 3480,
+   "title": "server : fix incorrect num_tokens_predicted",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/3480"
+  },
+  {
+   "closedAt": "2023-08-28T15:38:12Z",
+   "createdAt": "2023-08-28T14:49:48Z",
+   "number": 2856,
+   "title": "llama.cpp: Fix wrong vsnprintf call in MS compiler",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/2856"
+  },
+  {
+   "closedAt": "2023-08-11T22:35:15Z",
+   "createdAt": "2023-08-10T16:00:32Z",
+   "number": 2579,
+   "title": "server: fixed wrong variable name in timing json",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/2579"
+  },
+  {
+   "closedAt": "2023-07-24T11:46:21Z",
+   "createdAt": "2023-07-24T10:56:01Z",
+   "number": 2370,
+   "title": "ggml : sync (unary ops refactor, static-correctness)",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/2370"
+  },
+  {
+   "closedAt": "2023-07-23T13:33:02Z",
+   "createdAt": "2023-07-23T13:29:47Z",
+   "number": 2347,
+   "title": "Fix #2345, fix incorrect n_threads",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/2347"
+  },
+  {
+   "closedAt": "2023-06-18T14:07:10Z",
+   "createdAt": "2023-06-18T12:38:02Z",
+   "number": 1925,
+   "title": "Fixed incorrectly applying RMS norm twice",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/1925"
+  },
+  {
+   "closedAt": "2023-06-10T14:08:11Z",
+   "createdAt": "2023-06-09T04:29:35Z",
+   "number": 1772,
+   "title": "doc: fix the wrong address of BLIS.md",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/1772"
+  },
+  {
+   "closedAt": "2023-04-19T17:10:09Z",
+   "createdAt": "2023-04-18T19:15:09Z",
+   "number": 1047,
+   "title": "ggml : use 8-bit precision for Q4_1 intermediate results",
+   "url": "https://github.com/ggml-org/llama.cpp/pull/1047"
+  }
+ ]
+}
