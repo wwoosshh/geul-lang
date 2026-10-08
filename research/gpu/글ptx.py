@@ -14,6 +14,8 @@
   IR 이 값의 주소 공간(전역·공유·지역)을 모르기 때문이다 — 의미 층이 채울 첫 빈칸.
 - PTX 는 ASCII 만 받는다(드라이버가 한글 주석도 거부한다). 한글 이름은 "_G" + UTF-8 16진수로 바꾸고
   (쿠다.gl 의 PTX이름 과 같은 규칙), 대응표는 표준출력으로 낸다.
+- 의미는 PTX 에 다 적는다 — 드라이버가 고를 여지를 남기지 않는다. 부동소수 연산은 반올림(.rn)을 적어 곱과 덧셈이
+  FMA 로 합쳐지지 않게 하고(글의 CPU 의미와 비트까지 같게), .approx·.ftz 는 쓰지 않는다 (docs/17 §7 PTX 계약).
 - 다른 함수 호출, 문자열, 전역 변수, 묶음 값 복사, 가변 인자는 아직 받지 않는다.
 """
 import io
@@ -77,9 +79,12 @@ CMP = {"eq": "eq", "ne": "ne", "lt": "lt", "le": "le", "gt": "gt", "ge": "ge",
        "ult": "lt", "ule": "le", "ugt": "gt", "uge": "ge",
        "feq": "eq", "fne": "neu", "flt": "lt", "fle": "le", "fgt": "gt", "fge": "ge"}
 
+# 부동소수 연산은 반올림을 적는다(.rn). 반올림을 적지 않은 mul/add/sub 는 PTX 명세상 최적화기가 FMA 하나로 합쳐도 되는
+# 명령이고, 드라이버가 실제로 합친다 — 반올림이 한 번 빠져 글의 CPU 백엔드(mulss·addss, 연산마다 반올림)와 비트가 달라진다.
+# 탐침 곱더하기: 반올림을 빼면 1,048,576개 중 245,734개가 달랐다 (docs/17 §7 PTX 계약).
 BIN = {"add": "add", "sub": "sub", "mul": "mul.lo", "sdiv": "div", "udiv": "div", "srem": "rem", "urem": "rem",
        "and": "and", "or": "or", "xor": "xor", "shl": "shl", "lshr": "shr", "ashr": "shr",
-       "fadd": "add", "fsub": "sub", "fmul": "mul", "fdiv": "div.rn"}
+       "fadd": "add.rn", "fsub": "sub.rn", "fmul": "mul.rn", "fdiv": "div.rn"}
 
 
 class FuncPTX:
