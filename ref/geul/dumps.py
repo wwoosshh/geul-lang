@@ -13,6 +13,7 @@ NODE_NAMES = {
     "SOVCall": "SOV호출", "Unary": "단항", "Binary": "이항", "Ternary": "삼항", "Cast": "변환", "SizeOf": "크기",
     "BaseType": "기본타입", "NamedType": "이름타입", "PtrType": "참조타입", "ArrayType": "배열타입", "FuncType": "함수타입",
     "SliceType": "조각타입", "SliceExpr": "조각", "ResultType": "결과타입", "Try": "시도", "GenericType": "제네릭타입", "TypeApply": "타입적용",
+    "Swap": "교체",
 }
 FIELD_NAMES = {
     "includes": "포함", "decls": "선언", "type": "타입", "name": "이름", "init": "초기값", "static": "정적", "const": "상수",
@@ -22,6 +23,7 @@ FIELD_NAMES = {
     "subject": "대상", "cases": "경우", "default": "기본", "base": "바탕", "index": "색인", "arrow": "화살표",
     "callee": "피호출", "args": "인자", "verb": "동사", "operand": "피연산자", "left": "좌", "right": "우", "a": "참값",
     "b": "거짓값", "unsigned": "부호없는", "elem": "원소", "size": "크기", "role": "역할", "raw": "원문", "lo": "시작", "hi": "끝", "type_params": "타입매개변수",
+    "func": "함수", "addr": "새주소",
 }
 PTR_TARGET_LABEL = "대상타입"
 

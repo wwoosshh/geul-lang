@@ -901,7 +901,7 @@ class Sema:
             e.fname = sym.name
             self.check_expr(e.addr, T.VOIDPTR)
             e.addr = self.coerce(e.addr, T.VOIDPTR, e.addr.pos, "교체의 새 주소")
-            return None
+            return T.VOID       # 값이 없다: 값 자리에 쓰면 공허 호출처럼 타입 오류 (명세 3.8)
         raise InternalError(f"알 수 없는 식 {type(e).__name__}")
 
     def check_binary(self, e, expected):

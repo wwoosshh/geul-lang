@@ -2,8 +2,10 @@
 """글 2세대 단일 빌드 진입점 (D-08).
 
   python build.py test [필터] [--self]  spec-tests 실행 (컴파일 실패 = 실패, 건너뜀 없음; --self: 글로 쓴 컴파일러 build/self_컴파일러.exe 로)
+                                    테스트의 opts.txt 는 컴파일러 옵션 (D-46) — 모든 단계가 양쪽 구현에 같이 준다
+  python build.py test --핫스왑 [--self]  핫스왑 투명성: 긍정 테스트 전부를 --핫스왑 으로 빌드해 같은 기대값과 맞춘다
   python build.py check <파일.gl>  문법·의미 검사
-  python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 컴파일러 — 마지막은 exe 바이트 비교 + 고정점)
+  python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 컴파일러 — 마지막은 exe 바이트 비교 + 고정점 + 명령줄)
   python build.py docs [필터]      문서의 ```글 예제를 컴파일·실행해 ```출력 과 맞춘다
   python build.py tools           프로그램/ 의 도구들을 만들어 본다
   python build.py release          배포물 만들기: dist/geul-<버전>-windows-x64/ (자기 컴파일한 geulc.exe + 표준/ + 문서) 와 zip
@@ -29,16 +31,30 @@ def read(path, default=""):
     return open(path, encoding="utf-8").read() if os.path.exists(path) else default
 
 
+IR_OPTS = ("--핫스왑", "--hotswap")    # IR 을 바꾸는 옵션 (교체 허용, 인라인 끔). 덤프 드라이버는 이것만 받는다
+EXTRA_OPTS = []                         # test --핫스왑: 모든 긍정 테스트에 더하는 옵션 (투명성 검사)
+
+
+def test_opts(path):
+    """수용 테스트의 컴파일러 옵션: 테스트 디렉터리의 opts.txt, 한 줄에 하나 (D-46). spec-tests 밖(표준/, self/)은 없음."""
+    d = path if os.path.isdir(path) else os.path.dirname(path)
+    if not os.path.abspath(d).startswith(TESTS + os.sep):
+        return []
+    return [l.strip() for l in read(os.path.join(d, "opts.txt")).splitlines() if l.strip()]
+
+
 def run_test(test_dir, verbose):
     name = os.path.relpath(test_dir, TESTS).replace("\\", "/")
     main = os.path.join(test_dir, "main.gl")
     errors_file = os.path.join(test_dir, "expect.errors")
+    opts = test_opts(test_dir)
+    opts += [o for o in EXTRA_OPTS if o not in opts]
     tmp = tempfile.mkdtemp(prefix="geul-")
     try:
         exe = os.path.join(tmp, "main.exe")
         t0 = time.time()
         try:
-            r = subprocess.run(COMPILER + [main, "-o", exe], capture_output=True, timeout=60, stdin=subprocess.DEVNULL, env=COMPILER_ENV)
+            r = subprocess.run(COMPILER + [main, "-o", exe] + opts, capture_output=True, timeout=60, stdin=subprocess.DEVNULL, env=COMPILER_ENV)
             cout = (r.stdout + r.stderr).decode("utf-8", "replace")
             crc = r.returncode
         except subprocess.TimeoutExpired:
@@ -101,6 +117,12 @@ def cmd_test(args):
     dirs = sorted(d for d in glob.glob(os.path.join(TESTS, "*", "*")) if os.path.isfile(os.path.join(d, "main.gl")))
     if filters:
         dirs = [d for d in dirs if any(f in d for f in filters)]
+    if "--핫스왑" in args or "--hotswap" in args:
+        # 핫스왑 투명성 (D-42): 함수 테이블 우회는 동작을 바꾸지 않는다. 대상은 긍정 테스트 전부 —
+        # 부정 테스트는 옵션이 오류를 바꿀 수 있으므로(교체 허용) 이 검사의 모집단이 아니다.
+        EXTRA_OPTS.append("--핫스왑")
+        dirs = [d for d in dirs if not os.path.exists(os.path.join(d, "expect.errors"))]
+        print(f"핫스왑 투명성: 긍정 테스트 {len(dirs)}개를 --핫스왑 으로 — 출력·종료 코드가 기본 빌드의 기대값과 같아야 한다")
     passed = failed = 0
     for d in dirs:
         name, ok, info = run_test(d, verbose)
@@ -277,8 +299,9 @@ def selfhost_exe_stage(exe, build_dir):
         for x in (ref_exe, self_exe):
             if os.path.exists(x):
                 os.remove(x)
-        want = subprocess.run([sys.executable, GEULC, f, "-o", ref_exe], capture_output=True)
-        got = subprocess.run([exe, f, "-o", self_exe], capture_output=True, stdin=subprocess.DEVNULL, timeout=120, env=env)
+        o = test_opts(f)
+        want = subprocess.run([sys.executable, GEULC, f, "-o", ref_exe] + o, capture_output=True)
+        got = subprocess.run([exe, f, "-o", self_exe] + o, capture_output=True, stdin=subprocess.DEVNULL, timeout=120, env=env)
         n += 1
         rel = os.path.relpath(f, ROOT)
         if want.returncode != got.returncode or not os.path.exists(self_exe):
@@ -343,12 +366,15 @@ def cmd_selfhost(args):
         if opt is None:
             failed += selfhost_exe_stage(exe, build_dir)
             failed += selfhost_calls_stage(exe)
+            failed += selfhost_cli_stage(exe, build_dir)
             continue
         n = 0
         for f in selfhost_inputs():
-            want = subprocess.run([sys.executable, GEULC, opt, f], capture_output=True)
+            # 토큰·구문 덤프는 옵션과 무관하다. IR 은 --핫스왑 이면 달라지므로(교체 허용, 인라인 끔) 그 옵션을 양쪽에 준다.
+            o = [x for x in test_opts(f) if x in IR_OPTS] if name == "IR덤프" else []
+            want = subprocess.run([sys.executable, GEULC, opt, f] + o, capture_output=True)
             env = dict(os.environ, GEUL_ROOT=ROOT)
-            got = subprocess.run([exe, f], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
+            got = subprocess.run([exe] + o + [f], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
             w = want.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
             g = got.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
             n += 1
@@ -371,11 +397,12 @@ def cmd_selfhost(args):
             nn = 0
             for f in selfhost_inputs(negative=True):
                 env = dict(os.environ, GEUL_ROOT=ROOT)
-                got = subprocess.run([exe, f], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
+                o = [x for x in test_opts(f) if x in IR_OPTS]
+                got = subprocess.run([exe] + o + [f], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
                 err = got.stderr.decode("utf-8", "replace")
                 want = [l.strip() for l in open(os.path.join(os.path.dirname(f), "expect.errors"), encoding="utf-8") if l.strip()]
                 missing = [w for w in want if w not in err]
-                ref = subprocess.run([sys.executable, GEULC, f, "-o", os.path.join(build_dir, "neg_ref.exe")], capture_output=True)
+                ref = subprocess.run([sys.executable, GEULC, f, "-o", os.path.join(build_dir, "neg_ref.exe")] + test_opts(f), capture_output=True)
                 ref_line = (ref.stdout + ref.stderr).decode("utf-8", "replace").strip().splitlines()[:1]
                 self_line = err.strip().splitlines()[:1]
                 nn += 1
@@ -394,8 +421,9 @@ def selfhost_calls_stage(exe):
     n = 0
     env = dict(os.environ, GEUL_ROOT=ROOT)
     for f in selfhost_inputs():
-        want = subprocess.run([sys.executable, GEULC, f, "--dump-calls"], capture_output=True)
-        got = subprocess.run([exe, f, "--dump-calls"], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
+        o = test_opts(f)
+        want = subprocess.run([sys.executable, GEULC, f, "--dump-calls"] + o, capture_output=True)
+        got = subprocess.run([exe, f, "--dump-calls"] + o, capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
         w = want.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
         g = got.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
         n += 1
@@ -412,8 +440,9 @@ def selfhost_calls_stage(exe):
     print(f"[컴파일러] 호출 색인 비교 {n}개, 불일치 {bad}개")
     bad2 = 0
     for f in selfhost_inputs():
-        want = subprocess.run([sys.executable, GEULC, f, "--dump-risky"], capture_output=True)
-        got = subprocess.run([exe, f, "--dump-risky"], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
+        o = test_opts(f)
+        want = subprocess.run([sys.executable, GEULC, f, "--dump-risky"] + o, capture_output=True)
+        got = subprocess.run([exe, f, "--dump-risky"] + o, capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
         w = want.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
         g = got.stdout.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
         if w != g:
@@ -421,6 +450,48 @@ def selfhost_calls_stage(exe):
             print(f"  DIFF  {os.path.relpath(f, ROOT)} 위험 보고")
     print(f"[컴파일러] 위험 보고 비교 {n}개, 불일치 {bad2}개")
     return bad + bad2
+
+
+def selfhost_cli_stage(exe, build_dir):
+    """배포되는 컴파일러의 명령줄 (명세 6절): --dump-ir 와 --check 가 참조 구현과 같은가."""
+    bad = 0
+    env = dict(os.environ, GEUL_ROOT=ROOT)
+
+    def norm(b):
+        return b.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
+
+    # --dump-ir: 덤프 드라이버 대신 컴파일러로. 옵션이 있는 테스트(핫스왑)와 컴파일러 자신
+    ir_inputs = [f for f in selfhost_inputs() if test_opts(f)] + [os.path.join(ROOT, "self", "컴파일러.gl")]
+    for f in ir_inputs:
+        o = test_opts(f)
+        want = subprocess.run([sys.executable, GEULC, f, "--dump-ir"] + o, capture_output=True)
+        got = subprocess.run([exe, f, "--dump-ir"] + o, capture_output=True, stdin=subprocess.DEVNULL, timeout=60, env=env)
+        if norm(want.stdout) != norm(got.stdout) or want.returncode != got.returncode:
+            bad += 1
+            print(f"  DIFF  {os.path.relpath(f, ROOT)} --dump-ir (ref rc={want.returncode}, self rc={got.returncode})")
+    # --check: 부정 테스트는 종료 코드 1 과 같은 첫 오류 줄, 맞는 프로그램은 0 이고 출력 파일을 만들지 않는다
+    negs = selfhost_inputs(negative=True)
+    for f in negs:
+        o = test_opts(f)
+        want = subprocess.run([sys.executable, GEULC, f, "--check"] + o, capture_output=True)
+        got = subprocess.run([exe, f, "--check"] + o, capture_output=True, stdin=subprocess.DEVNULL, timeout=60, env=env)
+        wl = norm(want.stdout + want.stderr).splitlines()[:1]
+        gl = norm(got.stdout + got.stderr).splitlines()[:1]
+        if got.returncode != 1 or want.returncode != 1 or wl != gl:
+            bad += 1
+            print(f"  DIFF  {os.path.relpath(f, ROOT)} --check (ref rc={want.returncode}, self rc={got.returncode})")
+            print("        ref :", wl)
+            print("        self:", gl)
+    probe = os.path.join(build_dir, "check_probe.exe")
+    if os.path.exists(probe):
+        os.remove(probe)
+    r = subprocess.run([exe, os.path.join(ROOT, "self", "컴파일러.gl"), "--check", "-o", probe],
+                       capture_output=True, stdin=subprocess.DEVNULL, timeout=60, env=env)
+    if r.returncode != 0 or os.path.exists(probe):
+        bad += 1
+        print(f"  DIFF  --check 가 맞는 프로그램에서 rc={r.returncode}, 출력 파일 {'있음' if os.path.exists(probe) else '없음'}")
+    print(f"[컴파일러] 명령줄: --dump-ir {len(ir_inputs)}개, --check 부정 {len(negs)}개 + 긍정 1개, 불일치 {bad}개")
+    return bad
 
 
 def doc_examples(path):
