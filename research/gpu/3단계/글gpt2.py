@@ -191,13 +191,9 @@ class _띄움:
 
 # ── 모델 ─────────────────────────────────────────────────────────────────────────────────────
 
-# 선형 커널의 판(RM 행 × RN 열 × TX) — 판마다 블록이 맡는 칸의 수만 다르고 더하는 순서는 같다(선형생성.py). 그래서 행 수에 따라
-# 빠른 판을 골라도 칸마다 비트가 같다. 고른 기준은 재서 정했다(행 하나: 1x1x32, 16행까지: 4x4x32, 그 위: 8x4x32).
-선형판 = {"하나": (1, 1, 32), "작음": (4, 4, 32), "큼": (8, 4, 32)}
-
-
-def 선형판골라(rows):
-    return 선형판["하나"] if rows == 1 else 선형판["작음"] if rows <= 16 else 선형판["큼"]
+# 선형 커널의 판 — 판마다 블록이 맡는 칸의 수와 옮기는 방법만 다르고 더하는 순서는 같다(커널생성.py 의 약속). 그래서 행 수에 따라
+# 빠른 판을 골라도 칸마다 비트가 같다. 행 하나: 줄선형1, 넷까지: 줄선형4, 그 위: 타일 판 셋 중 처음 한 번 재서 가장 빠른 것.
+#   타일선형넷 — 열수가 64 의 배수(가중치를 16 바이트씩 옮긴다), 작은타일선형 — 열수가 32 의 배수, 타일선형 — 어느 열수든.
 
 
 class 글GPT2:
@@ -209,10 +205,12 @@ class 글GPT2:
             subprocess.run([sys.executable, os.path.join(ROOT, "research", "gpu", "글ptx.py"), os.path.join(HERE, gl),
                             "-o", ptx], check=True, capture_output=True)
             return dr.모듈(open(ptx, "rb").read())
-        self.mods = [build("gpt2.gl"), build("선형.gl")]
-        self.k = {n: dr.함수(self.mods[0], n) for n in ("임베딩", "층정규화", "KV저장", "어텐션", "가장큰번호")}
-        self.선형 = {(판, epi): dr.함수(self.mods[1], f"선형{판[0]}x{판[1]}x{판[2]}{epi}")
-                    for 판 in set(선형판.values()) for epi in ("", "_잔차", "_겔루")}
+        self.mods = [build("gpt2.gl"), build("커널.gl")]
+        self.k = {n: dr.함수(self.mods[0], n) for n in ("임베딩", "층정규화", "가장큰번호")}
+        self.k.update({n: dr.함수(self.mods[1], n) for n in ("줄어텐션", "타일어텐션")})
+        self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}")
+                    for 판 in ("줄선형1", "깊은줄선형1", "줄선형4", "타일선형", "타일선형넷", "작은타일선형")
+                    for epi in ("", "_잔차", "_겔루", "_KV")}
         self.최대행, self.최대문장, self.최대길이 = 최대행, 최대문장, 최대길이
 
         def up(a):
@@ -232,15 +230,23 @@ class 글GPT2:
         self.lnf_g, self.lnf_b = up(w["ln_f.weight"]), up(w["ln_f.bias"])
         M = 최대행
         self.h, self.x = dr.할당(M * D * 4), dr.할당(M * D * 4)
-        self.qkv, self.att = dr.할당(M * 3 * D * 4), dr.할당(M * D * 4)
+        self.q, self.att = dr.할당(M * D * 4), dr.할당(M * D * 4)
         self.fc = dr.할당(M * 4 * D * 4)
         self.logits = dr.할당(M * V * 4)
+        self.시험칸 = dr.할당(M * V * 4)        # 판 고르기의 출력 (진짜 버퍼를 건드리지 않게)
         kv = 최대문장 * 최대길이 * D * 4
         self.kc = [dr.할당(kv) for _ in range(NL)]
         self.vc = [dr.할당(kv) for _ in range(NL)]
         self.토큰칸 = dr.할당(M * 8)            # 이번에 넣을 토큰
         self.생성칸 = dr.할당(4096 * 8)         # 가장큰번호가 쓰는 자리 (생성할 때)
         self._계획 = {}
+        self._고른판 = {}
+        self.미리읽기 = True                    # 줄 판이 끝에서 다음 줄 판의 가중치를 L2 로 미리 읽는다(값과는 상관없다)
+        cu = dr.cu
+        cu.cuEventCreate.argtypes = [ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint]
+        cu.cuEventRecord.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        cu.cuEventSynchronize.argtypes = [ctypes.c_void_p]
+        cu.cuEventElapsedTime.argtypes = [ctypes.POINTER(ctypes.c_float), ctypes.c_void_p, ctypes.c_void_p]
 
     def 오류칸(self):
         """두 모듈의 오류 칸(2c 범위 검사)을 OR 한 값 — 0 이어야 한다."""
@@ -250,6 +256,50 @@ class 글GPT2:
             self.dr.확인(self.dr.cu.cuModuleGetGlobal_v2(ctypes.byref(p), ctypes.byref(n), mod, b"__geul_err"))
             err |= int(self.dr.내리기(p.value, np.zeros(1, np.uint32))[0])
         return err
+
+    @staticmethod
+    def _격자(판, rows, N):
+        if 판 in ("줄선형1", "깊은줄선형1", "줄선형4"):
+            return ((N + 31) // 32, 1), (128, 1)
+        if 판 == "작은타일선형":
+            return ((rows + 31) // 32, (N + 31) // 32), (256, 1)
+        return ((rows + 63) // 64, (N + 63) // 64), (256, 1)
+
+    def _판(self, src, wt, b, rows, K, N):
+        """행 수에 맞는 선형 판. 타일 판은 (행, 깊이, 열) 마다 처음 한 번 재서 가장 빠른 것 — 비트는 어느 판이든 같다.
+        재는 동안에는 끝손질 없는 판으로 시험칸에만 쓴다(캐시·잔차를 건드리지 않게)."""
+        if rows == 1:                        # 열이 적으면 사슬이 적다 — 사슬마다 48 개씩 미리 읽는 판(재서 정함)
+            return "깊은줄선형1" if N <= 1024 else "줄선형1"
+        if rows <= 4:
+            return "줄선형4"
+        key = (rows, K, N)
+        if key not in self._고른판:
+            후보 = ["타일선형"] + (["타일선형넷"] if N % 64 == 0 else []) + (["작은타일선형"] if N % 32 == 0 else [])
+            cu, best = self.dr.cu, None
+            for 판 in 후보:
+                ps = [c_u64(src), c_u64(wt), c_u64(b), c_u64(self.시험칸), c_i64(rows), c_i64(K), c_i64(N)]
+                x = _띄움(self.선형[(판, "")], *self._격자(판, rows, N), ps)
+                run = lambda: cu.cuLaunchKernel(x.fn, x.grid[0], x.grid[1], 1, x.block[0], x.block[1], 1, 0, None, x.args, None)
+                run()
+                ts = []
+                for _ in range(5):
+                    e0, e1 = ctypes.c_void_p(), ctypes.c_void_p()
+                    cu.cuEventCreate(ctypes.byref(e0), 0)
+                    cu.cuEventCreate(ctypes.byref(e1), 0)
+                    cu.cuEventRecord(e0, None)
+                    run()
+                    cu.cuEventRecord(e1, None)
+                    cu.cuEventSynchronize(e1)
+                    ms = ctypes.c_float()
+                    cu.cuEventElapsedTime(ctypes.byref(ms), e0, e1)
+                    ts.append(ms.value)
+                    cu.cuEventDestroy_v2(e0)
+                    cu.cuEventDestroy_v2(e1)
+                t = sorted(ts)[2]
+                if best is None or t < best[0]:
+                    best = (t, 판)
+            self._고른판[key] = best[1]
+        return self._고른판[key]
 
     def _만들기(self, B, m, 로짓):
         """문장 B 개 × m 행의 한 번 계산. 로짓: "전부"(모든 행), "끝"(문장마다 마지막 행 + 가장큰번호)."""
@@ -262,17 +312,32 @@ class 글GPT2:
         L = []
         e = (M * D + 255) // 256
         L.append(_띄움(k["임베딩"], (e, 1), (256, 1), [tok, P(self.wte), P(self.wpe), P(self.h), I(M), I(m), pos]))
-        def lin(epi, src, wt, b, dst, K, N, extra=(), rows=M):
-            RM, RN, TX = 판 = 선형판골라(rows)
-            return _띄움(self.선형[(판, epi)], ((rows + RM - 1) // RM, (N + TX * RN - 1) // (TX * RN)), (TX, 16),
-                         [P(src), P(wt), P(b)] + [P(x) for x in extra] + [P(dst), I(rows), I(K), I(N)])
+
+        줄들 = []                                  # 줄 판(행 넷까지)의 실행 — 끝에서 다음 줄 판의 가중치를 미리 읽게 잇는다
+
+        def lin(epi, src, wt, b, dst, K, N, extra=(), rows=M, kv=None):
+            판 = self._판(src, wt, b, rows, K, N)
+            ps = [P(src), P(wt), P(b)] + [P(x) for x in extra] + [P(dst), I(rows), I(K), I(N)]
+            if kv is not None:
+                ps += [I(m), pos, I(self.최대길이)]
+            if 판 in ("줄선형1", "깊은줄선형1", "줄선형4"):
+                ps += [P(0), I(0)]
+                x = _띄움(self.선형[(판, epi)], *self._격자(판, rows, N), ps)
+                줄들.append((x, wt, K * N))
+                return x
+            return _띄움(self.선형[(판, epi)], *self._격자(판, rows, N), ps)
+
+        if m >= 16:
+            어텐션 = lambda l: _띄움(k["타일어텐션"], (NH, B * ((m + 15) // 16)), (256, 1),
+                                 [P(self.q), P(self.kc[l]), P(self.vc[l]), P(self.att), I(m), pos, I(self.최대길이)])
+        else:
+            어텐션 = lambda l: _띄움(k["줄어텐션"], (NH, M), (256, 1),
+                                 [P(self.q), P(self.kc[l]), P(self.vc[l]), P(self.att), I(m), pos, I(self.최대길이)])
         for l, w in enumerate(self.층):
             L.append(_띄움(k["층정규화"], (M, 1), (256, 1), [P(self.h), P(w["ln_1.weight"]), P(w["ln_1.bias"]), P(self.x)]))
-            L.append(lin("", self.x, w["attn.c_attn.weight"], w["attn.c_attn.bias"], self.qkv, D, 3 * D))
-            L.append(_띄움(k["KV저장"], (e, 1), (256, 1),
-                           [P(self.qkv), P(self.kc[l]), P(self.vc[l]), I(M), I(m), pos, I(self.최대길이)]))
-            L.append(_띄움(k["어텐션"], (NH, M), (256, 1),
-                           [P(self.qkv), P(self.kc[l]), P(self.vc[l]), P(self.att), I(m), pos, I(self.최대길이)]))
+            L.append(lin("_KV", self.x, w["attn.c_attn.weight"], w["attn.c_attn.bias"], self.q, D, 3 * D,
+                         (self.kc[l], self.vc[l]), kv=True))
+            L.append(어텐션(l))
             L.append(lin("_잔차", self.att, w["attn.c_proj.weight"], w["attn.c_proj.bias"], self.h, D, D, (self.h,)))
             L.append(_띄움(k["층정규화"], (M, 1), (256, 1), [P(self.h), P(w["ln_2.weight"]), P(w["ln_2.bias"]), P(self.x)]))
             L.append(lin("_겔루", self.x, w["mlp.c_fc.weight"], w["mlp.c_fc.bias"], self.fc, D, 4 * D))
@@ -289,6 +354,9 @@ class 글GPT2:
                     L.append(lin("", self.x + (b * m + m - 1) * D * 4, self.wteT, self.영치우침, self.logits + b * V * 4,
                                  D, V, rows=1))
             L.append(_띄움(k["가장큰번호"], (B, 1), (256, 1), [P(self.logits), out, I(1), I(V)]))
+        if self.미리읽기:
+            for (x, _, _), (_, wt, n) in zip(줄들, 줄들[1:]):
+                x.params[-2].value, x.params[-1].value = wt, n
         return pos, tok, out, L
 
     def 계산(self, B, m, 위치시작, 로짓="전부", 토큰자리=None, 출력자리=None):

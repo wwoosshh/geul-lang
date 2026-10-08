@@ -24,6 +24,7 @@
 """
 import io
 import os
+import re
 import struct
 import sys
 
@@ -44,6 +45,10 @@ SHARED_BYTES = 4096
 # 3단계: 여러 행을 한 블록이 맡는 선형 커널의 가닥 합치기 칸 — 16384 바이트 하나. 앞의 넷은 크기를 바꾸지 않는다(2단계의 잰 값 그대로).
 SHARED["큰공유메모리"] = "__geul_bsm"
 SHARED_SIZE = {name: (16384 if name == "큰공유메모리" else SHARED_BYTES) for name in SHARED}
+# 3단계 성능: 공유판N — N KB 짜리 판 하나(N = 4, 8, …, 48). 커널이 필요한 만큼만 잡는다(블록당 정적 공유 메모리는 48 KB 까지).
+for _kb in range(4, 49, 4):
+    SHARED[f"공유판{_kb}"] = f"__geul_pan{_kb}"
+    SHARED_SIZE[f"공유판{_kb}"] = _kb * 1024
 # 2c: 실수 → 정수, 실수 → 짧은실수 변환의 범위 검사. 넘으면 모듈의 오류 칸 __geul_err 에 비트를 켠다(1 정수, 2 짧은실수) —
 # 호스트가 실행 뒤에 읽는다. 조용한 값이 없다. (끄는 것은 재기 도구가 검사의 비용을 잴 때만 한다.)
 RANGE_CHECK = True
@@ -51,6 +56,11 @@ RANGE_CHECK = True
 # 나눗셈은 소프트웨어로 돌아서 비싸다. 곱셈·주소 계산도 좁혀 봤지만, 드라이버 컴파일러가 반복 변수의 곱을 덧셈으로 바꾸는
 # 최적화와 겹쳐 이득이 없거나 오히려 느려졌다(타일 행렬곱 2.29 → 2.98 ms) — 그래서 좁히지 않는다. 끄는 것은 재기 도구만.
 WIDTH_PROOF = True
+# 3단계 성능: a[x + 상수] 의 상수를 메모리 명령의 즉시 오프셋으로 접는다(주소 계산만 줄고 값은 그대로). 끄는 것은 재기 도구만.
+FOLD_OFFSETS = True
+# 3단계 성능: 공유 메모리 판에서 4 의 배수 자리부터 네 칸을 차례로 읽으면 ld.shared.v4 하나로(값은 그대로). 끄는 것은 재기 도구만.
+VECTOR_LOADS = True
+LAUNCH_BOUNDS = {}                               # 커널 이름 -> (블록당 스레드 수, SM 당 블록 수) — 소스의 실행한도 주석에서
 
 
 def flit(x, t):
@@ -61,7 +71,17 @@ def flit(x, t):
 # 2g: 곱해더하기(x, y, z) = x × y + z 를 반올림 한 번으로(fma.rn). 소스가 이 낱말로 밝힐 때만 합친다 — `x * y + z` 는 늘 두 번 반올림.
 # 3단계: 근사지수(x) ≈ e^x — 근사 명령 ex2.approx 를 쓴다(소스가 이 낱말로 근사를 밝힐 때만, PTX 계약 P2). 제곱근(x) 은 정확한
 # 반올림(sqrt.rn). 큰쪽(a, b) 은 max(한쪽이 NaN 이면 다른 쪽).
-INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기", "근사지수", "제곱근", "큰쪽") + tuple(BLOCK_REGS) + tuple(SHARED)
+# 3단계 성능: 비동기복사(판, i, 원본, j) — 판[i] ← 원본[j] 를 비동기로(cp.async, 4 바이트, sm_80 부터). 비동기묶기() 는 지금까지의
+# 복사를 한 묶음으로, 비동기기다리기(n) 은 끝나지 않은 묶음이 n 개 이하가 될 때까지 기다린다(n 은 상수). 값은 그대로 옮겨질 뿐이다 —
+# 다음 조각을 레지스터 없이 미리 읽어 두려고 쓴다. 다른 스레드가 쓴 칸을 읽으려면 그 뒤에 동기화가 있어야 한다.
+# 비동기복사16 은 네 칸(16 바이트)을 한 번에 — 두 주소가 16 바이트 정렬이어야 한다(부르는 쪽의 약속; 어기면 실행 오류로 멈춘다,
+# 조용히 틀리지 않는다).
+ASYNC = ("비동기복사", "비동기복사16", "비동기묶기", "비동기기다리기")
+# 미리읽기(원본, j): 원본[j] 가 든 줄을 L2 캐시로 미리 불러 둔다(prefetch.global.L2). 값을 읽지도 바꾸지도 않는다 — 다음 커널이 읽을
+# 가중치를 지금 커널의 끝에서 불러 두어 메모리가 쉬지 않게 하려고 쓴다.
+PREFETCH = ("미리읽기",)
+INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기", "근사지수", "제곱근", "큰쪽") + tuple(BLOCK_REGS) + tuple(SHARED) + ASYNC + \
+    PREFETCH
 
 
 class PTXError(Exception):
@@ -198,6 +218,8 @@ class FuncPTX:
         self.space = self.address_spaces()
         self.rng = self.ranges() if WIDTH_PROOF else {}
         self.narrowed = {"나눗셈·나머지": 0}
+        self.addr_off = self.fold_offsets() if FOLD_OFFSETS else {}
+        self.vec_lead, self.vec_skip = self.vector_loads() if (VECTOR_LOADS and FOLD_OFFSETS) else ({}, set())
 
     def address_spaces(self):
         """2a: 임시값의 주소 공간. 규칙 — 커널의 참조 매개변수는 전역 메모리를 가리키고, 거기서 나온 주소(색인·필드·복사)도
@@ -237,6 +259,219 @@ class FuncPTX:
             return {}
         self.global_params = {v for v, s in var_src.items() if v in params and s == {"global"}}
         return {t: s for t, s in temp.items() if s in ("global", "shared")}
+
+    def fold_offsets(self):
+        """3단계 성능: a[x + c] 의 상수 c 를 메모리 명령의 즉시 오프셋으로 접는다 — 주소 = (a + x·크기) + c·크기.
+        색인 주소가 load/store 의 자리로만 쓰일 때만 접는다(값으로 새면 그 주소가 c 를 빠뜨리므로). 값은 그대로다."""
+        insts = self.f.insts
+        defs, ndef = {}, {}
+        for i in insts:
+            d = getattr(i, "dst", None)
+            if d is not None:
+                defs[d] = i
+                ndef[d] = ndef.get(d, 0) + 1
+        self.ndef = ndef
+        one = lambda t: ndef.get(t, 0) == 1              # IR 의 임시값은 슬롯이라 여러 번 대입될 수 있다 — 하나뿐일 때만 믿는다
+        uses = {}
+        for i in insts:
+            for fld in USE_FIELDS + ("args",):
+                v = getattr(i, fld, None)
+                for t in (v if isinstance(v, (list, tuple)) else [v]):
+                    if t is not None:
+                        uses.setdefault(t, []).append((i, fld))
+        out = {}
+        for i in insts:
+            if i.op != "index_addr" or width(i.idx.type) != 64:
+                continue
+            if not all(u.op in ("load", "store") and fld == "addr" for u, fld in uses.get(i.dst, [])):
+                continue
+            d = defs.get(i.idx)
+            if d is None or not one(i.idx) or d.op != "bin" or d.bop not in ("add", "sub") or not (one(d.a) and one(d.b)):
+                continue
+            ca, cb = defs.get(d.a), defs.get(d.b)
+            if cb is not None and cb.op == "const":
+                x, c = d.a, int(cb.value) if d.bop == "add" else -int(cb.value)
+            elif ca is not None and ca.op == "const" and d.bop == "add":
+                x, c = d.b, int(ca.value)
+            else:
+                continue
+            off = c * i.size
+            if -(1 << 23) <= off < (1 << 23):
+                out[i.dst] = (x, off)
+        return out
+
+    def trailing_zeros(self):
+        """3단계 성능: 정수 값이 2^k 의 배수임을 증명한다(k = 끝의 0 비트 수). 근거는 상수와 연산의 규칙뿐 — 매개변수·메모리에서
+        읽은 값·스레드 번호는 0 (모름). 변수는 모든 대입의 최솟값(흐름을 보지 않는다), 줄어들기만 하므로 끝난다."""
+        insts = self.f.insts
+        ivars = {v for v in self.regvar if v.type.is_int()}
+        params = {sym for sym, _ in self.f.params}
+        tzv = {v: (0 if v in params else 64) for v in ivars}
+        tz = {}
+        ctz = lambda c: 64 if c == 0 else ((c & -c).bit_length() - 1)
+        T = lambda t: tz.get(t, 64)                      # 아직 구하지 않은 값은 위(64)에서 시작해 내려온다 — 가장 큰 고정점
+        for _ in range(200):
+            changed = False
+            new = {}
+            for i in insts:
+                d = getattr(i, "dst", None)
+                if d is None or not d.type.is_int():
+                    continue
+                op = i.op
+                if op == "const":
+                    r = ctz(int(i.value) & ((1 << 64) - 1))
+                elif op == "load" and self.addr_of.get(i.addr) in tzv:
+                    r = tzv[self.addr_of[i.addr]]
+                elif op == "copy" and i.src.type.is_int():
+                    r = T(i.src)
+                elif op == "cast" and i.kind in ("sext", "zext", "trunc") and i.src.type.is_int():
+                    r = min(T(i.src), width(d.type))
+                elif op == "bin":
+                    a, b = T(i.a), T(i.b)
+                    if i.bop in ("add", "sub", "or", "xor"):
+                        r = min(a, b)
+                    elif i.bop == "mul":
+                        r = min(64, a + b)
+                    elif i.bop == "and":
+                        r = max(a, b)
+                    elif i.bop == "shl" and self.defs_c.get(i.b) is not None:
+                        r = min(64, a + self.defs_c[i.b])
+                    else:
+                        r = 0
+                else:
+                    r = 0
+                new[d] = min(new.get(d, 64), r)             # 여러 번 대입되는 임시값은 모든 대입의 최솟값
+            for t, r in new.items():
+                if tz.get(t) != r:
+                    tz[t] = r
+                    changed = True
+            for i in insts:
+                if i.op == "store" and self.addr_of.get(i.addr) in tzv:
+                    v = self.addr_of[i.addr]
+                    r = min(tzv[v], tz.get(i.src, 0) if i.src.type.is_int() else 0)
+                    if r != tzv[v]:
+                        tzv[v] = r
+                        changed = True
+            if not changed:
+                break
+        self.tzv = tzv
+        return tz
+
+    def vector_loads(self):
+        """3단계 성능: 같은 기본 블록에서 a[x+c], a[x+c+1], a[x+c+2], a[x+c+3] 을 차례로 읽는 짧은실수 넷을 ld.shared.v4 하나로 낸다.
+        조건 — a 는 공유 메모리 판의 시작(16 바이트 정렬), x 는 4 의 배수(증명), c 는 4 의 배수, 넷 사이에 메모리 쓰기·동기화·호출이
+        없다. 값은 그대로다(같은 네 칸을 한 명령으로 읽을 뿐)."""
+        insts = self.f.insts
+        consts = {i.dst: int(i.value) for i in insts if i.op == "const" and self.ndef.get(i.dst) == 1}
+        self.defs_c = consts
+        tz = self.trailing_zeros()
+        defs = {i.dst: i for i in insts if getattr(i, "dst", None) is not None}
+        lead, skip = {}, set()
+        # 함수 전체에서 한 번만 대입되는 포인터 변수가 공유 메모리 내장의 값이면, 어느 블록에서 읽어도 그 판의 시작이다
+        calls = {i.dst: i.callee for i in insts if i.op == "call" and i.extern and i.callee in SHARED
+                 and getattr(i, "dst", None) is not None}
+        stores = {}
+        for i in insts:
+            if i.op == "store" and self.addr_of.get(i.addr) in self.regvar:
+                stores.setdefault(self.addr_of[i.addr], []).append(i)
+        fixed = {v: ("판", calls[st[0].src]) for v, st in stores.items() if len(st) == 1 and st[0].src in calls}
+        version = {}                                      # 레지스터 변수 -> 이 블록에서의 판
+        key = {}                                          # 임시값 -> 값의 열쇠 (같은 블록 안에서)
+        run = []                                          # 지금 이어지는 후보 (load 명령, 열쇠, 바이트 오프셋)
+
+        def flush():
+            k = 0
+            while k + 4 <= len(run):
+                (i0, k0, o0) = run[k]
+                ok = o0 % 16 == 0 and all(run[k + e][1] == k0 and run[k + e][2] == o0 + 4 * e for e in range(1, 4))
+                if ok:
+                    lead[i0] = [run[k + e][0].dst for e in range(4)]
+                    for e in range(1, 4):
+                        skip.add(run[k + e][0])
+                    k += 4
+                else:
+                    k += 1
+            run.clear()
+
+        for i in insts:
+            op = i.op
+            memstore = op == "store" and self.addr_of.get(i.addr) not in self.regvar
+            if op in ("label", "jmp", "br", "ret", "call", "copy_mem", "swap") or memstore:
+                flush()
+                if op in ("label", "jmp", "br", "ret"):
+                    version.clear()
+                    key.clear()
+                if op == "call" and getattr(i, "dst", None) is not None and i.extern and i.callee in SHARED:
+                    key[i.dst] = ("판", i.callee)
+                continue
+            if op == "store":                              # 레지스터 변수에 대입 — 판이 바뀐다
+                v = self.addr_of[i.addr]
+                version[v] = version.get(v, 0) + 1
+                if i.src in key and v.type.is_ptr():
+                    key[("var", v, version[v])] = key[i.src]
+                continue
+            d = getattr(i, "dst", None)
+            if d is None:
+                continue
+            if op == "load" and self.addr_of.get(i.addr) in self.regvar:
+                v = self.addr_of[i.addr]
+                vk = ("var", v, version.get(v, 0))
+                key[d] = fixed[v] if v in fixed else key.get(vk, vk)
+            elif op == "const" and self.ndef.get(d) == 1:
+                key[d] = ("c", int(i.value))
+            elif op == "bin" and i.a in key and i.b in key:
+                key[d] = (i.bop, key[i.a], key[i.b])
+            elif op == "copy" and i.src in key:
+                key[d] = key[i.src]
+            elif op == "load" and self.mem(i.addr) == ".shared" and d.type.is_float() and d.type.bits == 32:
+                ia = defs.get(i.addr)
+                if ia is None or ia.op != "index_addr" or ia.size != 4 or self.ndef.get(i.addr) != 1:
+                    flush()
+                    continue
+                x, off = self.addr_off.get(i.addr, (ia.idx, 0))
+                bk = key.get(ia.base)
+                if bk is None or bk[0] != "판" or x not in key or tz.get(x, 0) < 2:
+                    flush()
+                    continue
+                run.append((i, (bk, key[x]), off))
+            else:
+                key.pop(d, None)
+        flush()
+        return lead, skip
+
+    def split_const(self, t):
+        """t 가 (x + 상수) 또는 (상수 + x) 로 한 번만 대입됐으면 (x, 상수), 아니면 (t, 0). x 도 한 번만 대입된 것이어야 한다."""
+        d = None
+        for i in self.f.insts:
+            if getattr(i, "dst", None) is t:
+                if d is not None:
+                    return t, 0
+                d = i
+        if d is None or d.op != "bin" or d.bop != "add" or self.ndef.get(d.a) != 1 or self.ndef.get(d.b) != 1:
+            return t, 0
+        for x, c in ((d.a, d.b), (d.b, d.a)):
+            cv = self.const_of(c)
+            if cv is not None and -(1 << 20) <= cv < (1 << 20):
+                return x, cv
+        return t, 0
+
+    def const_of(self, t):
+        """임시값이 한 번만 대입된 정수 상수면 그 값."""
+        for i in self.f.insts:
+            if getattr(i, "dst", None) is t:
+                if i.op == "const":
+                    return int(i.value)
+                if i.op == "cast" and i.kind in ("sext", "zext", "trunc"):
+                    return self.const_of(i.src)
+                return None
+        return None
+
+    def at(self, addr):
+        """메모리 명령의 주소 자리: 접은 상수가 있으면 [reg+off]."""
+        x = self.addr_off.get(addr)
+        if x is None or x[1] == 0:
+            return f"[{self.r(addr)}]"
+        return f"[{self.r(addr)}+{x[1]}]"                 # 음수는 [reg+-n] (PTX 의 꼴)
 
     def mem(self, addr):
         """메모리 명령의 공간 접미사."""
@@ -416,7 +651,11 @@ class FuncPTX:
             raise PTXError(f"'{f.name}': 반환값이 있는 함수는 아직 받지 않는다 (커널은 반환값이 없다)")
         params = [f"    .param {mem_type(t) if not (t.is_int() and t.bits < 32) else ('.s32' if t.signed else '.u32')} p{k}"
                   for k, (_, t) in enumerate(f.params)]
-        out = [f"// kernel: {ptx_name(f.name)}", f".visible .entry {ptx_name(f.name)}(", ",\n".join(params), ")", "{"]
+        bounds = LAUNCH_BOUNDS.get(f.name)
+        out = [f"// kernel: {ptx_name(f.name)}", f".visible .entry {ptx_name(f.name)}(", ",\n".join(params), ")"]
+        if bounds:                             # 실행한도: 드라이버 컴파일러가 레지스터 수를 이 블록 수에 맞춘다
+            out += [f".maxntid {bounds[0]}, 1, 1", f".minnctapersm {bounds[1]}"]
+        out.append("{")
         if self.depot:
             out.append(f"    .local .align 8 .b8 __depot[{self.depot}];")
         out.append("    .reg .u64 %SPL, %SP;")
@@ -475,19 +714,26 @@ class FuncPTX:
             var = self.addr_of.get(i.addr)
             if var in self.regvar:
                 e(f"mov{reg_type(i.dst.type)} {self.r(i.dst)}, {self.regvar[var]};")
+            elif i in self.vec_lead:                   # 네 칸 묶어 읽기
+                regs = ", ".join(self.r(t) for t in self.vec_lead[i])
+                e(f"ld{self.mem(i.addr)}.v4{mem_type(i.dst.type)} {{{regs}}}, {self.at(i.addr)};")
+            elif i in self.vec_skip:                   # 앞의 묶음이 이미 읽었다
+                pass
             else:
-                e(f"ld{self.mem(i.addr)}{mem_type(i.dst.type)} {self.r(i.dst)}, [{self.r(i.addr)}];")
+                e(f"ld{self.mem(i.addr)}{mem_type(i.dst.type)} {self.r(i.dst)}, {self.at(i.addr)};")
         elif op == "store":
             var = self.addr_of.get(i.addr)
             if var in self.regvar:
                 e(f"mov{reg_type(var.type)} {self.regvar[var]}, {self.r(i.src)};")
             else:
-                e(f"st{self.mem(i.addr)}{mem_type(i.type)} [{self.r(i.addr)}], {self.r(i.src)};")
+                e(f"st{self.mem(i.addr)}{mem_type(i.type)} {self.at(i.addr)}, {self.r(i.src)};")
         elif op == "gep":
             e(f"add.s64 {self.r(i.dst)}, {self.r(i.base)}, {i.offset};")
         elif op == "index_addr":
             idx = self.r(i.idx)
-            if width(i.idx.type) == 32:
+            if i.dst in self.addr_off:                 # 상수는 메모리 명령의 오프셋으로 — 여기서는 a + x·크기
+                idx = self.r(self.addr_off[i.dst][0])
+            elif width(i.idx.type) == 32:
                 e(f"cvt{'.s64.s32' if i.idx.type.signed else '.u64.u32'} %X0, {idx};")
                 idx = "%X0"
             e(f"mad.lo.s64 {self.r(i.dst)}, {idx}, {i.size}, {self.r(i.base)};")
@@ -609,6 +855,30 @@ class FuncPTX:
         if name == "동기화":          # 블록 안의 모든 스레드가 여기까지 오고, 그 앞의 공유 메모리 쓰기가 보인다
             e("bar.sync 0;")
             return
+        if name in ("비동기복사", "비동기복사16"):   # 판[i] ← 원본[j]. 공유 주소는 32 비트로, 전역 주소는 전역 공간의 것
+            sp, si, gp, gi = i.args
+            (xs, cs), (xg, cg) = self.split_const(si), self.split_const(gi)     # i = x + c 면 c 는 주소의 즉시 오프셋으로
+            e(f"mad.lo.s64 %X1, {self.r(xs)}, 4, {self.r(sp)};")
+            e("cvt.u32.u64 %x1, %X1;")
+            e(f"mad.lo.s64 %X2, {self.r(xg)}, 4, {self.r(gp)};")
+            e(f"cp.async.ca.shared.global [%x1+{4 * cs}], [%X2+{4 * cg}], 4;" if name == "비동기복사" else
+              f"cp.async.cg.shared.global [%x1+{4 * cs}], [%X2+{4 * cg}], 16;")
+            return
+        if name == "미리읽기":
+            gp, gi = i.args
+            xg, cg = self.split_const(gi)
+            e(f"mad.lo.s64 %X2, {self.r(xg)}, 4, {self.r(gp)};")
+            e(f"prefetch.global.L2 [%X2+{4 * cg}];")
+            return
+        if name == "비동기묶기":
+            e("cp.async.commit_group;")
+            return
+        if name == "비동기기다리기":
+            d0 = self.const_of(i.args[0])
+            if d0 is None or d0 < 0:
+                raise PTXError("비동기기다리기 의 인자는 0 이상의 상수여야 한다")
+            e(f"cp.async.wait_group {d0};")
+            return
         if i.dst is None:
             raise PTXError(f"GPU 내장 '{name}' 의 값을 쓰지 않았다")
         d = self.r(i.dst)
@@ -643,14 +913,22 @@ class FuncPTX:
 
 
 def translate(src):
+    # 3단계 성능: 소스의 주석 `(* 실행한도 이름 스레드수 블록수 *)` — 그 커널을 블록당 그 스레드 수 이하로만 띄우고 SM 하나에
+    # 블록을 그만큼 올리겠다는 약속(PTX .maxntid·.minnctapersm). 드라이버 컴파일러가 레지스터 수를 거기에 맞춘다. 값과는 상관없다.
+    LAUNCH_BOUNDS.clear()
+    pat = r"\(\*\s*실행한도\s+(\S+)\s+(\d+)\s+(\d+)\s*\*\)"
+    for name, nt, nb in re.findall(pat, open(src, encoding="utf-8").read()):
+        LAUNCH_BOUNDS[name] = (int(nt), int(nb))
     program = load_program(src, os.path.join(ROOT, "표준"), auto_std=False)
     unit = sema.analyze(program, fragment=True)
     ir = inline.run(lower.lower_program(unit))
     kernels = [f for f in ir.functions if f.ret is None]
     if not kernels:
         raise PTXError("커널이 없다 — 반환값이 없는 함수가 커널이 된다")
+    # cp.async(비동기복사)는 sm_80 부터 — 쓰는 커널이 있을 때만 대상을 올린다
+    uses_async = any(i.op == "call" and i.extern and i.callee in ASYNC for f in kernels for i in f.insts)
     head = ["//", "// geul -> PTX probe (research/gpu/geulptx). ASCII only: Korean names are mangled as _G + UTF-8 hex.", "//",
-            ".version 7.0", ".target sm_52", ".address_size 64", "",
+            ".version 7.0", ".target sm_80" if uses_async else ".target sm_52", ".address_size 64", "",
             "// 2c: range-check error cell (bit 1: float->int out of range, bit 2: float64->float32 overflow)",
             ".visible .global .align 4 .u32 __geul_err;", ""]
     body = [FuncPTX(f).gen() for f in kernels]
