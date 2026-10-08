@@ -41,6 +41,9 @@ from geul.diagnostics import CompileError     # noqa: E402
 BLOCK_REGS = {"블록안가로": "%tid.x", "블록안세로": "%tid.y", "블록가로": "%ctaid.x", "블록세로": "%ctaid.y"}
 SHARED = {f"공유메모리{k}": f"__geul_sm{k}" for k in range(4)}      # 각 4096 바이트, 공유 메모리 공간의 주소를 돌려준다
 SHARED_BYTES = 4096
+# 3단계: 여러 행을 한 블록이 맡는 선형 커널의 가닥 합치기 칸 — 16384 바이트 하나. 앞의 넷은 크기를 바꾸지 않는다(2단계의 잰 값 그대로).
+SHARED["큰공유메모리"] = "__geul_bsm"
+SHARED_SIZE = {name: (16384 if name == "큰공유메모리" else SHARED_BYTES) for name in SHARED}
 # 2c: 실수 → 정수, 실수 → 짧은실수 변환의 범위 검사. 넘으면 모듈의 오류 칸 __geul_err 에 비트를 켠다(1 정수, 2 짧은실수) —
 # 호스트가 실행 뒤에 읽는다. 조용한 값이 없다. (끄는 것은 재기 도구가 검사의 비용을 잴 때만 한다.)
 RANGE_CHECK = True
@@ -56,7 +59,9 @@ def flit(x, t):
         return f"0f{struct.unpack('<I', struct.pack('<f', x))[0]:08X}"
     return f"0d{struct.unpack('<Q', struct.pack('<d', x))[0]:016X}"
 # 2g: 곱해더하기(x, y, z) = x × y + z 를 반올림 한 번으로(fma.rn). 소스가 이 낱말로 밝힐 때만 합친다 — `x * y + z` 는 늘 두 번 반올림.
-INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기") + tuple(BLOCK_REGS) + tuple(SHARED)
+# 3단계: 근사지수(x) ≈ e^x — 근사 명령 ex2.approx 를 쓴다(소스가 이 낱말로 근사를 밝힐 때만, PTX 계약 P2). 제곱근(x) 은 정확한
+# 반올림(sqrt.rn). 큰쪽(a, b) 은 max(한쪽이 NaN 이면 다른 쪽).
+INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기", "근사지수", "제곱근", "큰쪽") + tuple(BLOCK_REGS) + tuple(SHARED)
 
 
 class PTXError(Exception):
@@ -419,8 +424,9 @@ class FuncPTX:
         out.append("    .reg .u32 %x<4>;")
         out.append("    .reg .u64 %X<3>;")
         out.append("    .reg .b32 %w<3>;")
+        out.append("    .reg .f32 %fw<2>;")
         for name in sorted({i.callee for i in f.insts if i.op == "call" and i.extern and i.callee in SHARED}):
-            out.append(f"    .shared .align 16 .b8 {SHARED[name]}[{SHARED_BYTES}];")
+            out.append(f"    .shared .align 16 .b8 {SHARED[name]}[{SHARED_SIZE[name]}];")
         for t in f.temps:
             out.append(f"    .reg {reg_type(t.type)} {self.r(t)};")
         for v, reg in self.regvar.items():
@@ -609,6 +615,15 @@ class FuncPTX:
         if name == "곱해더하기":
             x, y, z = (self.r(a) for a in i.args)
             e(f"fma.rn{reg_type(i.dst.type)} {d}, {x}, {y}, {z};")
+        elif name == "근사지수":
+            if i.dst.type.bits != 32:
+                raise PTXError("근사지수는 짧은실수만 받는다")
+            e(f"mul.rn.f32 %fw0, {self.r(i.args[0])}, 0f3FB8AA3B;")      # x · log2(e)
+            e(f"ex2.approx.f32 {d}, %fw0;")
+        elif name == "제곱근":
+            e(f"sqrt.rn{reg_type(i.dst.type)} {d}, {self.r(i.args[0])};")
+        elif name == "큰쪽":
+            e(f"max{reg_type(i.dst.type)} {d}, {self.r(i.args[0])}, {self.r(i.args[1])};")
         elif name in BLOCK_REGS:
             e(f"mov.u32 %x1, {BLOCK_REGS[name]};")
             e(f"cvt.u64.u32 {d}, %x1;")
