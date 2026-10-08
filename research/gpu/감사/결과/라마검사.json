@@ -1,0 +1,310 @@
+{
+ "대상": "llama.cpp b11496 (win-cuda-13.4-x64)",
+ "결과": [
+  {
+   "성질": "행 불변",
+   "결과": "참고",
+   "세부": "mul_mat f32: 0번 열의 비트가 M=1 과 다른 M [4, 8, 16, 32, 64, 128, 256, 512], 최대차 0.00306",
+   "다른_M": [
+    4,
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    512
+   ],
+   "검사": "행불변-mm-f32",
+   "초": 0.8
+  },
+  {
+   "성질": "행 불변",
+   "결과": "참고",
+   "세부": "mul_mat f16: 0번 열의 비트가 M=1 과 다른 M [2, 3, 4, 8, 16, 32, 64, 128, 256, 512], 최대차 0.0308",
+   "다른_M": [
+    2,
+    3,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    512
+   ],
+   "검사": "행불변-mm-f16",
+   "초": 0.7
+  },
+  {
+   "성질": "행 불변",
+   "결과": "참고",
+   "세부": "mul_mat q8_0: 0번 열의 비트가 M=1 과 다른 M [8, 16, 32, 64, 128, 256, 512], 최대차 0.000767",
+   "다른_M": [
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    512
+   ],
+   "검사": "행불변-mm-q8_0",
+   "초": 0.7
+  },
+  {
+   "성질": "행 불변",
+   "결과": "참고",
+   "세부": "mul_mat q4_0: 0번 열의 비트가 M=1 과 다른 M [8, 16, 32, 64, 128, 256, 512], 최대차 0.0481",
+   "다른_M": [
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    512
+   ],
+   "검사": "행불변-mm-q4_0",
+   "초": 0.7
+  },
+  {
+   "성질": "행 불변",
+   "결과": "참고",
+   "세부": "rms_norm: 0번 행의 비트가 M=1 과 다른 M 없음",
+   "다른_M": [],
+   "검사": "행불변-rms_norm",
+   "초": 0.2
+  },
+  {
+   "성질": "행 불변",
+   "결과": "참고",
+   "세부": "soft_max: 0번 행의 비트가 M=1 과 다른 M 없음",
+   "다른_M": [],
+   "검사": "행불변-soft_max",
+   "초": 0.2
+  },
+  {
+   "성질": "정수 폭",
+   "결과": "통과",
+   "세부": "add f16 N1, 먼 자리 {0: 1.0, 2147483647: 1.0, 2147483648: 1.0, 2147495993: 1.0, 2148532223: 1.0}",
+   "검사": "정수폭-a-add",
+   "초": 2.3
+  },
+  {
+   "성질": "정수 폭",
+   "결과": "통과",
+   "세부": "transpose+cont f16 [65568, 32768], 틀린 표본 []",
+   "검사": "정수폭-b-cont",
+   "초": 1.8
+  },
+  {
+   "성질": "정수 폭",
+   "결과": "통과",
+   "세부": "soft_max f32 [1024, 2^19+1] 마지막 행: 그 행만 계산한 것과 상대차 0, 비트 같음 True",
+   "검사": "정수폭-c-soft_max",
+   "초": 3.5
+  },
+  {
+   "성질": "정수 폭",
+   "결과": "통과",
+   "세부": "rms_norm f32 [1024, 2^19+1] 마지막 행: 그 행만 계산한 것과 상대차 0, 비트 같음 True",
+   "검사": "정수폭-d-rms_norm",
+   "초": 3.5
+  },
+  {
+   "성질": "정수 폭",
+   "결과": "통과",
+   "세부": "get_rows f16 [1024, 2^21+1] 마지막 행 정확 True",
+   "검사": "정수폭-e-get_rows",
+   "초": 1.3
+  },
+  {
+   "검사": "정수폭-f-mul_mat",
+   "결과": "오류로 멈춤",
+   "세부": "  current device: 0, in function alloc at D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\ggml-cuda.cu:642 |   cuMemSetAccess(start_ptr, reserve_size, &access, 1) | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\ggml-cuda.cu:109: CUDA error",
+   "종료코드": 3221226505
+  },
+  {
+   "성질": "정수 폭",
+   "결과": "손실",
+   "세부": "flash_attn_ext 가리개 [262144, 8256]: 질의 100: 유한 True, 상대차 0.00267, 질의 8192: 유한 True, 상대차 0.0261, 질의 8255: 유한 True, 상대차 0.0243",
+   "검사": "정수폭-g-flash",
+   "초": 4.7
+  },
+  {
+   "성질": "범위",
+   "결과": "손실",
+   "세부": "mul_mat f16 ±300 (K=8192, 참값 0): M=1: 유한 True, 최대 |값| 0.0, M=64: 유한 False, 최대 |값| inf",
+   "검사": "범위-a-mm부분합",
+   "초": 0.2
+  },
+  {
+   "성질": "범위",
+   "결과": "손실",
+   "세부": "mul_mat f16 가중치 × 활성 1e5 (참값 4.1e5): M=1: 유한 False, 상대차 inf, M=64: 유한 False, 상대차 inf",
+   "검사": "범위-b-mm활성",
+   "초": 0.2
+  },
+  {
+   "성질": "범위",
+   "결과": "통과",
+   "세부": "flash_attn_ext f16 점수 8e4: 질의 1개: 유한 True, 상대차 1.12e-07, 질의 64개: 유한 True, 상대차 0.000634",
+   "검사": "범위-c-flash",
+   "초": 0.2
+  },
+  {
+   "성질": "배치 무관",
+   "결과": "통과",
+   "세부": "add@전치: 비트까지 같음",
+   "검사": "배치무관-add-전치",
+   "초": 0.2
+  },
+  {
+   "성질": "배치 무관",
+   "결과": "통과",
+   "세부": "add@넓은 행 간격: 비트까지 같음",
+   "검사": "배치무관-add-넓은 행 간격",
+   "초": 0.2
+  },
+  {
+   "성질": "배치 무관",
+   "결과": "통과",
+   "세부": "add@어긋난 시작: 비트까지 같음",
+   "검사": "배치무관-add-어긋난 시작",
+   "초": 0.2
+  },
+  {
+   "성질": "배치 무관",
+   "결과": "통과",
+   "세부": "mul@전치: 비트까지 같음",
+   "검사": "배치무관-mul-전치",
+   "초": 0.2
+  },
+  {
+   "성질": "배치 무관",
+   "결과": "통과",
+   "세부": "mul@넓은 행 간격: 비트까지 같음",
+   "검사": "배치무관-mul-넓은 행 간격",
+   "초": 0.2
+  },
+  {
+   "성질": "배치 무관",
+   "결과": "통과",
+   "세부": "mul@어긋난 시작: 비트까지 같음",
+   "검사": "배치무관-mul-어긋난 시작",
+   "초": 0.2
+  },
+  {
+   "검사": "배치무관-sqr-전치",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-sqr-넓은 행 간격",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-sqr-어긋난 시작",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-sqrt-전치",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-sqrt-넓은 행 간격",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-sqrt-어긋난 시작",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-gelu-전치",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:/a/llama.cpp/llama.cpp/ggml/src/ggml.c:6021: GGML_ASSERT(ggml_is_contiguous_rows(a)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-gelu-넓은 행 간격",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-gelu-어긋난 시작",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-silu-전치",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:/a/llama.cpp/llama.cpp/ggml/src/ggml.c:6021: GGML_ASSERT(ggml_is_contiguous_rows(a)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-silu-넓은 행 간격",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-silu-어긋난 시작",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-exp-전치",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:/a/llama.cpp/llama.cpp/ggml/src/ggml.c:6021: GGML_ASSERT(ggml_is_contiguous_rows(a)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-exp-넓은 행 간격",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-exp-어긋난 시작",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:\\a\\llama.cpp\\llama.cpp\\ggml\\src\\ggml-cuda\\unary.cu:144: GGML_ASSERT(ggml_is_contiguous(src0)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "검사": "배치무관-scale-전치",
+   "결과": "오류로 멈춤",
+   "세부": "load_backend: loaded RPC backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-rpc.dll | load_backend: loaded CPU backend from C:\\Users\\s0105\\Desktop\\프로젝트\\geul\\geul-lang-v2\\build\\llama-b11496\\ggml-cpu-alderlake.dll | D:/a/llama.cpp/llama.cpp/ggml/src/ggml.c:3463: GGML_ASSERT(ggml_is_padded_1d(a)) failed",
+   "종료코드": 3221226505
+  },
+  {
+   "성질": "배치 무관",
+   "결과": "손실",
+   "세부": "scale@넓은 행 간격: 다른 칸 523776, 최대차 12.5",
+   "검사": "배치무관-scale-넓은 행 간격",
+   "초": 0.2
+  },
+  {
+   "성질": "배치 무관",
+   "결과": "손실",
+   "세부": "scale@어긋난 시작: 다른 칸 999000, 최대차 11.7",
+   "검사": "배치무관-scale-어긋난 시작",
+   "초": 0.2
+  }
+ ]
+}
