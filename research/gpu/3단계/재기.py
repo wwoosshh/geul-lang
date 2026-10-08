@@ -9,7 +9,13 @@
    한 번에(prefill) / 프롬프트는 한 번에·나머지는 하나씩(생성할 때의 길) / 두 조각 / 세 문장 한 묶음으로 한 번에 / 한 묶음으로 하나씩.
    묶음은 길이가 같아야 해서 세 토큰열을 가장 짧은 길이로 자른다. 글은 모두 0 이어야 통과. PyTorch 의 같은 비교는 기록만 한다.
 3c 속도 — 배치 1 탐욕 생성에서 토큰당 시간 = (64토큰 생성 시간 − 1토큰 생성 시간) / 63. 1토큰 생성 시간(= 프롬프트 처리)도 적는다.
-   글·PyTorch 를 번갈아 7번 재서 중앙값. 참고로(판정 밖) PyTorch 의 decode 를 CUDA 그래프로 잡은 판도 잰다.
+   글·PyTorch 를 번갈아 7번 재서 중앙값. 글의 생성은 메가커널(협력 실행 한 번에 토큰 63 개), 참고로 따로 도는 커널들의 판과
+   PyTorch 의 decode 를 CUDA 그래프로 잡은 판도 잰다(판정 밖). 3b 에는 메가커널이 걸음마다 남긴 로짓도 넣는다.
+3단계 성능(docs/17 §7 "3단계 성능")의 판정도 같은 실행에서 —
+3e 생성의 바닥 — 토큰당 시간이 바닥(494 MB / 475 GB/s = 1.04 ms)의 1.15배(1.20 ms) 안이고 PyTorch CUDA 그래프 판보다 짧은가.
+3f 긴 프롬프트 — 문장 2 의 토큰을 되풀이해 만든 128토큰·512토큰 프롬프트의 처리(+첫 토큰) 시간이 PyTorch eager 보다 짧은가.
+   같은 길이로 잡은 PyTorch CUDA 그래프 판의 시간은 기록만 한다.
+3g 의미를 지킨 채 — 3b 가 통과하고, 세 프롬프트 모두 64토큰이 같고, 64걸음 상대차의 중앙값이 프롬프트마다 PyTorch 의 2배 안인가.
 """
 import ctypes
 import json
@@ -158,6 +164,13 @@ def main():
                 b[이름][f"문장{j + 1} {방식}"] = {"다른 칸": 다른칸(x, base), "다른 행": int(sum(다른칸(x[i], base[i]) > 0 for i in range(len(S)))),
                                               "최대 절대차": float(np.abs(x - base).max()), "행 수": len(S),
                                               "고른 토큰이 다른 행": int((x.argmax(-1) != base.argmax(-1)).sum())}
+            if 이름 == "글":                       # 생성 메가커널(토큰 생성의 길): 걸음마다의 로짓 — 위치 p … p + N − 2
+                g = m.생성(prompts[j], N, 기록=True)
+                rec = m.기록된로짓(N)
+                ref = base[p:p + N - 1]
+                b[이름][f"문장{j + 1} 생성 메가커널"] = {"다른 칸": 다른칸(rec, ref), "행 수": N - 1,
+                                                       "토큰이 같은가": g == S[p:p + N],
+                                                       "최대 절대차": float(np.abs(rec - ref).max())}
         L = min(len(S) for S in seqs)
         cut = [S[:L] for S in seqs]
         alone = [f(mod, [S], "하나씩")[0] for S in cut]
@@ -181,10 +194,12 @@ def main():
         torch.cuda.synchronize()
         m.dr.맞추기()
         return (time.perf_counter() - s) * 1000
-    runners = {"글": m.생성, "PyTorch eager": tm.생성, "PyTorch CUDA 그래프 (참고)": graph.생성}
+    runners = {"글": m.생성, "PyTorch eager": tm.생성, "PyTorch CUDA 그래프 (참고)": graph.생성,
+               "글 여러 커널 (참고)": m.생성_여러커널}
     for ids in prompts:                     # 데우기 + 같은 토큰인지
         outs = {k: f(ids, N) for k, f in runners.items()}
         assert outs["PyTorch CUDA 그래프 (참고)"] == outs["PyTorch eager"], "그래프 판의 토큰이 eager 와 다르다"
+        assert outs["글 여러 커널 (참고)"] == outs["글"], "글의 두 생성 길의 토큰이 다르다"
     c = {}
     for j, ids in enumerate(prompts):
         t1 = {k: [] for k in runners}
@@ -200,26 +215,51 @@ def main():
                       "토큰당 ms": round((an - a1) / (N - 1), 4)}
         c[f"문장{j + 1} ({len(ids)}토큰)"] = row
         print(f"3c 문장{j + 1}: " + ", ".join(f"{k} {v['토큰당 ms']} ms/토큰" for k, v in row.items()), flush=True)
-    # 긴 프롬프트의 처리 시간 (기록)
+    # 긴 프롬프트의 처리 시간 (3f) — PyTorch CUDA 그래프 판(같은 길이로 잡은 그래프)은 기록만
     long_ids = (prompts[1] * 40)
     for n in (128, 512):
         ids = long_ids[:n]
-        t = {"글": [], "PyTorch eager": []}
-        for _ in range(5):
-            for k in t:
+        tt = torch.tensor([ids], device="cuda")
+        s_ = torch.cuda.Stream()
+        s_.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(s_):
+            for _ in range(3):
+                tm.계산(tt, 0, 끝만=True).argmax(-1)
+        torch.cuda.current_stream().wait_stream(s_)
+        pg = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(pg):
+            tm.계산(tt, 0, 끝만=True).argmax(-1)
+        t = {"글": [], "PyTorch eager": [], "PyTorch CUDA 그래프 (참고)": []}
+        for _ in range(7):
+            for k in ("글", "PyTorch eager"):
                 t[k].append(잰다(runners[k], ids, 1))
+            t["PyTorch CUDA 그래프 (참고)"].append(잰다(lambda *_: pg.replay(), ids, 1))
         c[f"긴 프롬프트 {n}토큰 처리 + 첫 토큰 ms"] = {k: round(float(np.median(v)), 3) for k, v in t.items()}
         print(f"3c 프롬프트 {n}: {c[f'긴 프롬프트 {n}토큰 처리 + 첫 토큰 ms']}", flush=True)
     per = [v["글"]["토큰당 ms"] / v["PyTorch eager"]["토큰당 ms"] for k, v in c.items() if k.startswith("문장")]
     c["글 / PyTorch eager 토큰당 시간 (문장별)"] = [round(x, 3) for x in per]
     c["통과"] = all(x <= 1 for x in per)
+    # 3단계 성능의 판정 (docs/17 §7 "3단계 성능")
+    toks = [v["글"]["토큰당 ms"] for k, v in c.items() if k.startswith("문장")]
+    graphs = [v["PyTorch CUDA 그래프 (참고)"]["토큰당 ms"] for k, v in c.items() if k.startswith("문장")]
+    c["3e 생성의 바닥"] = {"글 토큰당 ms": toks, "바닥 ms (494 MB / 475 GB/s)": 1.04, "기준 ms (바닥 × 1.15)": 1.20,
+                       "PyTorch CUDA 그래프 ms": graphs,
+                       "통과": all(x <= 1.20 for x in toks) and all(x < y for x, y in zip(toks, graphs))}
+    c["3f 긴 프롬프트"] = {n: c[f"긴 프롬프트 {n}토큰 처리 + 첫 토큰 ms"] for n in (128, 512)}
+    c["3f 긴 프롬프트"]["통과"] = all(c[f"긴 프롬프트 {n}토큰 처리 + 첫 토큰 ms"]["글"] < c[f"긴 프롬프트 {n}토큰 처리 + 첫 토큰 ms"]["PyTorch eager"]
+                                 for n in (128, 512))
     res["3c 속도"] = c
     res["오류 칸 (__geul_err)"] = m.오류칸()
 
+    meds = [x["64걸음 상대차 중앙값 (글 / PyTorch)"] for x in a]
+    res["3g 의미를 지킨 채"] = {"3b 다른 칸 0": b["통과"], "64토큰이 같은가": [x["64토큰이 같은가"] for x in a],
+                             "64걸음 상대차 중앙값의 배수": [round(g / t, 3) for g, t in meds],
+                             "통과": b["통과"] and all(x["64토큰이 같은가"] for x in a) and all(g <= 2 * t for g, t in meds)}
     os.makedirs(os.path.join(HERE, "결과"), exist_ok=True)
     json.dump(res, open(os.path.join(HERE, "결과", "3단계.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    print(json.dumps({"3a": [x["통과"] for x in a], "3b": b["통과"], "3c": c["통과"], "오류 칸": res["오류 칸 (__geul_err)"]},
-                     ensure_ascii=False))
+    print(json.dumps({"3a": [x["통과"] for x in a], "3b": b["통과"], "3c": c["통과"], "3e": c["3e 생성의 바닥"]["통과"],
+                      "3f": c["3f 긴 프롬프트"]["통과"], "3g": res["3g 의미를 지킨 채"]["통과"],
+                      "오류 칸": res["오류 칸 (__geul_err)"]}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

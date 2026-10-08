@@ -60,6 +60,8 @@ WIDTH_PROOF = True
 FOLD_OFFSETS = True
 # 3단계 성능: 공유 메모리 판에서 4 의 배수 자리부터 네 칸을 차례로 읽으면 ld.shared.v4 하나로(값은 그대로). 끄는 것은 재기 도구만.
 VECTOR_LOADS = True
+# 같은 묶어 읽기를 전역 메모리에서도(ld.global.v4) — 커널의 참조 매개변수가 16 바이트 정렬이라는 약속 아래에서만(호스트가 확인).
+VECTOR_GLOBAL = True
 LAUNCH_BOUNDS = {}                               # 커널 이름 -> (블록당 스레드 수, SM 당 블록 수) — 소스의 실행한도 주석에서
 
 
@@ -76,12 +78,24 @@ def flit(x, t):
 # 다음 조각을 레지스터 없이 미리 읽어 두려고 쓴다. 다른 스레드가 쓴 칸을 읽으려면 그 뒤에 동기화가 있어야 한다.
 # 비동기복사16 은 네 칸(16 바이트)을 한 번에 — 두 주소가 16 바이트 정렬이어야 한다(부르는 쪽의 약속; 어기면 실행 오류로 멈춘다,
 # 조용히 틀리지 않는다).
-ASYNC = ("비동기복사", "비동기복사16", "비동기묶기", "비동기기다리기")
+ASYNC = ("비동기복사", "비동기복사16", "비동기묶기", "비동기기다리기", "넓게미리올리기")
+# 넓게미리올리기(판, i, 원본, j) — 비동기복사16 과 같고, L2 가 그 자리부터 256 바이트를 한꺼번에 불러오게 한다(.L2::256B, PTX 7.4).
+# 미리읽기용(버림칸에 복사): 요청 하나로 256 바이트가 L2 에 올라온다.
 # 미리읽기(원본, j): 원본[j] 가 든 줄을 L2 캐시로 미리 불러 둔다(prefetch.global.L2). 값을 읽지도 바꾸지도 않는다 — 다음 커널이 읽을
 # 가중치를 지금 커널의 끝에서 불러 두어 메모리가 쉬지 않게 하려고 쓴다.
 PREFETCH = ("미리읽기",)
+# 워프 셔플: 아래에서받기(v, s) = 같은 워프에서 레인 (내 레인 + s) 의 v (shfl.sync.down — 범위 밖이면 내 값), 레인에서받기(v, k) =
+# 레인 k 의 v (shfl.sync.idx). 32 비트(짧은실수·중간정수)와 64 비트 정수(두 번에 나눠). 값은 그대로 옮겨질 뿐이다 — 워프 안의
+# 나무 모양 덧셈을 공유 메모리·동기화 없이 하려고 쓴다. 워프의 32 레인이 모두 함께 불러야 한다.
+SHUFFLE = ("아래에서받기", "레인에서받기", "정수아래에서받기", "정수레인에서받기")   # 정수판은 64 비트 정수용 이름(같은 명령)
+# 격자 전체의 만남(메가커널용): 원자더하기(칸, i, v) = 칸[i] 에 v 를 원자적으로 더하고 그 전 값(atom.add.gpu, 64 비트 정수),
+# 획득읽기(칸, i) = 칸[i] 를 다른 블록이 쓴 것까지 보이게 읽는다(ld.acquire.gpu), 울타리() = 앞의 쓰기가 GPU 전체에 보인 뒤에
+# 나아간다(fence.acq_rel.gpu). 블록들이 모두 함께 올라 있어야(협력 실행) 기다리기가 끝난다.
+GRID = ("원자더하기", "획득읽기", "울타리")
+# 시각() = GPU 의 전역 시계(나노초, %globaltimer) — 재기 도구가 커널 안의 단계 시간을 보려고 쓴다. 값의 계산과는 상관없다.
+CLOCK = ("시각",)
 INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기", "근사지수", "제곱근", "큰쪽") + tuple(BLOCK_REGS) + tuple(SHARED) + ASYNC + \
-    PREFETCH
+    PREFETCH + SHUFFLE + GRID + CLOCK
 
 
 class PTXError(Exception):
@@ -219,6 +233,7 @@ class FuncPTX:
         self.rng = self.ranges() if WIDTH_PROOF else {}
         self.narrowed = {"나눗셈·나머지": 0}
         self.addr_off = self.fold_offsets() if FOLD_OFFSETS else {}
+        self.vst_last, self.vst_skip = {}, set()
         self.vec_lead, self.vec_skip = self.vector_loads() if (VECTOR_LOADS and FOLD_OFFSETS) else ({}, set())
 
     def address_spaces(self):
@@ -375,9 +390,32 @@ class FuncPTX:
             if i.op == "store" and self.addr_of.get(i.addr) in self.regvar:
                 stores.setdefault(self.addr_of[i.addr], []).append(i)
         fixed = {v: ("판", calls[st[0].src]) for v, st in stores.items() if len(st) == 1 and st[0].src in calls}
+        # 커널의 참조 매개변수는 16 바이트 정렬이다(호스트의 약속 — 글gpt2.py 가 띄울 때 확인한다). 다시 대입되지 않는 매개변수만.
+        if VECTOR_GLOBAL:
+            for v in self.global_params:
+                if v not in stores:
+                    fixed[v] = ("판", ("매개", v.name))
         version = {}                                      # 레지스터 변수 -> 이 블록에서의 판
         key = {}                                          # 임시값 -> 값의 열쇠 (같은 블록 안에서)
         run = []                                          # 지금 이어지는 후보 (load 명령, 열쇠, 바이트 오프셋)
+        srun = []                                         # 쓰기 쪽 후보 (store 명령, 열쇠, 바이트 오프셋)
+        self.vst_last, self.vst_skip = {}, set()
+
+        def sflush():
+            # 네 칸 묶어 쓰기: 같은 판·같은 x 에 오프셋 c, c+4, c+8, c+12 로 차례로 쓰는 넷 — 넷째 자리에서 st.v4 하나로 낸다
+            # (그 사이에 메모리 읽기·쓰기가 없으니 늦춰 써도 같다)
+            k = 0
+            while k + 4 <= len(srun):
+                (i0, k0, o0) = srun[k]
+                ok = o0 % 16 == 0 and all(srun[k + e][1] == k0 and srun[k + e][2] == o0 + 4 * e for e in range(1, 4))
+                if ok:
+                    self.vst_last[srun[k + 3][0]] = (i0.addr, [srun[k + e][0].src for e in range(4)])
+                    for e in range(3):
+                        self.vst_skip.add(srun[k + e][0])
+                    k += 4
+                else:
+                    k += 1
+            srun.clear()
 
         def flush():
             k = 0
@@ -393,11 +431,32 @@ class FuncPTX:
                     k += 1
             run.clear()
 
+        def store_key(i):
+            if not (i.src.type.is_float() and i.src.type.bits == 32 and self.mem(i.addr) in (".shared", ".global")):
+                return None
+            ia = defs.get(i.addr)
+            if ia is None or ia.op != "index_addr" or ia.size != 4 or self.ndef.get(i.addr) != 1:
+                return None
+            x, off = self.addr_off.get(i.addr, (ia.idx, 0))
+            bk = key.get(ia.base)
+            if bk is None or bk[0] != "판" or x not in key or tz.get(x, 0) < 2:
+                return None
+            return (bk, key[x]), off
+
         for i in insts:
             op = i.op
             memstore = op == "store" and self.addr_of.get(i.addr) not in self.regvar
-            if op in ("label", "jmp", "br", "ret", "call", "copy_mem", "swap") or memstore:
+            if memstore:
                 flush()
+                sk = store_key(i)
+                if sk is None:
+                    sflush()
+                else:
+                    srun.append((i, sk[0], sk[1]))
+                continue
+            if op in ("label", "jmp", "br", "ret", "call", "copy_mem", "swap"):
+                flush()
+                sflush()
                 if op in ("label", "jmp", "br", "ret"):
                     version.clear()
                     key.clear()
@@ -423,7 +482,8 @@ class FuncPTX:
                 key[d] = (i.bop, key[i.a], key[i.b])
             elif op == "copy" and i.src in key:
                 key[d] = key[i.src]
-            elif op == "load" and self.mem(i.addr) == ".shared" and d.type.is_float() and d.type.bits == 32:
+            elif op == "load" and self.addr_of.get(i.addr) not in self.regvar and (sflush() or True) and \
+                    self.mem(i.addr) in (".shared", ".global") and d.type.is_float() and d.type.bits == 32:
                 ia = defs.get(i.addr)
                 if ia is None or ia.op != "index_addr" or ia.size != 4 or self.ndef.get(i.addr) != 1:
                     flush()
@@ -437,6 +497,7 @@ class FuncPTX:
             else:
                 key.pop(d, None)
         flush()
+        sflush()
         return lead, skip
 
     def split_const(self, t):
@@ -725,6 +786,11 @@ class FuncPTX:
             var = self.addr_of.get(i.addr)
             if var in self.regvar:
                 e(f"mov{reg_type(var.type)} {self.regvar[var]}, {self.r(i.src)};")
+            elif i in self.vst_skip:                   # 넷째 쓰기 자리에서 함께 쓴다
+                pass
+            elif i in self.vst_last:                   # 네 칸 묶어 쓰기
+                a0, srcs = self.vst_last[i]
+                e(f"st{self.mem(a0)}.v4{mem_type(i.type)} {self.at(a0)}, {{{', '.join(self.r(t) for t in srcs)}}};")
             else:
                 e(f"st{self.mem(i.addr)}{mem_type(i.type)} {self.at(i.addr)}, {self.r(i.src)};")
         elif op == "gep":
@@ -855,14 +921,21 @@ class FuncPTX:
         if name == "동기화":          # 블록 안의 모든 스레드가 여기까지 오고, 그 앞의 공유 메모리 쓰기가 보인다
             e("bar.sync 0;")
             return
-        if name in ("비동기복사", "비동기복사16"):   # 판[i] ← 원본[j]. 공유 주소는 32 비트로, 전역 주소는 전역 공간의 것
+        if name in ("비동기복사", "비동기복사16", "넓게미리올리기"):   # 판[i] ← 원본[j]. 공유 주소는 32 비트로, 전역 주소는 전역 공간의 것
             sp, si, gp, gi = i.args
             (xs, cs), (xg, cg) = self.split_const(si), self.split_const(gi)     # i = x + c 면 c 는 주소의 즉시 오프셋으로
             e(f"mad.lo.s64 %X1, {self.r(xs)}, 4, {self.r(sp)};")
             e("cvt.u32.u64 %x1, %X1;")
             e(f"mad.lo.s64 %X2, {self.r(xg)}, 4, {self.r(gp)};")
-            e(f"cp.async.ca.shared.global [%x1+{4 * cs}], [%X2+{4 * cg}], 4;" if name == "비동기복사" else
-              f"cp.async.cg.shared.global [%x1+{4 * cs}], [%X2+{4 * cg}], 16;")
+            if name == "비동기복사":
+                e(f"cp.async.ca.shared.global [%x1+{4 * cs}], [%X2+{4 * cg}], 4;")
+            elif name == "비동기복사16":
+                e(f"cp.async.cg.shared.global [%x1+{4 * cs}], [%X2+{4 * cg}], 16;")
+            else:
+                e(f"cp.async.cg.shared.global.L2::256B [%x1+{4 * cs}], [%X2+{4 * cg}], 16;")
+            return
+        if name == "울타리":
+            e("fence.acq_rel.gpu;")
             return
         if name == "미리읽기":
             gp, gi = i.args
@@ -894,6 +967,32 @@ class FuncPTX:
             e(f"sqrt.rn{reg_type(i.dst.type)} {d}, {self.r(i.args[0])};")
         elif name == "큰쪽":
             e(f"max{reg_type(i.dst.type)} {d}, {self.r(i.args[0])}, {self.r(i.args[1])};")
+        elif name == "시각":
+            e(f"mov.u64 {d}, %globaltimer;")
+        elif name == "원자더하기":
+            gp, gi, v = i.args
+            if width(i.dst.type) != 64:
+                raise PTXError("원자더하기는 정수(64 비트)만 받는다")
+            e(f"mad.lo.s64 %X2, {self.r(gi)}, 8, {self.r(gp)};")
+            e(f"atom.add.gpu.global.u64 {d}, [%X2], {self.r(v)};")
+        elif name == "획득읽기":
+            gp, gi = i.args
+            if width(i.dst.type) != 64:
+                raise PTXError("획득읽기는 정수(64 비트)만 받는다")
+            e(f"mad.lo.s64 %X2, {self.r(gi)}, 8, {self.r(gp)};")
+            e(f"ld.acquire.gpu.global.u64 {d}, [%X2];")
+        elif name in SHUFFLE:
+            v, k = i.args
+            mode = "down" if name.endswith("아래에서받기") else "idx"
+            e(f"cvt.u32.u64 %x2, {self.r(k)};")
+            t = i.dst.type
+            if width(t) == 64:
+                e(f"mov.b64 {{%w0, %w1}}, {self.r(v)};")
+                e(f"shfl.sync.{mode}.b32 %w0, %w0, %x2, 31, -1;")
+                e(f"shfl.sync.{mode}.b32 %w1, %w1, %x2, 31, -1;")
+                e(f"mov.b64 {d}, {{%w0, %w1}};")
+            else:
+                e(f"shfl.sync.{mode}.b32 {d}, {self.r(v)}, %x2, 31, -1;")
         elif name in BLOCK_REGS:
             e(f"mov.u32 %x1, {BLOCK_REGS[name]};")
             e(f"cvt.u64.u32 {d}, %x1;")
@@ -926,9 +1025,10 @@ def translate(src):
     if not kernels:
         raise PTXError("커널이 없다 — 반환값이 없는 함수가 커널이 된다")
     # cp.async(비동기복사)는 sm_80 부터 — 쓰는 커널이 있을 때만 대상을 올린다
-    uses_async = any(i.op == "call" and i.extern and i.callee in ASYNC for f in kernels for i in f.insts)
+    uses_async = any(i.op == "call" and i.extern and i.callee in ASYNC + GRID for f in kernels for i in f.insts)
     head = ["//", "// geul -> PTX probe (research/gpu/geulptx). ASCII only: Korean names are mangled as _G + UTF-8 hex.", "//",
-            ".version 7.0", ".target sm_80" if uses_async else ".target sm_52", ".address_size 64", "",
+            ".version 7.4" if uses_async else ".version 7.0", ".target sm_80" if uses_async else ".target sm_52",
+            ".address_size 64", "",
             "// 2c: range-check error cell (bit 1: float->int out of range, bit 2: float64->float32 overflow)",
             ".visible .global .align 4 .u32 __geul_err;", ""]
     body = [FuncPTX(f).gen() for f in kernels]

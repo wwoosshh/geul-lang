@@ -182,9 +182,13 @@ class 드라이버:
 
 
 class _띄움:
-    """커널 하나의 실행 — 매개변수는 ctypes 칸이라 값만 바꿔 다시 띄울 수 있다."""
+    """커널 하나의 실행 — 매개변수는 ctypes 칸이라 값만 바꿔 다시 띄울 수 있다. 참조 매개변수(c_uint64)는 16 바이트 정렬이어야
+    한다(글ptx.py 의 전역 묶어 읽기가 기대는 약속) — 만들 때 확인한다."""
 
     def __init__(self, fn, grid, block, params):
+        for p in params:
+            if isinstance(p, ctypes.c_uint64) and p.value % 16:
+                raise ValueError(f"커널의 참조 매개변수가 16 바이트 정렬이 아니다: {p.value:#x}")
         self.fn, self.grid, self.block, self.params = fn, grid, block, params
         self.args = (ctypes.c_void_p * len(params))(*[ctypes.cast(ctypes.byref(p), ctypes.c_void_p) for p in params])
 
@@ -206,8 +210,8 @@ class 글GPT2:
                             "-o", ptx], check=True, capture_output=True)
             return dr.모듈(open(ptx, "rb").read())
         self.mods = [build("gpt2.gl"), build("커널.gl")]
-        self.k = {n: dr.함수(self.mods[0], n) for n in ("임베딩", "층정규화", "가장큰번호")}
-        self.k.update({n: dr.함수(self.mods[1], n) for n in ("줄어텐션", "타일어텐션")})
+        self.k = {n: dr.함수(self.mods[0], n) for n in ("임베딩", "층정규화", "줄층정규화", "가장큰번호")}
+        self.k.update({n: dr.함수(self.mods[1], n) for n in ("줄어텐션", "타일어텐션", "점수타일", "가중합타일")})
         self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}")
                     for 판 in ("줄선형1", "깊은줄선형1", "줄선형4", "타일선형", "타일선형넷", "작은타일선형")
                     for epi in ("", "_잔차", "_겔루", "_KV")}
@@ -221,12 +225,18 @@ class 글GPT2:
         self.wte, self.wpe = up(w["wte.weight"]), up(w["wpe.weight"])
         self.wteT = up(np.ascontiguousarray(w["wte.weight"].T))      # 로짓 = x · wteᵀ (가중치 묶음 — 같은 표)
         self.영치우침 = up(np.zeros(V, np.float32))
-        self.층 = []
-        for l in range(NL):
-            g = lambda s: up(w[f"h.{l}.{s}"])
-            self.층.append({s: g(s) for s in ("ln_1.weight", "ln_1.bias", "attn.c_attn.weight", "attn.c_attn.bias",
-                                             "attn.c_proj.weight", "attn.c_proj.bias", "ln_2.weight", "ln_2.bias",
-                                             "mlp.c_fc.weight", "mlp.c_fc.bias", "mlp.c_proj.weight", "mlp.c_proj.bias")})
+        # 층마다의 가중치는 종류별로 12 층을 이어 붙여 올린다(생성 메가커널이 층 번호로 자리를 계산한다). 따로 도는 커널은 그 안의
+        # 자리를 가리킨다.
+        이름들 = ("ln_1.weight", "ln_1.bias", "attn.c_attn.weight", "attn.c_attn.bias", "attn.c_proj.weight", "attn.c_proj.bias",
+                 "ln_2.weight", "ln_2.bias", "mlp.c_fc.weight", "mlp.c_fc.bias", "mlp.c_proj.weight", "mlp.c_proj.bias")
+        self.묶음 = {}
+        self.층 = [{} for _ in range(NL)]
+        for 이름 in 이름들:
+            한층 = w[f"h.0.{이름}"].nbytes
+            바탕 = up(np.concatenate([np.ascontiguousarray(w[f"h.{l}.{이름}"]).reshape(-1) for l in range(NL)]))
+            self.묶음[이름] = 바탕
+            for l in range(NL):
+                self.층[l][이름] = 바탕 + l * 한층
         self.lnf_g, self.lnf_b = up(w["ln_f.weight"]), up(w["ln_f.bias"])
         M = 최대행
         self.h, self.x = dr.할당(M * D * 4), dr.할당(M * D * 4)
@@ -234,9 +244,18 @@ class 글GPT2:
         self.fc = dr.할당(M * 4 * D * 4)
         self.logits = dr.할당(M * V * 4)
         self.시험칸 = dr.할당(M * V * 4)        # 판 고르기의 출력 (진짜 버퍼를 건드리지 않게)
+        self.점수칸 = dr.할당(M * NH * 최대길이 * 4)      # 두 커널 어텐션의 점수 [행][머리][키]
+        self.최대칸 = dr.할당(M * NH * (최대길이 // 64) * 4)
         kv = 최대문장 * 최대길이 * D * 4
-        self.kc = [dr.할당(kv) for _ in range(NL)]
-        self.vc = [dr.할당(kv) for _ in range(NL)]
+        self.kc바탕, self.vc바탕 = dr.할당(NL * kv), dr.할당(NL * kv)
+        self.kc = [self.kc바탕 + l * kv for l in range(NL)]
+        self.vc = [self.vc바탕 + l * kv for l in range(NL)]
+        self.부분값, self.부분번호, self.장벽 = dr.할당(4096), dr.할당(8192), dr.할당(64)
+        self.메가 = dr.함수(self.mods[1], "생성메가")
+        self.메가블록 = 120                      # 커널생성.py 의 생성메가(G) 와 같아야 한다 (SM 60 개 × 2)
+        dr.cu.cuLaunchCooperativeKernel.argtypes = [ctypes.c_void_p] + [ctypes.c_uint] * 7 + [ctypes.c_void_p] * 2
+        self.로짓기록칸 = None
+        self.시각칸, self.시각재기 = dr.할당(8 * 70 * 1100), 0          # 재기용: 0 이 아니면 블록 (값 − 1) 이 장벽마다 GPU 시각을 남긴다
         self.토큰칸 = dr.할당(M * 8)            # 이번에 넣을 토큰
         self.생성칸 = dr.할당(4096 * 8)         # 가장큰번호가 쓰는 자리 (생성할 때)
         self._계획 = {}
@@ -327,22 +346,34 @@ class 글GPT2:
                 return x
             return _띄움(self.선형[(판, epi)], *self._격자(판, rows, N), ps)
 
-        if m >= 16:
-            어텐션 = lambda l: _띄움(k["타일어텐션"], (NH, B * ((m + 15) // 16)), (256, 1),
-                                 [P(self.q), P(self.kc[l]), P(self.vc[l]), P(self.att), I(m), pos, I(self.최대길이)])
+        if M <= 4:                                 # 층정규화 판 — 둘 다 같은 순서 약속(비트가 같다): 행이 적으면 블록 하나가 한 행
+            층 = lambda g, b: _띄움(k["줄층정규화"], (M, 1), (256, 1), [P(self.h), P(g), P(b), P(self.x)])
+        else:                                      # 많으면 워프 하나가 한 행
+            층 = lambda g, b: _띄움(k["층정규화"], ((M + 7) // 8, 1), (256, 1), [P(self.h), P(g), P(b), P(self.x), I(M)])
+        # 어텐션 판 — 셋 다 같은 순서 약속(비트가 같다). 문장당 행이 256 이상이면 점수를 한 번 계산해 두는 두 커널 판(재서 정함),
+        # 16 이상이면 질의 16 개씩의 타일 판, 그 아래는 질의마다 블록 하나.
+        if m >= 256:
+            def 어텐션(l):
+                return [_띄움(k["점수타일"], ((self.최대길이 + 63) // 64, B * NH * ((m + 63) // 64)), (256, 1),
+                              [P(self.q), P(self.kc[l]), P(self.점수칸), P(self.최대칸), I(m), pos, I(self.최대길이)]),
+                        _띄움(k["가중합타일"], (NH, B * ((m + 31) // 32)), (256, 1),
+                              [P(self.점수칸), P(self.최대칸), P(self.vc[l]), P(self.att), I(m), pos, I(self.최대길이)])]
+        elif m >= 16:
+            어텐션 = lambda l: [_띄움(k["타일어텐션"], (NH, B * ((m + 15) // 16)), (256, 1),
+                                  [P(self.q), P(self.kc[l]), P(self.vc[l]), P(self.att), I(m), pos, I(self.최대길이)])]
         else:
-            어텐션 = lambda l: _띄움(k["줄어텐션"], (NH, M), (256, 1),
-                                 [P(self.q), P(self.kc[l]), P(self.vc[l]), P(self.att), I(m), pos, I(self.최대길이)])
+            어텐션 = lambda l: [_띄움(k["줄어텐션"], (NH, M), (256, 1),
+                                  [P(self.q), P(self.kc[l]), P(self.vc[l]), P(self.att), I(m), pos, I(self.최대길이)])]
         for l, w in enumerate(self.층):
-            L.append(_띄움(k["층정규화"], (M, 1), (256, 1), [P(self.h), P(w["ln_1.weight"]), P(w["ln_1.bias"]), P(self.x)]))
+            L.append(층(w["ln_1.weight"], w["ln_1.bias"]))
             L.append(lin("_KV", self.x, w["attn.c_attn.weight"], w["attn.c_attn.bias"], self.q, D, 3 * D,
                          (self.kc[l], self.vc[l]), kv=True))
-            L.append(어텐션(l))
+            L += 어텐션(l)
             L.append(lin("_잔차", self.att, w["attn.c_proj.weight"], w["attn.c_proj.bias"], self.h, D, D, (self.h,)))
-            L.append(_띄움(k["층정규화"], (M, 1), (256, 1), [P(self.h), P(w["ln_2.weight"]), P(w["ln_2.bias"]), P(self.x)]))
+            L.append(층(w["ln_2.weight"], w["ln_2.bias"]))
             L.append(lin("_겔루", self.x, w["mlp.c_fc.weight"], w["mlp.c_fc.bias"], self.fc, D, 4 * D))
             L.append(lin("_잔차", self.fc, w["mlp.c_proj.weight"], w["mlp.c_proj.bias"], self.h, 4 * D, D, (self.h,)))
-        L.append(_띄움(k["층정규화"], (M, 1), (256, 1), [P(self.h), P(self.lnf_g), P(self.lnf_b), P(self.x)]))
+        L.append(층(self.lnf_g, self.lnf_b))
         if 로짓 == "전부":
             L.append(lin("", self.x, self.wteT, self.영치우침, self.logits, D, V))
         else:
@@ -385,9 +416,45 @@ class 글GPT2:
         self.dr.맞추기()
         return self.dr.내리기(self.logits, out)
 
-    def 생성(self, ids, n):
-        """탐욕 생성(문장 하나): 프롬프트를 한 번에 처리하고 n 개를 하나씩 — 다음 토큰은 GPU 의 가장큰번호가 고른다.
-        호스트는 토큰을 기다리지 않는다(마지막에 한 번 받는다)."""
+    def 생성(self, ids, n, 기록=False):
+        """탐욕 생성(문장 하나): 프롬프트는 따로 도는 커널들로 한 번에 처리하고(첫 토큰까지), 나머지 n − 1 개는 생성 메가커널 하나가
+        GPU 안에서 차례로 만든다(협력 실행 한 번). 기록 = 참이면 걸음마다의 로짓을 남긴다(로짓기록) — 시험용."""
+        p = len(ids)
+        assert p + n <= self.최대길이
+        self.토큰넣기(ids)
+        self.계산(1, p, 0, "끝", 출력자리=self.생성칸)
+        if n > 1:
+            if 기록 and (self.로짓기록칸 is None or self._기록수 < n):
+                self.로짓기록칸, self._기록수 = self.dr.할당(n * V * 4), n
+            self.dr.확인(self.dr.cu.cuMemsetD8_v2(self.장벽, 0, 64))
+            P, I = c_u64, c_i64
+            g = lambda k: P(self.묶음[k])
+            ps = [P(self.생성칸), P(self.wte), P(self.wpe), P(self.wteT),
+                  g("ln_1.weight"), g("ln_1.bias"), g("attn.c_attn.weight"), g("attn.c_attn.bias"),
+                  g("attn.c_proj.weight"), g("attn.c_proj.bias"), g("ln_2.weight"), g("ln_2.bias"),
+                  g("mlp.c_fc.weight"), g("mlp.c_fc.bias"), g("mlp.c_proj.weight"), g("mlp.c_proj.bias"),
+                  P(self.lnf_g), P(self.lnf_b), P(self.kc바탕), P(self.vc바탕),
+                  P(self.h), P(self.q), P(self.att), P(self.fc), P(self.로짓기록칸 or self.logits),
+                  P(self.부분값), P(self.부분번호), P(self.장벽), P(self.시각칸),
+                  I(p), I(n), I(self.최대길이), I(self.최대문장), I(1 if 기록 else 0), I(int(self.시각재기))]
+            assert all(x.value % 16 == 0 for x in ps if isinstance(x, c_u64)), "메가커널의 참조 매개변수가 16 바이트 정렬이 아니다"
+            args = (ctypes.c_void_p * len(ps))(*[ctypes.cast(ctypes.byref(x), ctypes.c_void_p) for x in ps])
+            self._메가인자 = (ps, args)
+            r = self.dr.cu.cuLaunchCooperativeKernel(self.메가, self.메가블록, 1, 1, 256, 1, 1, 0, None, args)
+            if r != 0:
+                raise RuntimeError(f"생성 메가커널 실행 오류 {r}")
+        out = np.zeros(n, np.int64)
+        self.dr.맞추기()
+        return [int(t) for t in self.dr.내리기(self.생성칸, out)]
+
+    def 기록된로짓(self, n):
+        out = np.empty((n - 1, V), np.float32)
+        self.dr.맞추기()
+        return self.dr.내리기(self.로짓기록칸, out)
+
+    def 생성_여러커널(self, ids, n):
+        """탐욕 생성(문장 하나)을 따로 도는 커널들로: 프롬프트를 한 번에 처리하고 n 개를 하나씩 — 다음 토큰은 GPU 의 가장큰번호가
+        고른다. 호스트는 토큰을 기다리지 않는다(마지막에 한 번 받는다)."""
         p = len(ids)
         self.토큰넣기(ids)
         self.계산(1, p, 0, "끝", 출력자리=self.생성칸)
