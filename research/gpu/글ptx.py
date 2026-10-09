@@ -112,8 +112,11 @@ WARP = ("워프동기화",)
 TENSOR = ("정수텐서곱", "정수텐서곱_나부호없음")
 BYTEDOT = ("바이트넷곱더하기", "바이트넷곱더하기_나부호없음")
 BITS = ("실수비트", "비트실수")
+# 가까운정수(x) = 짧은실수 x 를 가장 가까운 정수로(같으면 짝수 — IEEE 의 roundToIntegralTiesToEven) 바꾼 중간정수(cvt.rni.s32.f32).
+# 범위 [−2³¹, 2³¹) 밖이면(NaN 포함) 2c 처럼 오류 칸에 1.
+ROUND = ("가까운정수",)
 INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기", "근사지수", "제곱근", "큰쪽") + tuple(BLOCK_REGS) + tuple(SHARED) + ASYNC + \
-    PREFETCH + SHUFFLE + GRID + CLOCK + WARP + TENSOR + BYTEDOT + BITS
+    PREFETCH + SHUFFLE + GRID + CLOCK + WARP + TENSOR + BYTEDOT + BITS + ROUND
 
 
 class PTXError(Exception):
@@ -253,7 +256,7 @@ class FuncPTX:
         self.addr_off = self.fold_offsets() if FOLD_OFFSETS else {}
         self.vst_last, self.vst_skip = {}, set()
         self.vec_lead, self.vec_skip = self.vector_loads() if (VECTOR_LOADS and FOLD_OFFSETS) else ({}, set())
-        self._mma, self._ver = None, {}                  # 6단계: 정수텐서곱 넷의 묶음(인자의 서명), 레지스터 변수마다 대입 횟수
+        self._mma, self._ver, self._mma_n = None, {}, 0  # 6단계: 정수텐서곱 넷의 묶음(인자의 서명), 레지스터 변수마다 대입 횟수, mma 결과 레지스터의 다음 번호
 
     def address_spaces(self):
         """2a: 임시값의 주소 공간. 규칙 — 커널의 참조 매개변수는 전역 메모리를 가리키고, 거기서 나온 주소(색인·필드·복사)도
@@ -409,6 +412,21 @@ class FuncPTX:
             if i.op == "store" and self.addr_of.get(i.addr) in self.regvar:
                 stores.setdefault(self.addr_of[i.addr], []).append(i)
         fixed = {v: ("판", calls[st[0].src]) for v, st in stores.items() if len(st) == 1 and st[0].src in calls}
+        # 6단계: 정수 텐서 코어를 쓰는 함수에서는 매개변수를 먼저 넣어, 매개변수를 다른 원소 타입으로 본 변수도 아래에서 판이 된다
+        # (이전 모듈의 PTX 는 그대로다)
+        if VECTOR_GLOBAL and any(i.op == "call" and i.extern and i.callee in TENSOR for i in insts):
+            for v in self.global_params:
+                if v not in stores:
+                    fixed[v] = ("판", ("매개", v.name))
+        # 6단계: 판을 다른 원소 타입으로 본 변수(`판 으로 중간정수 참조` — 복사 하나)도 같은 판의 시작이다
+        defs1 = {i.dst: i for i in insts if getattr(i, "dst", None) is not None and self.ndef.get(i.dst) == 1}
+        for v, st in stores.items():
+            if v in fixed or len(st) != 1:
+                continue
+            c = defs1.get(st[0].src)
+            u = defs1.get(c.src) if c is not None and c.op == "copy" else None
+            if u is not None and u.op == "load" and self.addr_of.get(u.addr) in fixed:
+                fixed[v] = fixed[self.addr_of[u.addr]]
         # 커널의 참조 매개변수는 16 바이트 정렬이다(호스트의 약속 — 글gpt2.py 가 띄울 때 확인한다). 다시 대입되지 않는 매개변수만.
         if VECTOR_GLOBAL:
             for v in self.global_params:
@@ -436,12 +454,15 @@ class FuncPTX:
                     k += 1
             srun.clear()
 
+        # 6단계: 정수 텐서 코어를 쓰는 함수에서는 4 바이트 둘(8 바이트, x 는 짝수)도 묶는다 — 이전 모듈의 PTX 는 그대로다
+        pair32 = any(i.op == "call" and i.extern and i.callee in TENSOR for i in insts)
+
         def flush():
             # 짧은실수: 넷(16 바이트, x 는 4 의 배수). 반실수(4단계 2): 넷(8 바이트, x 는 4 의 배수) 또는 둘(4 바이트, x 는 짝수)
             k = 0
             while k < len(run):
                 (i0, k0, o0, sz, tzx) = run[k]
-                for n in ((4,) if sz == 4 else (4, 2)):
+                for n in ((4, 2) if sz == 2 or pair32 else (4,)):
                     if k + n <= len(run) and tzx >= (2 if n == 4 else 1) and o0 % (n * sz) == 0 and \
                             all(run[k + e][1] == k0 and run[k + e][2] == o0 + sz * e and run[k + e][3] == sz for e in range(1, n)):
                         lead[i0] = [run[k + e][0].dst for e in range(n)]
@@ -505,7 +526,8 @@ class FuncPTX:
             elif op == "copy" and i.src in key:
                 key[d] = key[i.src]
             elif op == "load" and self.addr_of.get(i.addr) not in self.regvar and (sflush() or True) and \
-                    self.mem(i.addr) in (".shared", ".global") and d.type.is_float() and d.type.bits in (16, 32):
+                    self.mem(i.addr) in (".shared", ".global") and \
+                    ((d.type.is_float() and d.type.bits in (16, 32)) or (d.type.is_int() and d.type.bits == 32)):
                 sz = d.type.bits // 8
                 ia = defs.get(i.addr)
                 if ia is None or ia.op != "index_addr" or ia.size != sz or self.ndef.get(i.addr) != 1:
@@ -513,7 +535,7 @@ class FuncPTX:
                     continue
                 x, off = self.addr_off.get(i.addr, (ia.idx, 0))
                 bk = key.get(ia.base)
-                if bk is None or bk[0] != "판" or x not in key or tz.get(x, 0) < (2 if sz == 4 else 1):
+                if bk is None or bk[0] != "판" or x not in key or tz.get(x, 0) < (2 if sz == 4 and not pair32 else 1):
                     flush()
                     continue
                 run.append((i, (bk, key[x]), off, sz, tz.get(x, 0)))
@@ -748,8 +770,9 @@ class FuncPTX:
         out.append("    .reg .u64 %X<3>;")
         out.append("    .reg .b32 %w<3>;")
         out.append("    .reg .f32 %fw<2>;")
-        if any(i.op == "call" and i.extern and i.callee in TENSOR for i in f.insts):
-            out.append("    .reg .b32 %m<4>;")
+        n_mma = sum(1 for i in f.insts if i.op == "call" and i.extern and i.callee in TENSOR)
+        if n_mma:                                  # mma 마다 제 결과 레지스터 넷 — 같은 레지스터를 돌려 쓰면 mma 끼리 기다린다
+            out.append(f"    .reg .b32 %m<{n_mma + 4}>;")
         for name in sorted({i.callee for i in f.insts if i.op == "call" and i.extern and i.callee in SHARED}):
             out.append(f"    .shared .align 16 .b8 {SHARED[name]}[{SHARED_SIZE[name]}];")
         for t in f.temps:
@@ -1127,13 +1150,15 @@ class FuncPTX:
                 b = ", ".join(self.r(x) for x in i.args[5:7])
                 c = ", ".join(self.r(x) for x in i.args[7:11])
                 bt = ".u8" if name.endswith("나부호없음") else ".s8"
-                e(f"mma.sync.aligned.m16n8k32.row.col.s32.s8{bt}.s32 {{%m0, %m1, %m2, %m3}}, {{{a}}}, {{{b}}}, {{{c}}};")
-                self._mma = [sig, 0]
+                k = self._mma_n
+                self._mma_n += 4
+                e(f"mma.sync.aligned.m16n8k32.row.col.s32.s8{bt}.s32 {{%m{k}, %m{k + 1}, %m{k + 2}, %m{k + 3}}}, {{{a}}}, {{{b}}}, {{{c}}};")
+                self._mma = [sig, 0, k]
             elif self._mma is None or self._mma[0] != sig or self._mma[1] != j - 1:
                 raise PTXError(f"{name} 의 j = {j} 는 같은 인자로 부른 j = {j - 1} 바로 뒤에 와야 한다(같은 기본 블록, 그 사이에 인자 변수를 바꾸지 않음)")
             else:
                 self._mma[1] = j
-            e(f"mov.b32 {d}, %m{j};")
+            e(f"mov.b32 {d}, %m{self._mma[2] + j};")
             return
         if name in BYTEDOT:
             bt = ".u32" if name.endswith("나부호없음") else ".s32"
@@ -1142,6 +1167,16 @@ class FuncPTX:
             return
         if name == "실수비트":
             e(f"mov.b32 {d}, {self.r(i.args[0])};")
+            return
+        if name == "가까운정수":
+            x = self.r(i.args[0])
+            if i.args[0].type.bits != 32 or i.dst.type.bits != 32:
+                raise PTXError("가까운정수 는 짧은실수 → 중간정수만 받는다")
+            if RANGE_CHECK:
+                e(f"setp.ge.f32 %q, {x}, 0fCF000000;")
+                e(f"setp.lt.and.f32 %q, {x}, 0f4F000000, %q;")
+                e("@!%q red.global.or.b32 [__geul_err], 1;")
+            e(f"cvt.rni.s32.f32 {d}, {x};")
             return
         if name == "비트실수":
             e(f"mov.b32 {d}, {self.r(i.args[0])};")

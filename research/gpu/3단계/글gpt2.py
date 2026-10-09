@@ -16,6 +16,8 @@ import unicodedata
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from 커널생성 import 정수판들, 정수판모양      # noqa: E402 — 정수 텐서 코어 판의 이름과 모양(커널과 같은 표)
 ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 D, NH, NL, V, NCTX = 768, 12, 12, 50257, 1024
 
@@ -195,6 +197,13 @@ class 드라이버:
         self.확인(self.cu.cuCtxSynchronize())
 
 
+class _노드인자(ctypes.Structure):
+    """CUDA_KERNEL_NODE_PARAMS — 그래프의 커널 마디 하나."""
+    _fields_ = [("func", ctypes.c_void_p), ("gx", c_uint), ("gy", c_uint), ("gz", c_uint),
+                ("bx", c_uint), ("by", c_uint), ("bz", c_uint), ("smem", c_uint),
+                ("params", ctypes.c_void_p), ("extra", ctypes.c_void_p)]
+
+
 class _띄움:
     """커널 하나의 실행 — 매개변수는 ctypes 칸이라 값만 바꿔 다시 띄울 수 있다. 참조 매개변수(c_uint64)는 16 바이트 정렬이어야
     한다(글ptx.py 의 전역 묶어 읽기가 기대는 약속) — 만들 때 확인한다."""
@@ -217,6 +226,9 @@ class _띄움:
 # 판(로짓줄선형1 · 로짓줄선형4 · 로짓타일선형 · 로짓작은타일선형), 임베딩도 그 모듈의 것. 값과 순서는 같은 가중치를 미리 풀어
 # 짧은실수로 둔 판(커널반.gl)과 같다 — 그래서 로짓이 비트까지 같다(5a).
 양자모듈 = {("F16", "F16"): "커널반F16.gl", ("Q8_0", "Q8_0"): "커널반Q8.gl", ("Q4_0", "Q8_0"): "커널반Q4.gl"}
+# 6단계 정수 블록 계약(가중치가 gguf읽기.gpt2정수 — 배치 "정수"): 모듈 커널반Q8정수.gl · 커널반Q4정수.gl. 선형 층마다 활성값을
+# 네 자리로 바꾸는 커널(정수로)을 먼저 띄우고, 정수 텐서 코어 행렬곱(정수타일선형 — 행 수와 상관없이 하나)을 띄운다.
+정수모듈 = {("Q8_0", "Q8_0"): "커널반Q8정수.gl", ("Q4_0", "Q8_0"): "커널반Q4정수.gl"}
 바이트수 = {"짧은실수": lambda K, N: 4 * K * N, "F16": lambda K, N: 2 * K * N,
           "Q8_0": lambda K, N: K * N + K * N // 16, "Q4_0": lambda K, N: K * N // 2 + K * N // 16}
 
@@ -244,9 +256,10 @@ class 글GPT2:
         self.KV형식 = KV형식
         self.층형식, self.낱말형식 = 형식(weights["h.0.attn.c_attn.weight"]), 형식(weights["wte.weight"])
         self.양자 = (self.층형식, self.낱말형식) != ("짧은실수", "짧은실수")
+        self.정수 = self.양자 and getattr(weights["h.0.attn.c_attn.weight"], "배치", "가닥") == "정수"
         if self.양자:
-            assert KV형식 == "반실수", "양자 판(5단계)은 반실수 KV 판만 있다"
-            assert (self.층형식, self.낱말형식) in 양자모듈, f"모듈이 없는 형식: {(self.층형식, self.낱말형식)}"
+            assert KV형식 == "반실수", "양자 판(5단계 · 6단계)은 반실수 KV 판만 있다"
+            assert (self.층형식, self.낱말형식) in (정수모듈 if self.정수 else 양자모듈), f"모듈이 없는 형식: {(self.층형식, self.낱말형식)}"
         self.dr = dr = 드라이버()
 
         def build(gl):
@@ -254,16 +267,26 @@ class 글GPT2:
             subprocess.run([sys.executable, os.path.join(ROOT, "research", "gpu", "글ptx.py"), os.path.join(HERE, gl),
                             "-o", ptx], check=True, capture_output=True)
             return dr.모듈(open(ptx, "rb").read())
-        모듈 = 양자모듈[(self.층형식, self.낱말형식)] if self.양자 else ("커널.gl" if KV형식 == "짧은실수" else "커널반.gl")
+        모듈 = ((정수모듈 if self.정수 else 양자모듈)[(self.층형식, self.낱말형식)] if self.양자 else
+               ("커널.gl" if KV형식 == "짧은실수" else "커널반.gl"))
         self.mods = [build("gpt2.gl"), build(모듈)]
         self.k = {n: dr.함수(self.mods[0], n) for n in ("임베딩", "층정규화", "줄층정규화", "가장큰번호")}
         self.k.update({n: dr.함수(self.mods[1], n) for n in ("흐름어텐션", "조각어텐션", "조각접기")})
         if self.양자:
             self.k["임베딩"] = dr.함수(self.mods[1], "임베딩")
-        판들 = ("줄선형1", "깊은줄선형1", "줄선형4", "타일선형", "작은타일선형") + (() if self.양자 else ("타일선형넷",))
-        self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in 판들 for epi in ("", "_잔차", "_겔루", "_KV")}
-        self.로짓선형 = ({판: dr.함수(self.mods[1], f"로짓{판}") for 판 in ("줄선형1", "줄선형4", "타일선형", "작은타일선형")}
-                     if self.양자 else {판: self.선형[(판, "")] for 판 in 판들})
+        if self.정수:
+            self.k["정수로"] = dr.함수(self.mods[1], "정수로")
+            self.k["층정규화정수"] = dr.함수(self.mods[1], "층정규화정수")
+            self.k["흐름어텐션정수"] = dr.함수(self.mods[1], "흐름어텐션정수")
+            self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in (*정수판들, "정수줄선형")
+                       for epi in ("", "_잔차", "_겔루", "_KV")}
+            self.선형.update({(판, "_겔루정수"): dr.함수(self.mods[1], f"{판}_겔루정수") for 판 in 정수판들 if 정수판들[판][3] >= 4})
+            self.로짓선형 = {판: dr.함수(self.mods[1], f"로짓{판}") for 판 in (*정수판들, "정수줄선형")}
+        else:
+            판들 = ("줄선형1", "깊은줄선형1", "줄선형4", "타일선형", "작은타일선형") + (() if self.양자 else ("타일선형넷",))
+            self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in 판들 for epi in ("", "_잔차", "_겔루", "_KV")}
+            self.로짓선형 = ({판: dr.함수(self.mods[1], f"로짓{판}") for 판 in ("줄선형1", "줄선형4", "타일선형", "작은타일선형")}
+                         if self.양자 else {판: self.선형[(판, "")] for 판 in 판들})
         assert 최대길이 % 64 == 0 and 최대길이 <= 16384, "최대길이는 64 의 배수, 16384 까지 (어텐션의 키 조각 — 접기는 조각 256 개까지)"
         self.최대행, self.최대문장, self.최대길이 = 최대행, 최대문장, 최대길이
 
@@ -308,6 +331,10 @@ class 글GPT2:
                     self.층[l][이름] = 둘(바탕 + l * 한층)
         self.lnf_g, self.lnf_b = up(w["ln_f.weight"]), up(w["ln_f.bias"])
         M = 최대행
+        if self.정수:                                # 활성값의 네 자리 [4][행][깊이] 바이트와 블록 마법수 [행][블록][4] — 깊이는 4D 까지
+            self.자릿값, self.정보 = dr.할당(4 * M * 4 * D), dr.할당(M * (4 * D // 32) * 16)
+            # c_fc 의 끝손질(_겔루정수)이 mlp c_proj 의 네 자리를 바로 쓰는 칸 — c_fc 가 읽는 칸과 따로
+            self.자릿값2, self.정보2 = dr.할당(4 * M * 4 * D), dr.할당(M * (4 * D // 32) * 16)
         self.h, self.x = dr.할당(M * D * 4), dr.할당(M * D * 4)
         self.q, self.att = dr.할당(M * D * 4), dr.할당(M * D * 4)
         self.fc = dr.할당(M * 4 * D * 4)
@@ -342,8 +369,14 @@ class 글GPT2:
         self.토큰칸 = dr.할당(M * 8)            # 이번에 넣을 토큰
         self.생성칸 = dr.할당(4096 * 8)         # 가장큰번호가 쓰는 자리 (생성할 때)
         self._계획 = {}
+        # 6단계: 행이 다섯 이상인 계산(프롬프트)은 커널들을 CUDA 그래프 하나로 띄운다 — 같은 커널을 같은 차례로(값은 그대로),
+        # 커널 사이의 빈틈만 준다. 그래프는 매개변수의 값을 만들 때 베껴 두므로 (계획, 위치시작, 토큰자리, 출력자리)마다 하나
+        # — (그 계획의 띄움 목록, 실행본).
+        self._그래프 = {}
+        self.그래프쓰기 = True
         self._고른판 = {}
         self.미리읽기 = True                    # 줄 판이 끝에서 다음 줄 판의 가중치를 L2 로 미리 읽는다(값과는 상관없다)
+        self.묶어바꾸기 = True                  # 6단계: 네 자리 바꾸기를 앞 커널에 묶는다(값과는 상관없다 — 끄는 것은 대조 시험만)
         cu = dr.cu
         cu.cuEventCreate.argtypes = [ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint]
         cu.cuEventRecord.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
@@ -352,7 +385,28 @@ class 글GPT2:
 
     def 닫기(self):
         """GPU 메모리와 모듈을 돌려준다 — 그 뒤로는 쓰지 않는다."""
+        self.dr.맞추기()
+        for _, ex in self._그래프.values():
+            self.dr.확인(self.dr.cu.cuGraphExecDestroy(ex))
+        self._그래프 = {}
         self.dr.놓기()
+
+    def _그래프만들기(self, L):
+        """띄움들을 차례로 잇는 CUDA 그래프(마디마다 앞 마디 하나에 기댄다) — 실행본을 돌려준다."""
+        cu = self.dr.cu
+        g = ctypes.c_void_p()
+        self.dr.확인(cu.cuGraphCreate(ctypes.byref(g), 0))
+        앞 = None
+        for x in L:
+            p = _노드인자(x.fn, x.grid[0], x.grid[1], 1, x.block[0], x.block[1], 1, 0, ctypes.cast(x.args, ctypes.c_void_p), None)
+            마디 = ctypes.c_void_p()
+            기댐 = (ctypes.c_void_p * 1)(앞) if 앞 is not None else None
+            self.dr.확인(cu.cuGraphAddKernelNode(ctypes.byref(마디), g, 기댐, 1 if 앞 is not None else 0, ctypes.byref(p)))
+            앞 = 마디
+        ex = ctypes.c_void_p()
+        self.dr.확인(cu.cuGraphInstantiateWithFlags(ctypes.byref(ex), g, ctypes.c_ulonglong(0)))
+        self.dr.확인(cu.cuGraphDestroy(g))
+        return ex
 
     def 오류칸(self):
         """두 모듈의 오류 칸(2c 범위 검사)을 OR 한 값 — 0 이어야 한다."""
@@ -365,15 +419,28 @@ class 글GPT2:
 
     @staticmethod
     def _격자(판, rows, N):
+        if 판 in 정수판들:
+            BM, BN, T = 정수판모양(판)
+            return ((rows + BM - 1) // BM, (N + BN - 1) // BN), (T, 1)
+        if 판 == "정수줄선형":                 # 열 묶음 w (커널과 같은 규칙)
+            w = 32 if N >= 3840 else (16 if N >= 1920 else 8)
+            return ((N + w - 1) // w, 1), (256, 1)
         if 판 in ("줄선형1", "깊은줄선형1", "줄선형4"):
             return ((N + 31) // 32, 1), (128, 1)
         if 판 == "작은타일선형":
             return ((rows + 31) // 32, (N + 31) // 32), (256, 1)
         return ((rows + 63) // 64, (N + 63) // 64), (256, 1)
 
-    def _판(self, src, wt, b, rows, K, N, 로짓=False):
+    def _판(self, src, wt, b, rows, K, N, 로짓=False, epi=""):
         """행 수에 맞는 선형 판. 타일 판은 (행, 깊이, 열) 마다 처음 한 번 재서 가장 빠른 것 — 비트는 어느 판이든 같다.
         재는 동안에는 끝손질 없는 판으로 시험칸에만 쓴다(캐시·잔차를 건드리지 않게). 로짓 = 참: 낱말표의 판(양자 판은 따로 만든 것)."""
+        if self.정수:                        # 6단계: 행 넷까지는 dp4a 줄 판, 그 위는 정수 텐서 코어 판 둘 중 재서 빠른 것 — 같은 계약(비트가 같다)
+            if rows <= 4:
+                return "정수줄선형"
+            key = (rows, K, N, 로짓, epi)
+            if key not in self._고른판:
+                self._고른판[key] = self._정수판재기(rows, K, N, 로짓, epi)
+            return self._고른판[key]
         if rows == 1:                        # 열이 적으면 사슬이 적다 — 사슬마다 48 개씩 미리 읽는 판(재서 정함)
             return "깊은줄선형1" if N <= 1024 and not 로짓 else "줄선형1"
         if rows <= 4:
@@ -410,6 +477,53 @@ class 글GPT2:
             self._고른판[key] = best[1]
         return self._고른판[key]
 
+    def _정수판재기(self, rows, K, N, 로짓, epi=""):
+        """정수 텐서 코어 판들(커널생성.정수판들 — 칸을 나누는 모양만 다르다)을 재서 빠른 것 — 비트는 같다(계약). 끝손질까지 같은
+        판(epi)을 재되 출력 · 잔차 · KV 칸은 모두 시험칸에 쓴다(진짜 버퍼를 건드리지 않는다). 활성값은 x(또는 fc)를 바꾼 것.
+        클럭이 오르도록 후보를 번갈아 20 ms 넘게 띄운 뒤, 후보마다 세 번씩 번갈아 재서 중앙값이 가장 작은 것."""
+        import time
+        cu, 시 = self.dr.cu, self.시험칸
+        x = _띄움(self.k["정수로"], ((K // 32 + 31) // 32, rows), (256, 1),
+                  [c_u64(self.x if K == D else self.fc), c_u64(self.자릿값), c_u64(self.정보), c_i64(rows), c_i64(K)])
+        cu.cuLaunchKernel(x.fn, x.grid[0], x.grid[1], 1, x.block[0], x.block[1], 1, 0, None, x.args, None)
+        wt = self.wteT if 로짓 else self.층[0][{(D, 3 * D): "attn.c_attn.weight", (D, D): "attn.c_proj.weight",
+                                            (D, 4 * D): "mlp.c_fc.weight", (4 * D, D): "mlp.c_proj.weight"}[(K, N)]]
+        kv = 시 + 4 * D * self.최대행                         # 시험칸의 q 출력 뒤에 키 · 값 (층 하나, 문장 하나 몫씩)
+        extra = {"_잔차": [시], "_KV": [kv, kv + 2 * D * self.최대길이], "_겔루정수": [kv]}.get(epi, [])
+        runs = {}
+        for 판 in 정수판들:
+            if not 로짓 and (판, epi) not in self.선형:   # _겔루정수 는 열 조각 넷 이상인 판만 있다
+                continue
+            fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]
+            ps = [c_u64(self.자릿값), c_u64(self.정보)] + _가중인자(wt) + [c_u64(self.영치우침)] + [c_u64(v) for v in extra] + \
+                 [c_u64(시), c_i64(rows), c_i64(K), c_i64(N), c_i64((N + 63) // 64 * 64)] + \
+                 ([c_i64(rows), c_i64(0), c_i64(self.최대길이)] if epi == "_KV" else [])
+            y = _띄움(fn, *self._격자(판, rows, N), ps)
+            runs[판] = (y, lambda y=y: cu.cuLaunchKernel(y.fn, y.grid[0], y.grid[1], 1, y.block[0], y.block[1], 1, 0, None,
+                                                         y.args, None))
+        t0 = time.perf_counter()
+        while time.perf_counter() - t0 < 0.02:
+            for _, run in runs.values():
+                run()
+            self.dr.맞추기()
+        ts = {판: [] for 판 in runs}
+        e0, e1 = ctypes.c_void_p(), ctypes.c_void_p()
+        cu.cuEventCreate(ctypes.byref(e0), 0)
+        cu.cuEventCreate(ctypes.byref(e1), 0)
+        for _ in range(3):
+            for 판, (_, run) in runs.items():
+                cu.cuEventRecord(e0, None)
+                for _ in range(3):
+                    run()
+                cu.cuEventRecord(e1, None)
+                cu.cuEventSynchronize(e1)
+                ms = ctypes.c_float()
+                cu.cuEventElapsedTime(ctypes.byref(ms), e0, e1)
+                ts[판].append(ms.value)
+        cu.cuEventDestroy_v2(e0)
+        cu.cuEventDestroy_v2(e1)
+        return min(ts, key=lambda 판: sorted(ts[판])[1])
+
     def _만들기(self, B, m, 로짓):
         """문장 B 개 × m 행의 한 번 계산. 로짓: "전부"(모든 행), "끝"(문장마다 마지막 행 + 가장큰번호), 정수 k(문장 하나의 마지막 k 행)."""
         M = B * m
@@ -425,7 +539,25 @@ class 글GPT2:
 
         줄들 = []                                  # 줄 판(행 넷까지)의 실행 — 끝에서 다음 줄 판의 가중치를 미리 읽게 잇는다
 
-        def lin(epi, src, wt, b, dst, K, N, extra=(), rows=M, kv=None, 로짓=False):
+        def lin(epi, src, wt, b, dst, K, N, extra=(), rows=M, kv=None, 로짓=False, 바뀐=False, 자리=None):
+            if self.정수 and rows <= 4:      # dp4a 줄 판 — 판 안에서 행마다 네 자리로 바꾼다
+                fn = self.로짓선형["정수줄선형"] if 로짓 else self.선형[("정수줄선형", epi)]
+                ps = [P(src)] + _가중인자(wt) + [P(b)] + [P(x) for x in extra] + [P(dst), I(rows), I(K), I(N)]
+                if kv is not None:
+                    ps += [I(m), pos, I(self.최대길이)]
+                return _띄움(fn, *self._격자("정수줄선형", rows, N), ps)
+            if self.정수:                   # 활성값을 네 자리로 바꾸고(정수로) 정수 텐서 코어 행렬곱 — 척도폭은 N 을 64 로 올림
+                판 = self._판(src, wt, b, rows, K, N, 로짓, epi)
+                자리 = 자리 or (self.자릿값, self.정보)
+                if not 바뀐:                 # 바뀐 = 참: 앞 커널(층정규화정수 · _겔루정수)이 이미 네 자리로 바꿔 두었다
+                    L.append(_띄움(k["정수로"], ((K // 32 + 31) // 32, rows), (256, 1),
+                                   [P(src), P(자리[0]), P(자리[1]), I(rows), I(K)]))
+                fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]
+                ps = [P(자리[0]), P(자리[1])] + _가중인자(wt) + [P(b)] + [P(x) for x in extra] + \
+                     [P(dst), I(rows), I(K), I(N), I((N + 63) // 64 * 64)]
+                if kv is not None:
+                    ps += [I(m), pos, I(self.최대길이)]
+                return _띄움(fn, *self._격자(판, rows, N), ps)
             판 = self._판(src, wt, b, rows, K, N, 로짓)
             fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]
             ps = [P(src)] + _가중인자(wt) + [P(b)] + [P(x) for x in extra] + [P(dst), I(rows), I(K), I(N)]
@@ -454,15 +586,31 @@ class 글GPT2:
                                   [P(self.q), P(self.kc[l]), P(self.vc[l]), P(self.조각칸), I(m), pos, I(self.최대길이)]),
                                 _띄움(k["조각접기"], (M * NH, 1), (256, 1),
                                   [P(self.조각칸), P(self.att), I(M), I(m), pos, I(self.최대길이)])]
+        # 6단계: 정수 판의 타일 길(행 다섯 이상 — 문장은 셋까지라 문장마다 행이 둘 이상)은 네 자리 바꾸기를 앞 커널에 묶는다 —
+        # 층정규화 1 · 2 (층정규화정수), 어텐션(흐름어텐션정수 → c_proj), c_fc 의 끝손질(_겔루정수 → mlp c_proj). 같은 값.
+        묶음 = self.정수 and M > 4 and self.묶어바꾸기
+        if 묶음:
+            assert m >= 2
+            정층 = lambda g, b: _띄움(k["층정규화정수"], ((M + 7) // 8, 1), (256, 1),
+                                    [P(self.h), P(g), P(b), P(self.자릿값), P(self.정보), I(M)])
+            어텐션 = lambda l: [_띄움(k["흐름어텐션정수"], (NH, B * ((m + 63) // 64)), (256, 1),
+                                  [P(self.q), P(self.kc[l]), P(self.vc[l]), P(self.정보), P(self.자릿값), I(M), I(m), pos,
+                                   I(self.최대길이)])]
         for l, w in enumerate(self.층):
-            L.append(층(w["ln_1.weight"], w["ln_1.bias"]))
+            L.append(정층(w["ln_1.weight"], w["ln_1.bias"]) if 묶음 else 층(w["ln_1.weight"], w["ln_1.bias"]))
             L.append(lin("_KV", self.x, w["attn.c_attn.weight"], w["attn.c_attn.bias"], self.q, D, 3 * D,
-                         (self.kc[l], self.vc[l]), kv=True))
+                         (self.kc[l], self.vc[l]), kv=True, 바뀐=묶음))
             L += 어텐션(l)
-            L.append(lin("_잔차", self.att, w["attn.c_proj.weight"], w["attn.c_proj.bias"], self.h, D, D, (self.h,)))
-            L.append(층(w["ln_2.weight"], w["ln_2.bias"]))
-            L.append(lin("_겔루", self.x, w["mlp.c_fc.weight"], w["mlp.c_fc.bias"], self.fc, D, 4 * D))
-            L.append(lin("_잔차", self.fc, w["mlp.c_proj.weight"], w["mlp.c_proj.bias"], self.h, 4 * D, D, (self.h,)))
+            L.append(lin("_잔차", self.att, w["attn.c_proj.weight"], w["attn.c_proj.bias"], self.h, D, D, (self.h,), 바뀐=묶음))
+            L.append(정층(w["ln_2.weight"], w["ln_2.bias"]) if 묶음 else 층(w["ln_2.weight"], w["ln_2.bias"]))
+            if 묶음:                                # c_fc 의 끝손질이 mlp c_proj 의 네 자리(자릿값2 · 정보2)를 바로 쓴다
+                L.append(lin("_겔루정수", self.x, w["mlp.c_fc.weight"], w["mlp.c_fc.bias"], self.자릿값2, D, 4 * D,
+                             (self.정보2,), 바뀐=True))
+                L.append(lin("_잔차", self.fc, w["mlp.c_proj.weight"], w["mlp.c_proj.bias"], self.h, 4 * D, D, (self.h,),
+                             바뀐=True, 자리=(self.자릿값2, self.정보2)))
+            else:
+                L.append(lin("_겔루", self.x, w["mlp.c_fc.weight"], w["mlp.c_fc.bias"], self.fc, D, 4 * D))
+                L.append(lin("_잔차", self.fc, w["mlp.c_proj.weight"], w["mlp.c_proj.bias"], self.h, 4 * D, D, (self.h,)))
         L.append(층(self.lnf_g, self.lnf_b))
         if 로짓 == "전부":
             L.append(lin("", self.x, self.wteT, self.영치우침, self.logits, D, V, 로짓=True))
@@ -493,6 +641,17 @@ class 글GPT2:
         pos.value = 위치시작
         tok.value = self.토큰칸 if 토큰자리 is None else 토큰자리
         out.value = self.생성칸 if 출력자리 is None else 출력자리
+        if self.그래프쓰기 and B * m > 4:
+            gk = (key, pos.value, tok.value, out.value)
+            있던 = self._그래프.get(gk)
+            if 있던 is None or 있던[0] is not L:        # 계획을 다시 만들었으면 그래프도 다시
+                if 있던 is not None:
+                    self.dr.확인(self.dr.cu.cuGraphExecDestroy(있던[1]))
+                self._그래프[gk] = (L, self._그래프만들기(L))
+            r = self.dr.cu.cuGraphLaunch(self._그래프[gk][1], None)
+            if r != 0:
+                raise RuntimeError(f"그래프 실행 오류 {r}")
+            return
         launch = self.dr.cu.cuLaunchKernel
         for x in L:
             r = launch(x.fn, x.grid[0], x.grid[1], 1, x.block[0], x.block[1], 1, 0, None, x.args, None)
