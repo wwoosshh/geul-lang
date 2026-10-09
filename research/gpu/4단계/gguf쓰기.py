@@ -7,9 +7,10 @@
   blk.N.ffn_norm.{weight,bias}, blk.N.ffn_up.{weight [768, 3072], bias}, blk.N.ffn_down.{weight [3072, 768], bias}
   (ggml 의 차원 순서 — 첫 차원이 붙어 있는 쪽. HF 의 Conv1D 가중치 [입력][출력] 은 뒤집어 [출력][입력] 으로 쓴다.)
 
-  python research/gpu/4단계/gguf쓰기.py 출력.gguf [--합성 16384]
+  python research/gpu/4단계/gguf쓰기.py 출력.gguf [--합성 16384] [--모델 build/gpt2-xl]
 
 --합성 N: 3단계 성능 2 의 합성 모델(위치표 N 줄, 값은 시드 0 의 무작위 — 재기2.py 와 같은 만들기)을 쓴다. 토크나이저는 GPT-2 그대로.
+--모델 폴더: 다른 크기의 GPT-2(7단계 — GPT-2 XL). 크기는 그 폴더의 config.json 에서(기본은 build/gpt2 — GPT-2 small).
 값은 모두 F32(파일 형식 0). F16·Q8_0 은 llama-quantize 로 만든다.
 """
 import json
@@ -76,19 +77,24 @@ def 합성가중치(w, 길이):
 
 def main(argv):
     out = argv[1]
-    w = G.가중치읽기(os.path.join(MODEL, "model.safetensors"))
-    문맥 = 1024
-    이름 = "GPT-2 small (openai-community/gpt2)"
+    모델 = os.path.join(ROOT, argv[argv.index("--모델") + 1]) if "--모델" in argv else MODEL
+    설정 = json.load(open(os.path.join(모델, "config.json"), encoding="utf-8"))
+    너비, 층수, 머리수 = 설정["n_embd"], 설정["n_layer"], 설정["n_head"]
+    확장 = 설정.get("n_inner") or 4 * 너비
+    w = G.가중치읽기(os.path.join(모델, "model.safetensors"))
+    문맥 = 설정["n_positions"]
+    이름 = ("GPT-2 small (openai-community/gpt2)" if 모델 == MODEL else
+            f"GPT-2 ({os.path.basename(모델)} — 층 {층수}, 너비 {너비})")
     if "--합성" in argv:
         문맥 = int(argv[argv.index("--합성") + 1])
         w = 합성가중치(w, 문맥)
         이름 = f"GPT-2 모양의 합성 모델 (위치표 {문맥}, 시드 0)"
-    vocab = json.load(open(os.path.join(MODEL, "vocab.json"), encoding="utf-8"))
+    vocab = json.load(open(os.path.join(모델, "vocab.json"), encoding="utf-8"))
     토큰 = [None] * len(vocab)
     for s, i in vocab.items():
         토큰[i] = s
     종류 = [3 if s == "<|endoftext|>" else 1 for s in 토큰]          # 3 = CONTROL, 1 = NORMAL
-    합침 = [l.rstrip("\n") for l in open(os.path.join(MODEL, "merges.txt"), encoding="utf-8")
+    합침 = [l.rstrip("\n") for l in open(os.path.join(모델, "merges.txt"), encoding="utf-8")
           if l.strip() and not l.startswith("#version")]
 
     kv = [("general.architecture", STR, "gpt2"),
@@ -96,10 +102,10 @@ def main(argv):
           ("general.file_type", U32, 0),
           ("general.alignment", U32, 정렬),
           ("gpt2.context_length", U32, 문맥),
-          ("gpt2.embedding_length", U32, 768),
-          ("gpt2.feed_forward_length", U32, 3072),
-          ("gpt2.block_count", U32, 12),
-          ("gpt2.attention.head_count", U32, 12),
+          ("gpt2.embedding_length", U32, 너비),
+          ("gpt2.feed_forward_length", U32, 확장),
+          ("gpt2.block_count", U32, 층수),
+          ("gpt2.attention.head_count", U32, 머리수),
           ("gpt2.attention.layer_norm_epsilon", F32, 1e-5),
           ("tokenizer.ggml.model", STR, "gpt2"),
           ("tokenizer.ggml.pre", STR, "gpt-2"),
@@ -110,7 +116,7 @@ def main(argv):
 
     텐서 = [("token_embd.weight", w["wte.weight"]), ("position_embd.weight", w["wpe.weight"]),
           ("output_norm.weight", w["ln_f.weight"]), ("output_norm.bias", w["ln_f.bias"])]
-    for l in range(12):
+    for l in range(층수):
         h = lambda s: w[f"h.{l}.{s}"]
         텐서 += [(f"blk.{l}.attn_norm.weight", h("ln_1.weight")), (f"blk.{l}.attn_norm.bias", h("ln_1.bias")),
                (f"blk.{l}.attn_qkv.weight", h("attn.c_attn.weight").T), (f"blk.{l}.attn_qkv.bias", h("attn.c_attn.bias")),

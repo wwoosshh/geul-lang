@@ -8,12 +8,15 @@ F.layer_norm, F.scaled_dot_product_attention, F.gelu(approximate="tanh"). transf
 import torch
 import torch.nn.functional as F
 
-D, NH, NL, V = 768, 12, 12, 50257
+D, NH, NL, V = 768, 12, 12, 50257            # GPT-2 small — 모형마다의 크기는 토치GPT2 의 self.D · NH · NL (7단계: XL 도)
 
 
 class 토치GPT2:
     def __init__(self, weights, device="cuda", dtype=torch.float32, 최대문장=3, 최대길이=1024):
         t = lambda a: torch.from_numpy(a.copy()).to(device=device, dtype=dtype)
+        self.D = weights["wpe.weight"].shape[1]
+        self.NH, self.NL = self.D // 64, sum(1 for k in weights if k.startswith("h.") and k.endswith(".ln_1.weight"))
+        D, NH, NL = self.D, self.NH, self.NL
         self.w = {k: t(v) for k, v in weights.items()}
         self.dev, self.dtype = torch.device(device), dtype
         self.kc = torch.zeros(NL, 최대문장, NH, 최대길이, 64, device=device, dtype=dtype)
@@ -30,14 +33,14 @@ class 토치GPT2:
         if m > 1 and 위치시작 > 0:
             qpos = torch.arange(위치시작, n, device=self.dev)[:, None]
             mask = torch.arange(n, device=self.dev)[None, :] <= qpos
-        for l in range(NL):
+        for l in range(self.NL):
             p = f"h.{l}."
-            h = F.layer_norm(x, (D,), w[p + "ln_1.weight"], w[p + "ln_1.bias"], 1e-5)
-            qkv = torch.addmm(w[p + "attn.c_attn.bias"], h.view(-1, D), w[p + "attn.c_attn.weight"]).view(B, m, 3 * D)
-            q, k, v = qkv.split(D, dim=2)
-            q = q.view(B, m, NH, 64).transpose(1, 2)
-            self.kc[l, :B, :, 위치시작:n] = k.view(B, m, NH, 64).transpose(1, 2)
-            self.vc[l, :B, :, 위치시작:n] = v.view(B, m, NH, 64).transpose(1, 2)
+            h = F.layer_norm(x, (self.D,), w[p + "ln_1.weight"], w[p + "ln_1.bias"], 1e-5)
+            qkv = torch.addmm(w[p + "attn.c_attn.bias"], h.view(-1, self.D), w[p + "attn.c_attn.weight"]).view(B, m, 3 * self.D)
+            q, k, v = qkv.split(self.D, dim=2)
+            q = q.view(B, m, self.NH, 64).transpose(1, 2)
+            self.kc[l, :B, :, 위치시작:n] = k.view(B, m, self.NH, 64).transpose(1, 2)
+            self.vc[l, :B, :, 위치시작:n] = v.view(B, m, self.NH, 64).transpose(1, 2)
             K, Vv = self.kc[l, :B, :, :n], self.vc[l, :B, :, :n]
             if m == 1:
                 y = F.scaled_dot_product_attention(q, K, Vv)
@@ -45,14 +48,14 @@ class 토치GPT2:
                 y = F.scaled_dot_product_attention(q, K, Vv, is_causal=True)
             else:
                 y = F.scaled_dot_product_attention(q, K, Vv, attn_mask=mask)
-            y = y.transpose(1, 2).reshape(B * m, D)
-            x = x + torch.addmm(w[p + "attn.c_proj.bias"], y, w[p + "attn.c_proj.weight"]).view(B, m, D)
-            h = F.layer_norm(x, (D,), w[p + "ln_2.weight"], w[p + "ln_2.bias"], 1e-5)
-            f = F.gelu(torch.addmm(w[p + "mlp.c_fc.bias"], h.view(-1, D), w[p + "mlp.c_fc.weight"]), approximate="tanh")
-            x = x + torch.addmm(w[p + "mlp.c_proj.bias"], f, w[p + "mlp.c_proj.weight"]).view(B, m, D)
+            y = y.transpose(1, 2).reshape(B * m, self.D)
+            x = x + torch.addmm(w[p + "attn.c_proj.bias"], y, w[p + "attn.c_proj.weight"]).view(B, m, self.D)
+            h = F.layer_norm(x, (self.D,), w[p + "ln_2.weight"], w[p + "ln_2.bias"], 1e-5)
+            f = F.gelu(torch.addmm(w[p + "mlp.c_fc.bias"], h.view(-1, self.D), w[p + "mlp.c_fc.weight"]), approximate="tanh")
+            x = x + torch.addmm(w[p + "mlp.c_proj.bias"], f, w[p + "mlp.c_proj.weight"]).view(B, m, self.D)
         if 끝만:
             x = x[:, -1]
-        x = F.layer_norm(x, (D,), w["ln_f.weight"], w["ln_f.bias"], 1e-5)
+        x = F.layer_norm(x, (self.D,), w["ln_f.weight"], w["ln_f.bias"], 1e-5)
         return F.linear(x, w["wte.weight"])
 
     @torch.no_grad()
@@ -93,21 +96,21 @@ class 토치그래프생성:
         m, w, n = self.m, self.m.w, self.n
         x = w["wte.weight"][self.tok] + w["wpe.weight"].index_select(0, self.pos)
         mask = self.keys <= self.pos
-        for l in range(NL):
+        for l in range(m.NL):
             p = f"h.{l}."
-            h = F.layer_norm(x, (D,), w[p + "ln_1.weight"], w[p + "ln_1.bias"], 1e-5)
-            qkv = torch.addmm(w[p + "attn.c_attn.bias"], h.view(-1, D), w[p + "attn.c_attn.weight"]).view(1, 1, 3 * D)
-            q, k, v = qkv.split(D, dim=2)
-            q = q.view(1, 1, NH, 64).transpose(1, 2)
+            h = F.layer_norm(x, (m.D,), w[p + "ln_1.weight"], w[p + "ln_1.bias"], 1e-5)
+            qkv = torch.addmm(w[p + "attn.c_attn.bias"], h.view(-1, m.D), w[p + "attn.c_attn.weight"]).view(1, 1, 3 * m.D)
+            q, k, v = qkv.split(m.D, dim=2)
+            q = q.view(1, 1, m.NH, 64).transpose(1, 2)
             kc, vc = m.kc[l, :1, :, :n], m.vc[l, :1, :, :n]
-            kc.index_copy_(2, self.pos, k.view(1, 1, NH, 64).transpose(1, 2))
-            vc.index_copy_(2, self.pos, v.view(1, 1, NH, 64).transpose(1, 2))
-            y = F.scaled_dot_product_attention(q, kc, vc, attn_mask=mask).transpose(1, 2).reshape(1, D)
-            x = x + torch.addmm(w[p + "attn.c_proj.bias"], y, w[p + "attn.c_proj.weight"]).view(1, 1, D)
-            h = F.layer_norm(x, (D,), w[p + "ln_2.weight"], w[p + "ln_2.bias"], 1e-5)
-            f = F.gelu(torch.addmm(w[p + "mlp.c_fc.bias"], h.view(-1, D), w[p + "mlp.c_fc.weight"]), approximate="tanh")
-            x = x + torch.addmm(w[p + "mlp.c_proj.bias"], f, w[p + "mlp.c_proj.weight"]).view(1, 1, D)
-        x = F.layer_norm(x[:, -1], (D,), w["ln_f.weight"], w["ln_f.bias"], 1e-5)
+            kc.index_copy_(2, self.pos, k.view(1, 1, m.NH, 64).transpose(1, 2))
+            vc.index_copy_(2, self.pos, v.view(1, 1, m.NH, 64).transpose(1, 2))
+            y = F.scaled_dot_product_attention(q, kc, vc, attn_mask=mask).transpose(1, 2).reshape(1, m.D)
+            x = x + torch.addmm(w[p + "attn.c_proj.bias"], y, w[p + "attn.c_proj.weight"]).view(1, 1, m.D)
+            h = F.layer_norm(x, (m.D,), w[p + "ln_2.weight"], w[p + "ln_2.bias"], 1e-5)
+            f = F.gelu(torch.addmm(w[p + "mlp.c_fc.bias"], h.view(-1, m.D), w[p + "mlp.c_fc.weight"]), approximate="tanh")
+            x = x + torch.addmm(w[p + "mlp.c_proj.bias"], f, w[p + "mlp.c_proj.weight"]).view(1, 1, m.D)
+        x = F.layer_norm(x[:, -1], (m.D,), w["ln_f.weight"], w["ln_f.bias"], 1e-5)
         nxt = F.linear(x, w["wte.weight"]).argmax(-1, keepdim=True)
         self.out.index_copy_(0, self.pos + 1, nxt.view(1))
         self.tok.copy_(nxt)
