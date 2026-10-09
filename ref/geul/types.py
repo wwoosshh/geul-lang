@@ -51,7 +51,7 @@ class FloatType(Type):
     def align(self): return self.bits // 8
 
     def __str__(self):
-        return "실수" if self.bits == 64 else "짧은실수"
+        return {16: "반실수", 32: "짧은실수"}.get(self.bits, "실수")
 
 
 @dataclass(frozen=True)
@@ -219,6 +219,7 @@ USHORT = IntType(16, False, "부호없는 짧은정수")
 UBYTE = IntType(8, False, "부호없는 작은정수")
 DOUBLE = FloatType(64)
 FLOAT = FloatType(32)
+HALF = FloatType(16)        # 반실수 (IEEE 754 binary16) — 연구 옵션(research.py)을 켤 때만 이름이 있다
 VOID = VoidType()
 STRING = PtrType(CHAR)
 VOIDPTR = PtrType(VOID)

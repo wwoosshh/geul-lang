@@ -20,6 +20,9 @@
   주소가 새지 않는 지역 변수는 레지스터에 둔다. 2b 연구용 내장 — 블록안가로·블록안세로·블록가로·블록세로(스레드·블록 번호),
   공유메모리0~3(각 4096 바이트, ld.shared·st.shared), 동기화(bar.sync). 2c 실수 → 정수·짧은실수 변환이 범위를 넘으면 모듈의
   오류 칸 __geul_err 에 비트를 켠다 — 호스트가 실행 뒤에 읽는다.
+- 4단계 2(docs/17): 연구 옵션의 `반실수`(IEEE 754 binary16, ref/geul/research.py) — 저장 형식(.b16 레지스터, ld/st .b16).
+  좁히기 `으로 반실수` 는 cvt.rn.f16.f32(가까운 쪽 반올림, 비정규수 그대로), 넘쳐 무한이 되면 오류 칸에 4. 넓히기는 cvt.f32.f16
+  (정확). 반실수 산술은 앞단이 짧은실수로 올려서 낸다.
 - 다른 함수 호출, 문자열, 전역 변수, 묶음 값 복사, 가변 인자는 아직 받지 않는다.
 """
 import io
@@ -35,7 +38,7 @@ ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "ref"))
 
 from geul.driver import load_program          # noqa: E402
-from geul import sema, lower, inline          # noqa: E402
+from geul import sema, lower, inline, research  # noqa: E402
 from geul.diagnostics import CompileError     # noqa: E402
 
 # GPU 내장. 실행번호·실행개수는 탐침 1 부터, 나머지는 2b 의 연구용 내장이다(언어가 아니다 — 타일을 손으로 써 보기 위한 것).
@@ -113,9 +116,9 @@ def ptx_name(name):
 
 
 def reg_type(t):
-    """IR 타입 → PTX 레지스터 타입. 8·16비트 정수도 32비트 레지스터에 둔다."""
+    """IR 타입 → PTX 레지스터 타입. 8·16비트 정수도 32비트 레지스터에 둔다. 반실수는 16비트 레지스터(.b16 — 값은 옮기고 바꾸기만)."""
     if t.is_float():
-        return ".f32" if t.bits == 32 else ".f64"
+        return {16: ".b16", 32: ".f32"}.get(t.bits, ".f64")
     if t.is_ptr():
         return ".u64"
     if t.is_int():
@@ -128,7 +131,7 @@ def reg_type(t):
 def mem_type(t):
     """메모리를 읽고 쓸 때의 PTX 타입 (크기 그대로)."""
     if t.is_float():
-        return ".f32" if t.bits == 32 else ".f64"
+        return {16: ".b16", 32: ".f32"}.get(t.bits, ".f64")
     if t.is_ptr():
         return ".u64"
     if t.is_int():
@@ -421,15 +424,18 @@ class FuncPTX:
             srun.clear()
 
         def flush():
+            # 짧은실수: 넷(16 바이트, x 는 4 의 배수). 반실수(4단계 2): 넷(8 바이트, x 는 4 의 배수) 또는 둘(4 바이트, x 는 짝수)
             k = 0
-            while k + 4 <= len(run):
-                (i0, k0, o0) = run[k]
-                ok = o0 % 16 == 0 and all(run[k + e][1] == k0 and run[k + e][2] == o0 + 4 * e for e in range(1, 4))
-                if ok:
-                    lead[i0] = [run[k + e][0].dst for e in range(4)]
-                    for e in range(1, 4):
-                        skip.add(run[k + e][0])
-                    k += 4
+            while k < len(run):
+                (i0, k0, o0, sz, tzx) = run[k]
+                for n in ((4,) if sz == 4 else (4, 2)):
+                    if k + n <= len(run) and tzx >= (2 if n == 4 else 1) and o0 % (n * sz) == 0 and \
+                            all(run[k + e][1] == k0 and run[k + e][2] == o0 + sz * e and run[k + e][3] == sz for e in range(1, n)):
+                        lead[i0] = [run[k + e][0].dst for e in range(n)]
+                        for e in range(1, n):
+                            skip.add(run[k + e][0])
+                        k += n
+                        break
                 else:
                     k += 1
             run.clear()
@@ -486,17 +492,18 @@ class FuncPTX:
             elif op == "copy" and i.src in key:
                 key[d] = key[i.src]
             elif op == "load" and self.addr_of.get(i.addr) not in self.regvar and (sflush() or True) and \
-                    self.mem(i.addr) in (".shared", ".global") and d.type.is_float() and d.type.bits == 32:
+                    self.mem(i.addr) in (".shared", ".global") and d.type.is_float() and d.type.bits in (16, 32):
+                sz = d.type.bits // 8
                 ia = defs.get(i.addr)
-                if ia is None or ia.op != "index_addr" or ia.size != 4 or self.ndef.get(i.addr) != 1:
+                if ia is None or ia.op != "index_addr" or ia.size != sz or self.ndef.get(i.addr) != 1:
                     flush()
                     continue
                 x, off = self.addr_off.get(i.addr, (ia.idx, 0))
                 bk = key.get(ia.base)
-                if bk is None or bk[0] != "판" or x not in key or tz.get(x, 0) < 2:
+                if bk is None or bk[0] != "판" or x not in key or tz.get(x, 0) < (2 if sz == 4 else 1):
                     flush()
                     continue
-                run.append((i, (bk, key[x]), off))
+                run.append((i, (bk, key[x]), off, sz, tz.get(x, 0)))
             else:
                 key.pop(d, None)
         flush()
@@ -765,6 +772,8 @@ class FuncPTX:
             bits = width(t)
             e(f"mov.b{bits} {self.r(i.dst)}, {int(i.value) & ((1 << bits) - 1):#x};")
         elif op == "fconst":
+            if i.dst.type.bits == 16:              # 앞단이 리터럴을 반실수로 두지 않는다(좁히기는 밝힌다)
+                raise PTXError("반실수 상수는 받지 않는다 — '으로 반실수' 로 밝혀라")
             if i.dst.type.bits == 32:
                 e(f"mov.f32 {self.r(i.dst)}, 0f{struct.unpack('<I', struct.pack('<f', i.value))[0]:08X};")
             else:
@@ -778,9 +787,9 @@ class FuncPTX:
             var = self.addr_of.get(i.addr)
             if var in self.regvar:
                 e(f"mov{reg_type(i.dst.type)} {self.r(i.dst)}, {self.regvar[var]};")
-            elif i in self.vec_lead:                   # 네 칸 묶어 읽기
+            elif i in self.vec_lead:                   # 네 칸(반실수는 둘·넷) 묶어 읽기
                 regs = ", ".join(self.r(t) for t in self.vec_lead[i])
-                e(f"ld{self.mem(i.addr)}.v4{mem_type(i.dst.type)} {{{regs}}}, {self.at(i.addr)};")
+                e(f"ld{self.mem(i.addr)}.v{len(self.vec_lead[i])}{mem_type(i.dst.type)} {{{regs}}}, {self.at(i.addr)};")
             elif i in self.vec_skip:                   # 앞의 묶음이 이미 읽었다
                 pass
             else:
@@ -891,6 +900,8 @@ class FuncPTX:
             else:                      # 64 → 32
                 e(f"cvt.u32.u64 {d}, {s};")
             self.normalize(d, dt)
+        elif k in ("sitofp", "uitofp", "fptosi", "fptoui") and ((dt.is_float() and dt.bits == 16) or (st.is_float() and st.bits == 16)):
+            raise PTXError("정수와 반실수 사이의 변환은 아직 받지 않는다 — 짧은실수를 거쳐 밝혀라")
         elif k in ("sitofp", "uitofp"):
             e(f"cvt.rn{reg_type(dt)}{self.int_type(st, signed=(k == 'sitofp'))} {d}, {s};")
         elif k in ("fptosi", "fptoui"):
@@ -904,8 +915,20 @@ class FuncPTX:
                 e("@!%q red.global.or.b32 [__geul_err], 1;")
             e(f"cvt.rzi{self.int_type(dt, signed=(k == 'fptosi'))}{reg_type(st)} {d}, {s};")
             self.normalize(d, dt)
+        elif k == "fpext" and st.bits == 16:     # 반실수 → 짧은실수·실수: 정확하다
+            e(f"cvt{'.f32' if dt.bits == 32 else '.f64'}.f16 {d}, {s};")
         elif k == "fpext":
             e(f"cvt.f64.f32 {d}, {s};")
+        elif k == "fptrunc" and dt.bits == 16:
+            if st.bits != 32:
+                raise PTXError("실수 → 반실수 는 아직 받지 않는다 — 짧은실수를 거쳐 밝혀라(반올림이 두 번이 된다)")
+            e(f"cvt.rn.f16.f32 {d}, {s};")         # 가까운 쪽(같으면 짝수), 비정규수 그대로 (.ftz 없음 — PTX 계약 P2)
+            if RANGE_CHECK:            # 4단계 2: 유한한 짧은실수가 반실수로 오며 무한이 되면 오류 칸에 4
+                e(f"cvt.f32.f16 %fw1, {d};")
+                e("testp.infinite.f32 %q, %fw1;")
+                e(f"testp.finite.f32 %p, {s};")
+                e("and.pred %q, %q, %p;")
+                e("@%q red.global.or.b32 [__geul_err], 4;")
         elif k == "fptrunc":
             e(f"cvt.rn.f32.f64 {d}, {s};")
             if RANGE_CHECK:            # 2c: 유한한 실수가 짧은실수로 오며 무한이 되면 오류 칸에 2
@@ -1024,6 +1047,7 @@ def translate(src):
     pat = r"\(\*\s*실행한도\s+(\S+)\s+(\d+)\s+(\d+)\s*\*\)"
     for name, nt, nb in re.findall(pat, open(src, encoding="utf-8").read()):
         LAUNCH_BOUNDS[name] = (int(nt), int(nb))
+    research.enable()                 # 연구 옵션의 언어 확장(반실수) — 1.x 의 geulc.py 는 켜지 않는다
     program = load_program(src, os.path.join(ROOT, "표준"), auto_std=False)
     unit = sema.analyze(program, fragment=True)
     ir = inline.run(lower.lower_program(unit))
@@ -1032,10 +1056,13 @@ def translate(src):
         raise PTXError("커널이 없다 — 반환값이 없는 함수가 커널이 된다")
     # cp.async(비동기복사)는 sm_80 부터 — 쓰는 커널이 있을 때만 대상을 올린다
     uses_async = any(i.op == "call" and i.extern and i.callee in ASYNC + GRID for f in kernels for i in f.insts)
+    # 반실수(4단계 2)를 쓰는 모듈만 머리의 설명이 길어진다 — 짧은실수만 쓰는 모듈의 PTX 는 예전과 바이트까지 같다
+    uses_half = any(getattr(t, "type", None) is not None and t.type.is_float() and t.type.bits == 16 for f in kernels for t in f.temps)
     head = ["//", "// geul -> PTX probe (research/gpu/geulptx). ASCII only: Korean names are mangled as _G + UTF-8 hex.", "//",
             ".version 7.4" if uses_async else ".version 7.0", ".target sm_80" if uses_async else ".target sm_52",
             ".address_size 64", "",
-            "// 2c: range-check error cell (bit 1: float->int out of range, bit 2: float64->float32 overflow)",
+            "// 2c: range-check error cell (bit 1: float->int out of range, bit 2: float64->float32 overflow" +
+            (", bit 4: float32->half overflow)" if uses_half else ")"),
             ".visible .global .align 4 .u32 __geul_err;", ""]
     body = [FuncPTX(f).gen() for f in kernels]
     return "\n".join(head) + "\n\n".join(body) + "\n", [(f.name, ptx_name(f.name)) for f in kernels]

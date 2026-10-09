@@ -201,7 +201,12 @@ class _띄움:
 
 
 class 글GPT2:
-    def __init__(self, weights, 최대행=1024, 최대문장=3, 최대길이=NCTX, 로짓행=1024, 프롬메가=False):
+    def __init__(self, weights, 최대행=1024, 최대문장=3, 최대길이=NCTX, 로짓행=1024, 프롬메가=False, KV형식="짧은실수"):
+        """KV형식: KV 캐시의 원소 — "짧은실수"(커널.gl) 또는 "반실수"(커널반.gl, 4단계 2 — 밝힌 정밀도: 쓸 때 `으로 반실수` 로
+        반올림 한 번, 읽을 때 정확히 넓힌다). 다른 커널과 순서 약속은 같다."""
+        assert KV형식 in ("짧은실수", "반실수")
+        assert not (프롬메가 and KV형식 == "반실수"), "프롬프트 메가커널(3l)은 짧은실수 KV 판만 있다"
+        self.KV형식 = KV형식
         self.dr = dr = 드라이버()
 
         def build(gl):
@@ -209,7 +214,7 @@ class 글GPT2:
             subprocess.run([sys.executable, os.path.join(ROOT, "research", "gpu", "글ptx.py"), os.path.join(HERE, gl),
                             "-o", ptx], check=True, capture_output=True)
             return dr.모듈(open(ptx, "rb").read())
-        self.mods = [build("gpt2.gl"), build("커널.gl")]
+        self.mods = [build("gpt2.gl"), build("커널.gl" if KV형식 == "짧은실수" else "커널반.gl")]
         self.k = {n: dr.함수(self.mods[0], n) for n in ("임베딩", "층정규화", "줄층정규화", "가장큰번호")}
         self.k.update({n: dr.함수(self.mods[1], n) for n in ("흐름어텐션", "조각어텐션", "조각접기")})
         self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}")
@@ -249,7 +254,7 @@ class 글GPT2:
         self.시험칸 = dr.할당(max(M * 4 * D, self.로짓행 * V) * 4)     # 판 고르기의 출력 (진짜 버퍼를 건드리지 않게)
         # 생성의 어텐션: 키 조각마다의 (m, l, o[64]) — [행][머리][조각][68] (메가커널은 행 하나)
         self.조각칸 = dr.할당(최대문장 * NH * (최대길이 // 64) * 68 * 4)
-        kv = 최대문장 * 최대길이 * D * 4
+        kv = 최대문장 * 최대길이 * D * (4 if KV형식 == "짧은실수" else 2)      # 층 하나의 키(또는 값) 칸 — 바이트
         self.kc바탕, self.vc바탕 = dr.할당(NL * kv), dr.할당(NL * kv)
         # 프롬프트 처리의 어텐션은 키 조각을 통째로 읽고 가린 자리는 쓰지 않는다 — 아직 안 쓴 칸도 유한한 값이게 0 으로
         dr.확인(dr.cu.cuMemsetD8_v2(c_u64(self.kc바탕), 0, ctypes.c_size_t(NL * kv)))
