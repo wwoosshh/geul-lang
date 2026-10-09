@@ -17,7 +17,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from 커널생성 import 어텐션질의수, 정수판들, 정수판들둘, 정수판표, 정수판모양, 정수열묶음, 층정규화정수행      # noqa: E402 — 정수 판의 모양(커널과 같은 표 · 규칙)
+from 커널생성 import 어텐션질의수, 정수판들, 정수판들둘, 정수판들KV, 정수판표, 정수판모양, 정수열묶음, 층정규화정수행      # noqa: E402 — 정수 판의 모양(커널과 같은 표 · 규칙)
 ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 D, NH, NL, V, NCTX = 768, 12, 12, 50257, 1024            # GPT-2 small — 모형마다의 크기는 글GPT2 의 self.D · NH · NL · V (7단계)
 
@@ -303,7 +303,7 @@ class 글GPT2:
             모듈 = XL모듈[열쇠]
         self.mods = [build("gpt2.gl" if self.크기 == "small" else "gpt2XL.gl"), build(모듈)]
         self.k = {n: dr.함수(self.mods[0], n) for n in ("임베딩", "층정규화", "줄층정규화", "가장큰번호")}
-        self.k.update({n: dr.함수(self.mods[1], n) for n in (("KV정수로", "정수어텐션", "정수조각어텐션", "정수조각접기") if self.정수KV else
+        self.k.update({n: dr.함수(self.mods[1], n) for n in (("KV정수로", "정수어텐션", "정수어텐션둘", "정수조각어텐션", "정수조각접기") if self.정수KV else
                                                            ("흐름어텐션", "조각어텐션", "조각접기"))})
         if self.양자:
             self.k["임베딩"] = dr.함수(self.mods[1], "임베딩")
@@ -312,7 +312,7 @@ class 글GPT2:
             self.k["층정규화정수"] = dr.함수(self.mods[1], "층정규화정수")
             if not self.정수KV:
                 self.k["흐름어텐션정수"] = dr.함수(self.mods[1], "흐름어텐션정수")
-            판표 = 정수판표(자리수)
+            판표 = 정수판표(자리수, self.정수KV)
             self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in (*판표, "정수줄선형")
                        for epi in (("", "_잔차", "_겔루") if self.정수KV else ("", "_잔차", "_겔루", "_KV"))}
             self.선형.update({(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in 판표 if 판표[판][3] >= 4
@@ -467,7 +467,7 @@ class 글GPT2:
 
     @staticmethod
     def _격자(판, rows, N, K=None, 작음=True):
-        if 판 in 정수판들둘:
+        if 판 in 정수판들KV:
             BM, BN, T = 정수판모양(판)
             return ((rows + BM - 1) // BM, (N + BN - 1) // BN), (T, 1)
         if 판 == "정수줄선형":                 # 열 묶음 w (커널과 같은 규칙 — 커널생성.정수열묶음; XL 은 깊이 K 로)
@@ -540,7 +540,7 @@ class 글GPT2:
         extra = {"_잔차": [시], "_KV": [kv, kv + 2 * self.D * self.최대길이], "_겔루정수": [kv],
                  "_KV정수": getattr(self, "시험KV", [])}.get(epi, [])
         runs = {}
-        for 판 in 정수판표(self.자리수):
+        for 판 in 정수판표(self.자리수, self.정수KV):
             if not 로짓 and (판, epi) not in self.선형:   # _겔루정수 는 열 조각 넷 이상인 판만 있다
                 continue
             fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]
