@@ -100,8 +100,20 @@ CLOCK = ("시각",)
 # 워프동기화() = 같은 워프의 32 레인이 여기까지 오고, 그 앞의 공유 메모리 쓰기가 서로 보인다(bar.warp.sync) — 워프 안에서만 주고받는
 # 공유 메모리 칸에 블록 전체의 동기화를 쓰지 않으려고.
 WARP = ("워프동기화",)
+# 6단계 — 정수 텐서 코어(정확한 정수 곱합). 정수텐서곱(j, a₀, a₁, a₂, a₃, b₀, b₁, c₀, c₁, c₂, c₃) = 워프의 32 레인이 함께 하는
+# 정수 행렬곱 D = A · B + C (m16n8k32: A 16 × 32, B 32 × 8, C · D 16 × 8 의 32 비트 정수) 에서 이 레인이 맡은 D 의 j 번째 칸.
+# 레인 ℓ 의 g = ℓ / 4, t = ℓ % 4: aᵢ 는 바이트 넷(부호 있는 8 비트, 낮은 바이트가 먼저) — a₀ = A[g][4t … 4t+3], a₁ = A[g+8][4t …],
+# a₂ = A[g][16+4t …], a₃ = A[g+8][16+4t …]; b₀ = B[4t … 4t+3][g], b₁ = B[16+4t …][g]; c · 결과 j = 0 … 3 은 D[g][2t], D[g][2t+1],
+# D[g+8][2t], D[g+8][2t+1]. 곱과 합은 정수로 **정확하다**(반올림이 없다 — PTX 명세가 결과를 다 정한다. 2³² 를 넘지 않음은 쓰는 쪽이
+# 보인다). 실수 텐서 코어(f16 · bf16 · tf32)는 합의 반올림을 명세가 정하지 않아 쓰지 않는다(PTX 계약). 넷(j = 0 … 3)을 같은 인자로
+# 잇달아 부르면 명령 하나(mma.sync)가 되고, 그렇지 않은 꼴은 거부한다. _나부호없음 판은 B 의 바이트가 부호 없는 8 비트.
+# 바이트넷곱더하기(a, b, c) = c + Σᵢ a 의 바이트 i × b 의 바이트 i (i < 4, 부호 있는 8 비트, 정확 — dp4a). _나부호없음: b 가 부호 없음.
+# 실수비트(x) = 짧은실수 x 의 비트를 중간정수로, 비트실수(i) = 그 거꾸로 — 값을 바꾸지 않고 보는 법만 바꾼다(mov.b32).
+TENSOR = ("정수텐서곱", "정수텐서곱_나부호없음")
+BYTEDOT = ("바이트넷곱더하기", "바이트넷곱더하기_나부호없음")
+BITS = ("실수비트", "비트실수")
 INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기", "근사지수", "제곱근", "큰쪽") + tuple(BLOCK_REGS) + tuple(SHARED) + ASYNC + \
-    PREFETCH + SHUFFLE + GRID + CLOCK + WARP
+    PREFETCH + SHUFFLE + GRID + CLOCK + WARP + TENSOR + BYTEDOT + BITS
 
 
 class PTXError(Exception):
@@ -241,6 +253,7 @@ class FuncPTX:
         self.addr_off = self.fold_offsets() if FOLD_OFFSETS else {}
         self.vst_last, self.vst_skip = {}, set()
         self.vec_lead, self.vec_skip = self.vector_loads() if (VECTOR_LOADS and FOLD_OFFSETS) else ({}, set())
+        self._mma, self._ver = None, {}                  # 6단계: 정수텐서곱 넷의 묶음(인자의 서명), 레지스터 변수마다 대입 횟수
 
     def address_spaces(self):
         """2a: 임시값의 주소 공간. 규칙 — 커널의 참조 매개변수는 전역 메모리를 가리키고, 거기서 나온 주소(색인·필드·복사)도
@@ -735,6 +748,8 @@ class FuncPTX:
         out.append("    .reg .u64 %X<3>;")
         out.append("    .reg .b32 %w<3>;")
         out.append("    .reg .f32 %fw<2>;")
+        if any(i.op == "call" and i.extern and i.callee in TENSOR for i in f.insts):
+            out.append("    .reg .b32 %m<4>;")
         for name in sorted({i.callee for i in f.insts if i.op == "call" and i.extern and i.callee in SHARED}):
             out.append(f"    .shared .align 16 .b8 {SHARED[name]}[{SHARED_SIZE[name]}];")
         for t in f.temps:
@@ -765,6 +780,11 @@ class FuncPTX:
     def inst(self, i):
         op = i.op
         e = self.emit
+        if op in ("label", "jmp", "br", "ret"):        # 정수텐서곱 넷의 묶음은 기본 블록을 넘지 않는다
+            self._mma = None
+        if op == "store" and self.addr_of.get(i.addr) in self.regvar:
+            v = self.addr_of[i.addr]
+            self._ver[v] = self._ver.get(v, 0) + 1
         if op == "label":
             self.lines.append(f"{self.label(i.name)}:")
         elif op == "const":
@@ -1028,6 +1048,28 @@ class FuncPTX:
         else:
             raise PTXError(f"PTX 탐침이 아직 받지 않는 변환 '{k}'")
 
+    def one_const(self, t):
+        """한 번만 대입된 정수 상수면 그 값(넓히기 · 좁히기를 거쳐도) — defs 로 바로 찾는다."""
+        d = self.defs.get(t) if getattr(self, "defs", None) else None
+        if d is None or self.ndef.get(t) != 1:
+            return None
+        if d.op == "const":
+            return int(d.value)
+        if d.op == "cast" and d.kind in ("sext", "zext", "trunc") and d.src.type.is_int():
+            return self.one_const(d.src)
+        return None
+
+    def arg_sig(self, t):
+        """6단계: 내장 인자의 '같음' 서명 — 레지스터 변수에서 읽은 임시값은 (변수, 그때까지의 대입 횟수), 상수는 값, 그 밖은 임시값 자체."""
+        d = self.defs.get(t) if getattr(self, "defs", None) else None
+        if d is not None and self.ndef.get(t) == 1:
+            if d.op == "load" and self.addr_of.get(d.addr) in self.regvar:
+                v = self.addr_of[d.addr]
+                return ("v", id(v), self._ver.get(v, 0))
+            if d.op == "const":
+                return ("c", int(d.value))
+        return ("t", id(t))
+
     def call(self, i):
         name = i.callee if isinstance(i.callee, str) else None
         if not (i.extern and name in INTRINSICS):
@@ -1073,6 +1115,37 @@ class FuncPTX:
         if i.dst is None:
             raise PTXError(f"GPU 내장 '{name}' 의 값을 쓰지 않았다")
         d = self.r(i.dst)
+        if name in TENSOR:
+            # 넷(j = 0 … 3)을 같은 인자로 잇달아 — j = 0 에서 mma 하나를 내고 결과 넷을 %m0 … %m3 에 둔다. 인자의 같음은 "같은 레지스터
+            # 변수를 그 사이에 대입하지 않고 읽은 것"(또는 같은 임시값 · 같은 상수)으로 본다. 아니면 거부(조용히 틀리지 않게).
+            j = self.one_const(i.args[0])
+            if j not in (0, 1, 2, 3) or len(i.args) != 11 or i.dst.type.bits != 32:
+                raise PTXError(f"{name}(j, a₀ … a₃, b₀, b₁, c₀ … c₃) — j 는 상수 0 … 3, 값은 중간정수")
+            sig = (name,) + tuple(self.arg_sig(a) for a in i.args[1:])
+            if j == 0:
+                a = ", ".join(self.r(x) for x in i.args[1:5])
+                b = ", ".join(self.r(x) for x in i.args[5:7])
+                c = ", ".join(self.r(x) for x in i.args[7:11])
+                bt = ".u8" if name.endswith("나부호없음") else ".s8"
+                e(f"mma.sync.aligned.m16n8k32.row.col.s32.s8{bt}.s32 {{%m0, %m1, %m2, %m3}}, {{{a}}}, {{{b}}}, {{{c}}};")
+                self._mma = [sig, 0]
+            elif self._mma is None or self._mma[0] != sig or self._mma[1] != j - 1:
+                raise PTXError(f"{name} 의 j = {j} 는 같은 인자로 부른 j = {j - 1} 바로 뒤에 와야 한다(같은 기본 블록, 그 사이에 인자 변수를 바꾸지 않음)")
+            else:
+                self._mma[1] = j
+            e(f"mov.b32 {d}, %m{j};")
+            return
+        if name in BYTEDOT:
+            bt = ".u32" if name.endswith("나부호없음") else ".s32"
+            x, y, z = (self.r(a) for a in i.args)
+            e(f"dp4a.s32{bt} {d}, {x}, {y}, {z};")
+            return
+        if name == "실수비트":
+            e(f"mov.b32 {d}, {self.r(i.args[0])};")
+            return
+        if name == "비트실수":
+            e(f"mov.b32 {d}, {self.r(i.args[0])};")
+            return
         if name == "곱해더하기":
             x, y, z = (self.r(a) for a in i.args)
             e(f"fma.rn{reg_type(i.dst.type)} {d}, {x}, {y}, {z};")
@@ -1144,7 +1217,7 @@ def translate(src):
     if not kernels:
         raise PTXError("커널이 없다 — 반환값이 없는 함수가 커널이 된다")
     # cp.async(비동기복사)는 sm_80 부터 — 쓰는 커널이 있을 때만 대상을 올린다
-    uses_async = any(i.op == "call" and i.extern and i.callee in ASYNC + GRID for f in kernels for i in f.insts)
+    uses_async = any(i.op == "call" and i.extern and i.callee in ASYNC + GRID + TENSOR + BYTEDOT for f in kernels for i in f.insts)
     # 반실수(4단계 2)를 쓰는 모듈만 머리의 설명이 길어진다 — 짧은실수만 쓰는 모듈의 PTX 는 예전과 바이트까지 같다
     uses_half = any(getattr(t, "type", None) is not None and t.type.is_float() and t.type.bits == 16 for f in kernels for t in f.temps)
     head = ["//", "// geul -> PTX probe (research/gpu/geulptx). ASCII only: Korean names are mangled as _G + UTF-8 hex.", "//",
