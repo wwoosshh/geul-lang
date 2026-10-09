@@ -887,6 +887,68 @@ class FuncPTX:
             self.emit(f"{base}{self.int_type(t, signed=signed)} {d}, {a}, {b};")
         self.normalize(d, t)
 
+    def byte_field(self, i):
+        """5단계: 정수 → 짧은실수 변환 i 의 값이 ((w >> s) & m) − c 의 꼴인가 — m 은 255(바이트, s ∈ {0, 8, 16, 24}) 또는
+        15(니블, s ∈ {0, 4, …, 28}), s · c 는 상수, w 는 32 비트 정수, 값의 범위는 2e 가 [−2²², 2²²) 로 증명. 사슬(빼기 · 그리고 ·
+        밀기 · 넓히기)의 임시값은 모두 한 번만 대입되고 i 와 같은 기본 블록 안에서 i 앞에 있어야 한다(그래서 w 의 레지스터가 그때의
+        값 그대로다). 맞으면 (w 의 레지스터, s, m, c), 아니면 None."""
+        defs, ndef = getattr(self, "defs", None), getattr(self, "ndef", None)
+        r = self.rng.get(i.src)
+        if not defs or ndef is None or r is None or not (-(1 << 22) <= r[0] and r[1] < (1 << 22)):
+            return None
+        if not hasattr(self, "_blk"):                      # 명령마다 그 기본 블록의 첫 자리
+            self._pos, self._blk, b = {}, [], 0
+            for k, x in enumerate(self.f.insts):
+                if x.op == "label":
+                    b = k
+                self._pos[id(x)] = k
+                self._blk.append(b)
+                if x.op in ("jmp", "br", "ret"):
+                    b = k + 1
+        one = lambda t: ndef.get(t, 0) == 1
+
+        def const(t):
+            d = defs.get(t)
+            if d is None or not one(t):
+                return None
+            if d.op == "const":
+                return int(d.value)
+            if d.op == "cast" and d.kind in ("sext", "zext", "trunc") and d.src.type.is_int():
+                return const(d.src)
+            return None
+        chain = []
+        t = i.src
+        d = defs.get(t)
+        if d is not None and one(t) and d.op == "cast" and d.kind in ("sext", "zext") and d.src.type.is_int():
+            chain.append(d)
+            t, d = d.src, defs.get(d.src)
+        if d is None or not one(t) or d.op != "bin" or d.bop != "sub" or const(d.b) is None:
+            return None
+        c = const(d.b)
+        chain.append(d)
+        t, d = d.a, defs.get(d.a)
+        if d is None or not one(t) or d.op != "bin" or d.bop != "and":
+            return None
+        m, x = const(d.b), d.a
+        if m is None:
+            m, x = const(d.a), d.b
+        if m not in (255, 15):
+            return None
+        chain.append(d)
+        t, d, s = x, defs.get(x), 0
+        if d is not None and one(t) and d.op == "bin" and d.bop in ("ashr", "lshr") and const(d.b) is not None:
+            s = const(d.b)
+            chain.append(d)
+            t = d.a
+        if not (t.type.is_int() and width(t.type) == 32 and one(t) and -(1 << 20) <= c <= (1 << 20)):
+            return None
+        if (m == 255 and (s % 8 or not 0 <= s <= 24)) or (m == 15 and (s % 4 or not 0 <= s <= 28)):
+            return None
+        k = self._pos.get(id(i))
+        if k is None or any(self._pos.get(id(x), k) > k or self._blk[self._pos[id(x)]] != self._blk[k] for x in chain):
+            return None
+        return self.r(t), s, m, c
+
     def cast(self, i):
         d, s = self.r(i.dst), self.r(i.src)
         dt, st = i.dst.type, i.src.type
@@ -902,6 +964,33 @@ class FuncPTX:
             self.normalize(d, dt)
         elif k in ("sitofp", "uitofp", "fptosi", "fptoui") and ((dt.is_float() and dt.bits == 16) or (st.is_float() and st.bits == 16)):
             raise PTXError("정수와 반실수 사이의 변환은 아직 받지 않는다 — 짧은실수를 거쳐 밝혀라")
+        elif k in ("sitofp", "uitofp") and dt.bits == 32 and (bf := self.byte_field(i)) is not None:
+            # 5단계: 값이 ((w >> s) & 255) − c 또는 ((w >> s) & 15) − c (32 비트 w, 상수 s · c, 범위가 증명됨)면 바이트를 실수
+            # 12582912 의 비트 아래 8 비트에 바로 끼운다(prmt 하나 — 그 실수는 12582912 + 바이트), 그다음 (12582912 + c) 를 뺀다 —
+            # 결과는 바이트 − c 정확히(두 수가 두 배 안이라 뺄셈이 정확하다). 4 비트는 낱말의 니블들을 바이트마다 하나씩 모은 뒤(and ·
+            # shr — 같은 낱말의 니블끼리 같은 식이라 ptxas 가 한 번만 계산한다) 같은 길. 위의 빠른 변환, 느린 변환과 비트까지 같다.
+            w, s, m, c = bf
+            src = w
+            if m == 15:
+                if s % 8:
+                    e(f"shr.u32 %x2, {w}, 4;")
+                    e("and.b32 %x2, %x2, 0x0F0F0F0F;")
+                else:
+                    e(f"and.b32 %x2, {w}, 0x0F0F0F0F;")
+                src = "%x2"
+            e("mov.b32 %x3, 0x4B400000;")
+            e(f"prmt.b32 %x1, {src}, %x3, {0x7650 | (s // 8)};")
+            e("mov.b32 %fw0, %x1;")
+            e(f"sub.rn.f32 {d}, %fw0, {flit(12582912.0 + c, dt)};")
+        elif k in ("sitofp", "uitofp") and dt.bits == 32 and self.rng.get(i.src) is not None and \
+                -(1 << 22) <= self.rng[i.src][0] and self.rng[i.src][1] < (1 << 22):
+            # 5단계: 범위가 증명된 작은 정수(|x| < 2²²)는 같은 값을 빠른 명령으로 — 실수 12582912 의 비트에 x 를 더하면 그 실수는
+            # 12582912 + x (가수의 한 칸이 1), 빼면 x 가 정확히 남는다. 느린 변환(cvt.rn.f32.s64)과 비트까지 같다. 양자 가중치를 푸는
+            # ((q >> s) & 15) − 8 같은 값의 범위를 2e 의 구간 해석이 증명한다.
+            e(f"cvt.u32.u64 %x1, {s};" if width(st) == 64 else f"mov.b32 %x1, {s};")
+            e("add.u32 %x1, %x1, 0x4B400000;")
+            e("mov.b32 %fw0, %x1;")
+            e(f"sub.rn.f32 {d}, %fw0, 0f4B400000;")
         elif k in ("sitofp", "uitofp"):
             e(f"cvt.rn{reg_type(dt)}{self.int_type(st, signed=(k == 'sitofp'))} {d}, {s};")
         elif k in ("fptosi", "fptoui"):
