@@ -117,8 +117,13 @@ BITS = ("실수비트", "비트실수", "바이트고르기")
 # 가까운정수(x) = 짧은실수 x 를 가장 가까운 정수로(같으면 짝수 — IEEE 의 roundToIntegralTiesToEven) 바꾼 중간정수(cvt.rni.s32.f32).
 # 범위 [−2³¹, 2³¹) 밖이면(NaN 포함) 2c 처럼 오류 칸에 1.
 ROUND = ("가까운정수",)
+# 11단계 — 행렬조각읽기(j, 판, i) = 워프의 32 레인이 함께 하는 공유 메모리 읽기(ldmatrix.sync.aligned.m8n8.x4.shared.b16): 레인 ℓ 이
+# 행렬 ⌊ℓ/8⌋ 의 줄 ℓ % 8 의 주소(판 + 4i 바이트 — 16 바이트 줄, 16 바이트 정렬)를 주고, 결과 j(0 … 3)는 행렬 j 의 줄 ⌊ℓ/4⌋ 에서
+# 낱말 ℓ % 4. 값을 옮기기만 한다(산술이 없다 — 비트 그대로). 판은 공유 메모리여야 한다. 넷(j = 0 … 3)을 같은 인자로 잇달아 부르면 명령
+# 하나가 되고, 그렇지 않은 꼴은 거부한다(정수텐서곱과 같은 규칙).
+MATRIX = ("행렬조각읽기",)
 INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기", "근사지수", "제곱근", "큰쪽") + tuple(BLOCK_REGS) + tuple(SHARED) + ASYNC + \
-    PREFETCH + SHUFFLE + GRID + CLOCK + WARP + TENSOR + BYTEDOT + BITS + ROUND
+    PREFETCH + SHUFFLE + GRID + CLOCK + WARP + TENSOR + BYTEDOT + BITS + ROUND + MATRIX
 
 
 class PTXError(Exception):
@@ -259,6 +264,7 @@ class FuncPTX:
         self.vst_last, self.vst_skip = {}, set()
         self.vec_lead, self.vec_skip = self.vector_loads() if (VECTOR_LOADS and FOLD_OFFSETS) else ({}, set())
         self._mma, self._ver, self._mma_n = None, {}, 0  # 6단계: 정수텐서곱 넷의 묶음(인자의 서명), 레지스터 변수마다 대입 횟수, mma 결과 레지스터의 다음 번호
+        self._ldm = None                                 # 11단계: 행렬조각읽기 넷의 묶음(정수텐서곱과 같은 꼴 — 결과 레지스터도 %m 을 같이 쓴다)
 
     def address_spaces(self):
         """2a: 임시값의 주소 공간. 규칙 — 커널의 참조 매개변수는 전역 메모리를 가리키고, 거기서 나온 주소(색인·필드·복사)도
@@ -772,7 +778,7 @@ class FuncPTX:
         out.append("    .reg .u64 %X<3>;")
         out.append("    .reg .b32 %w<3>;")
         out.append("    .reg .f32 %fw<2>;")
-        n_mma = sum(1 for i in f.insts if i.op == "call" and i.extern and i.callee in TENSOR)
+        n_mma = sum(1 for i in f.insts if i.op == "call" and i.extern and i.callee in TENSOR + MATRIX)
         if n_mma:                                  # mma 마다 제 결과 레지스터 넷 — 같은 레지스터를 돌려 쓰면 mma 끼리 기다린다
             out.append(f"    .reg .b32 %m<{n_mma + 4}>;")
         for name in sorted({i.callee for i in f.insts if i.op == "call" and i.extern and i.callee in SHARED}):
@@ -807,6 +813,7 @@ class FuncPTX:
         e = self.emit
         if op in ("label", "jmp", "br", "ret"):        # 정수텐서곱 넷의 묶음은 기본 블록을 넘지 않는다
             self._mma = None
+            self._ldm = None
         if op == "store" and self.addr_of.get(i.addr) in self.regvar:
             v = self.addr_of[i.addr]
             self._ver[v] = self._ver.get(v, 0) + 1
@@ -1161,6 +1168,28 @@ class FuncPTX:
             else:
                 self._mma[1] = j
             e(f"mov.b32 {d}, %m{self._mma[2] + j};")
+            return
+        if name in MATRIX:
+            j = self.one_const(i.args[0])
+            if j not in (0, 1, 2, 3) or len(i.args) != 3 or i.dst.type.bits != 32:
+                raise PTXError(f"{name}(j, 판, i) — j 는 상수 0 … 3, 값은 중간정수")
+            sp, si = i.args[1], i.args[2]
+            if self.space.get(sp) != "shared":
+                raise PTXError(f"{name} 의 판은 공유 메모리여야 한다")
+            xs, cs = self.split_const(si)
+            sig = (name, self.arg_sig(sp), self.arg_sig(xs), cs)
+            if j == 0:
+                e(f"mad.lo.s64 %X1, {self.r(xs)}, 4, {self.r(sp)};")
+                e("cvt.u32.u64 %x1, %X1;")
+                k = self._mma_n
+                self._mma_n += 4
+                e(f"ldmatrix.sync.aligned.m8n8.x4.shared.b16 {{%m{k}, %m{k + 1}, %m{k + 2}, %m{k + 3}}}, [%x1+{4 * cs}];")
+                self._ldm = [sig, 0, k]
+            elif self._ldm is None or self._ldm[0] != sig or self._ldm[1] != j - 1:
+                raise PTXError(f"{name} 의 j = {j} 는 같은 인자로 부른 j = {j - 1} 바로 뒤에 와야 한다(같은 기본 블록, 그 사이에 인자 변수를 바꾸지 않음)")
+            else:
+                self._ldm[1] = j
+            e(f"mov.b32 {d}, %m{self._ldm[2] + j};")
             return
         if name in BYTEDOT:
             bt = ".u32" if name.endswith("나부호없음") else ".s32"
