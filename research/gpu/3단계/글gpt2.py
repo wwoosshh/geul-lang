@@ -17,7 +17,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from 커널생성 import 정수판들, 정수판모양, 정수열묶음, 층정규화정수행      # noqa: E402 — 정수 판의 모양(커널과 같은 표 · 규칙)
+from 커널생성 import 정수판들, 정수판들둘, 정수판표, 정수판모양, 정수열묶음, 층정규화정수행      # noqa: E402 — 정수 판의 모양(커널과 같은 표 · 규칙)
 ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 D, NH, NL, V, NCTX = 768, 12, 12, 50257, 1024            # GPT-2 small — 모형마다의 크기는 글GPT2 의 self.D · NH · NL · V (7단계)
 
@@ -229,9 +229,12 @@ class _띄움:
 # 6단계 정수 블록 계약(가중치가 gguf읽기.gpt2정수 — 배치 "정수"): 모듈 커널반Q8정수.gl · 커널반Q4정수.gl. 선형 층마다 활성값을
 # 네 자리로 바꾸는 커널(정수로)을 먼저 띄우고, 정수 텐서 코어 행렬곱(정수타일선형 — 행 수와 상관없이 하나)을 띄운다.
 정수모듈 = {("Q8_0", "Q8_0"): "커널반Q8정수.gl", ("Q4_0", "Q8_0"): "커널반Q4정수.gl"}
+# 8단계 — 자리 둘 계약(활성값 ±2¹⁴): 같은 가중치 배치, 자릿값이 둘. `글GPT2(…, 자리수=2)`
+두자리모듈 = {("Q8_0", "Q8_0"): "커널반Q8둘자리.gl", ("Q4_0", "Q8_0"): "커널반Q4둘자리.gl"}
 # 7단계 — GPT-2 XL(너비 1600, 머리 25, 층 48): 커널생성.py 가 크기만 바꿔 만든 모듈(순서 약속은 같다). 짧은실수 판은 짧은실수 KV.
 XL모듈 = {("짧은실수", "짧은실수", "짧은실수"): "커널XL.gl", ("F16", "F16", "반실수"): "커널XL반F16.gl",
-         ("Q8_0", "Q8_0", "정수"): "커널XL반Q8정수.gl", ("Q4_0", "Q8_0", "정수"): "커널XL반Q4정수.gl"}
+         ("Q8_0", "Q8_0", "정수"): "커널XL반Q8정수.gl", ("Q4_0", "Q8_0", "정수"): "커널XL반Q4정수.gl",
+         ("Q8_0", "Q8_0", "둘자리"): "커널XL반Q8둘자리.gl", ("Q4_0", "Q8_0", "둘자리"): "커널XL반Q4둘자리.gl"}
 바이트수 = {"짧은실수": lambda K, N: 4 * K * N, "F16": lambda K, N: 2 * K * N,
           "Q8_0": lambda K, N: K * N + K * N // 16, "Q4_0": lambda K, N: K * N // 2 + K * N // 16}
 
@@ -251,9 +254,11 @@ def _바탕(x):
 
 
 class 글GPT2:
-    def __init__(self, weights, 최대행=1024, 최대문장=3, 최대길이=NCTX, 로짓행=1024, 프롬메가=False, KV형식="짧은실수"):
+    def __init__(self, weights, 최대행=1024, 최대문장=3, 최대길이=NCTX, 로짓행=1024, 프롬메가=False, KV형식="짧은실수", 자리수=4):
         """KV형식: KV 캐시의 원소 — "짧은실수"(커널.gl) 또는 "반실수"(커널반.gl, 4단계 2 — 밝힌 정밀도: 쓸 때 `으로 반실수` 로
-        반올림 한 번, 읽을 때 정확히 넓힌다). 다른 커널과 순서 약속은 같다."""
+        반올림 한 번, 읽을 때 정확히 넓힌다). 다른 커널과 순서 약속은 같다. 자리수: 정수 블록 계약의 활성값 자리(4 — 6단계, 2 — 8단계)."""
+        assert 자리수 in (2, 4)
+        self.자리수 = 자리수
         assert KV형식 in ("짧은실수", "반실수")
         assert not (프롬메가 and KV형식 == "반실수"), "프롬프트 메가커널(3l)은 짧은실수 KV 판만 있다"
         # 모형의 크기 — 가중치에서(7단계: GPT-2 small · XL). 머리 하나는 64 칸.
@@ -273,6 +278,7 @@ class 글GPT2:
         if self.양자:
             assert KV형식 == "반실수", "양자 판(5단계 · 6단계)은 반실수 KV 판만 있다"
             assert (self.층형식, self.낱말형식) in (정수모듈 if self.정수 else 양자모듈), f"모듈이 없는 형식: {(self.층형식, self.낱말형식)}"
+        assert 자리수 == 4 or self.정수, "자리 둘은 정수 계약 판(gguf읽기.gpt2정수)에서만"
         self.dr = dr = 드라이버()
 
         def build(gl):
@@ -281,10 +287,10 @@ class 글GPT2:
                             "-o", ptx], check=True, capture_output=True)
             return dr.모듈(open(ptx, "rb").read())
         if self.크기 == "small":
-            모듈 = ((정수모듈 if self.정수 else 양자모듈)[(self.층형식, self.낱말형식)] if self.양자 else
+            모듈 = (((두자리모듈 if 자리수 == 2 else 정수모듈) if self.정수 else 양자모듈)[(self.층형식, self.낱말형식)] if self.양자 else
                    ("커널.gl" if KV형식 == "짧은실수" else "커널반.gl"))
         else:
-            열쇠 = (self.층형식, self.낱말형식, "정수" if self.정수 else KV형식)
+            열쇠 = (self.층형식, self.낱말형식, ("둘자리" if 자리수 == 2 else "정수") if self.정수 else KV형식)
             assert 열쇠 in XL모듈, f"XL 모듈이 없는 판: {열쇠}"
             모듈 = XL모듈[열쇠]
         self.mods = [build("gpt2.gl" if self.크기 == "small" else "gpt2XL.gl"), build(모듈)]
@@ -296,10 +302,11 @@ class 글GPT2:
             self.k["정수로"] = dr.함수(self.mods[1], "정수로")
             self.k["층정규화정수"] = dr.함수(self.mods[1], "층정규화정수")
             self.k["흐름어텐션정수"] = dr.함수(self.mods[1], "흐름어텐션정수")
-            self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in (*정수판들, "정수줄선형")
+            판표 = 정수판표(자리수)
+            self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in (*판표, "정수줄선형")
                        for epi in ("", "_잔차", "_겔루", "_KV")}
-            self.선형.update({(판, "_겔루정수"): dr.함수(self.mods[1], f"{판}_겔루정수") for 판 in 정수판들 if 정수판들[판][3] >= 4})
-            self.로짓선형 = {판: dr.함수(self.mods[1], f"로짓{판}") for 판 in (*정수판들, "정수줄선형")}
+            self.선형.update({(판, "_겔루정수"): dr.함수(self.mods[1], f"{판}_겔루정수") for 판 in 판표 if 판표[판][3] >= 4})
+            self.로짓선형 = {판: dr.함수(self.mods[1], f"로짓{판}") for 판 in (*판표, "정수줄선형")}
         else:
             판들 = ("줄선형1", "깊은줄선형1", "줄선형4", "타일선형", "작은타일선형") + (() if self.양자 else ("타일선형넷",))
             self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in 판들 for epi in ("", "_잔차", "_겔루", "_KV")}
@@ -350,9 +357,9 @@ class 글GPT2:
         self.lnf_g, self.lnf_b = up(w["ln_f.weight"]), up(w["ln_f.bias"])
         M = 최대행
         if self.정수:                                # 활성값의 네 자리 [4][행][깊이] 바이트와 블록 마법수 [행][블록][4] — 깊이는 4D 까지
-            self.자릿값, self.정보 = dr.할당(4 * M * 4 * D), dr.할당(M * (4 * D // 32) * 16)
-            # c_fc 의 끝손질(_겔루정수)이 mlp c_proj 의 네 자리를 바로 쓰는 칸 — c_fc 가 읽는 칸과 따로
-            self.자릿값2, self.정보2 = dr.할당(4 * M * 4 * D), dr.할당(M * (4 * D // 32) * 16)
+            self.자릿값, self.정보 = dr.할당(자리수 * M * 4 * D), dr.할당(M * (4 * D // 32) * 16)
+            # c_fc 의 끝손질(_겔루정수)이 mlp c_proj 의 자리를 바로 쓰는 칸 — c_fc 가 읽는 칸과 따로
+            self.자릿값2, self.정보2 = dr.할당(자리수 * M * 4 * D), dr.할당(M * (4 * D // 32) * 16)
         self.h, self.x = dr.할당(M * D * 4), dr.할당(M * D * 4)
         self.q, self.att = dr.할당(M * D * 4), dr.할당(M * D * 4)
         self.fc = dr.할당(M * 4 * D * 4)
@@ -437,7 +444,7 @@ class 글GPT2:
 
     @staticmethod
     def _격자(판, rows, N, K=None, 작음=True):
-        if 판 in 정수판들:
+        if 판 in 정수판들둘:
             BM, BN, T = 정수판모양(판)
             return ((rows + BM - 1) // BM, (N + BN - 1) // BN), (T, 1)
         if 판 == "정수줄선형":                 # 열 묶음 w (커널과 같은 규칙 — 커널생성.정수열묶음; XL 은 깊이 K 로)
@@ -509,7 +516,7 @@ class 글GPT2:
         kv = 시 + 4 * self.D * self.최대행                         # 시험칸의 q 출력 뒤에 키 · 값 (층 하나, 문장 하나 몫씩)
         extra = {"_잔차": [시], "_KV": [kv, kv + 2 * self.D * self.최대길이], "_겔루정수": [kv]}.get(epi, [])
         runs = {}
-        for 판 in 정수판들:
+        for 판 in 정수판표(self.자리수):
             if not 로짓 and (판, epi) not in self.선형:   # _겔루정수 는 열 조각 넷 이상인 판만 있다
                 continue
             fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]

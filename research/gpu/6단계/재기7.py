@@ -87,10 +87,11 @@ def 행렬곱시험(m, g, rng):
          "c_fc": ("blk.7.ffn_up.weight", "mlp.c_fc.weight", 7),
          "mlp c_proj": ("blk.9.ffn_down.weight", "mlp.c_proj.weight", 9),
          "로짓 (낱말표)": ("token_embd.weight", None, None)}
-    입력 = dr.할당(1024 * 3072 * 4)
-    출력 = dr.할당(1024 * 50257 * 4)
-    가중칸 = dr.할당(50304 * 768 * 2)
-    치우칸 = dr.할당(50304 * 4)
+    D, V = m.D, m.V                                          # 모형의 크기(small · XL — 8단계부터 둘 다)
+    입력 = dr.할당(1024 * 4 * D * 4)
+    출력 = dr.할당(1024 * ((V + 63) // 64 * 64) * 4)
+    가중칸 = dr.할당(((V + 63) // 64 * 64) * D * 2 + 4 * D * D)
+    치우칸 = dr.할당(((V + 63) // 64 * 64) * 4)
     for 이름, (gname, wname, l) in 층.items():
         로짓 = wname is None
         wt0 = m.wteT if 로짓 else m.층[l][wname]
@@ -117,7 +118,7 @@ def 행렬곱시험(m, g, rng):
             for M in ((1, 3, 37, 200) if not 로짓 else (1, 3, 70)):
                 x = 활성값(rng, M, K, 종류)
                 bias = (rng.standard_normal(N) * 0.1).astype(np.float32)
-                ref = C.행렬곱(x, q, d, bias)
+                ref = C.행렬곱(x, q, d, bias, m.자리수)
                 dr.올리기(입력, x)
                 dr.올리기(치우칸, bias)
                 for 판 in ["정수줄선형"] + list(G.정수판들):
@@ -131,7 +132,7 @@ def 행렬곱시험(m, g, rng):
                         ps = [c_u64(m.자릿값), c_u64(m.정보)] + G._가중인자(wt) + [c_u64(치우칸), c_u64(출력), c_i64(M), c_i64(K),
                                                                               c_i64(N), c_i64((N + 63) // 64 * 64)]
                     dr.확인(dr.cu.cuMemsetD8_v2(c_u64(출력), 0xFF, M * N * 4))
-                    y = G._띄움(fn, *m._격자(판, M, N), ps)
+                    y = G._띄움(fn, *m._격자(판, M, N, K, m.크기 == "small"), ps)   # 줄 판의 열 묶음은 깊이 · 크기에 따른다(호스트와 같은 규칙)
                     dr.확인(dr.cu.cuLaunchKernel(y.fn, *y.grid, 1, *y.block, 1, 0, None, y.args, None))
                     dr.맞추기()
                     got = dr.내리기(출력, np.empty((M, N), np.float32))
