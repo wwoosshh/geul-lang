@@ -1,0 +1,568 @@
+{
+ "환경": {
+  "torch": "2.14.1+cu130",
+  "transformers": "5.19.0",
+  "llama.cpp": "b11496 (000bee54a)",
+  "torch allow_tf32(matmul)": false,
+  "GPU": "NVIDIA GeForce RTX 4070 Ti"
+ },
+ "llama.cpp 문맥 (로그)": {
+  "llama.cpp (기본: KV F16)": [
+   "llama_context: n_seq_max             = 1",
+   "llama_context: n_ctx                 = 1024",
+   "llama_context: n_ubatch              = 512",
+   "llama_context: flash_attn            = auto",
+   "llama_context: kv_unified            = false",
+   "llama_kv_cache: size =   36.00 MiB (  1024 cells,  12 layers,  1/1 seqs), K (f16):   18.00 MiB, V (f16):   18.00 MiB",
+   "resolve_fused_ops: Flash Attention enabled"
+  ],
+  "llama.cpp (KV F32, 기록)": [
+   "llama_context: n_seq_max             = 1",
+   "llama_context: n_ctx                 = 1024",
+   "llama_context: n_ubatch              = 512",
+   "llama_context: flash_attn            = auto",
+   "llama_context: kv_unified            = false",
+   "llama_kv_cache: size =   72.00 MiB (  1024 cells,  12 layers,  1/1 seqs), K (f32):   36.00 MiB, V (f32):   36.00 MiB",
+   "resolve_fused_ops: Flash Attention enabled"
+  ],
+  "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": [
+   "llama_context: n_seq_max             = 1",
+   "llama_context: n_ctx                 = 1024",
+   "llama_context: n_ubatch              = 512",
+   "llama_context: flash_attn            = disabled",
+   "llama_context: kv_unified            = false",
+   "llama_kv_cache: size =   72.00 MiB (  1024 cells,  12 layers,  1/1 seqs), K (f32):   36.00 MiB, V (f32):   36.00 MiB"
+  ]
+ },
+ "데우기: 문장 1 의 16토큰": {
+  "글": " not the same as the meaning of death.\n\nThe meaning of life is",
+  "llama.cpp (기본: KV F16)": " not the same as the meaning of death.\n\nThe meaning of life is",
+  "llama.cpp (KV F32, 기록)": " not the same as the meaning of death.\n\nThe meaning of life is",
+  "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": " not the same as the meaning of death.\n\nThe meaning of life is",
+  "HF transformers": " not the same as the meaning of death.\n\nThe meaning of life is"
+ },
+ "4a 성능 (실제 GPT-2)": {
+  "프롬프트 처리 + 첫 토큰 ms": {
+   "128": {
+    "글": 2.6627,
+    "llama.cpp (기본: KV F16)": 2.4369,
+    "llama.cpp (KV F32, 기록)": 2.5226,
+    "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": 2.6834,
+    "HF transformers": 7.6331
+   },
+   "512": {
+    "글": 6.1061,
+    "llama.cpp (기본: KV F16)": 5.8332,
+    "llama.cpp (KV F32, 기록)": 5.8557,
+    "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": 7.1715,
+    "HF transformers": 9.0916
+   },
+   "1024": {
+    "글": 11.4935,
+    "llama.cpp (기본: KV F16)": 10.8236,
+    "llama.cpp (KV F32, 기록)": 11.2085,
+    "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": 14.7471,
+    "HF transformers": 16.249
+   }
+  },
+  "생성 ms/토큰": {
+   "짧은 문맥 (문장 1, 5토큰)": {
+    "글": 1.2068,
+    "llama.cpp (기본: KV F16)": 1.5367,
+    "llama.cpp (KV F32, 기록)": 1.6252,
+    "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": 1.6156,
+    "HF transformers": 5.6376
+   },
+   "문맥 960": {
+    "글": 1.3723,
+    "llama.cpp (기본: KV F16)": 1.6118,
+    "llama.cpp (KV F32, 기록)": 1.8819,
+    "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": 1.7382,
+    "HF transformers": 5.125
+   }
+  },
+  "실패": {},
+  "llama-bench (기본 설정, t/s)": [
+   {
+    "n_prompt": 128,
+    "n_gen": 0,
+    "n_depth": 0,
+    "t/s": 54882.5,
+    "flash_attn": -1,
+    "type_k": "f16"
+   },
+   {
+    "n_prompt": 512,
+    "n_gen": 0,
+    "n_depth": 0,
+    "t/s": 84365.6,
+    "flash_attn": -1,
+    "type_k": "f16"
+   },
+   {
+    "n_prompt": 1024,
+    "n_gen": 0,
+    "n_depth": 0,
+    "t/s": 98120.1,
+    "flash_attn": -1,
+    "type_k": "f16"
+   },
+   {
+    "n_prompt": 0,
+    "n_gen": 64,
+    "n_depth": 0,
+    "t/s": 677.7,
+    "flash_attn": -1,
+    "type_k": "f16"
+   },
+   {
+    "n_prompt": 0,
+    "n_gen": 64,
+    "n_depth": 960,
+    "t/s": 649.6,
+    "flash_attn": -1,
+    "type_k": "f16"
+   }
+  ],
+  "통과": false
+ },
+ "4c 의미": {
+  "글": {
+   "(가) 혼자 대 세 문장 한 묶음: 다른 칸": 0,
+   "(가) 최대 절대차": 0.0,
+   "(가) 고른 토큰이 다른 행": 0,
+   "(나) 한 번에 대 64토큰씩: 다른 칸": 0,
+   "(나) 한 번에 대 하나씩: 다른 칸": 0,
+   "(나) 최대 절대차 (64토큰씩 / 하나씩)": [
+    0.0,
+    0.0
+   ],
+   "(나) 고른 토큰이 다른 행 (64토큰씩 / 하나씩)": [
+    0,
+    0
+   ],
+   "(다) 한 번에를 다섯 번 더: 첫 번째와 다른 칸": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "칸 수 (가 / 나)": [
+    3417476,
+    25731584
+   ]
+  },
+  "llama.cpp (기본: KV F16)": {
+   "(가) 혼자 대 세 문장 한 묶음: 다른 칸": 3416016,
+   "(가) 최대 절대차": 4.554281711578369,
+   "(가) 고른 토큰이 다른 행": 0,
+   "(나) 한 번에 대 64토큰씩: 다른 칸": 25725765,
+   "(나) 한 번에 대 하나씩: 다른 칸": 25725574,
+   "(나) 최대 절대차 (64토큰씩 / 하나씩)": [
+    5.803955078125,
+    4.1309356689453125
+   ],
+   "(나) 고른 토큰이 다른 행 (64토큰씩 / 하나씩)": [
+    0,
+    0
+   ],
+   "(다) 한 번에를 다섯 번 더: 첫 번째와 다른 칸": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "칸 수 (가 / 나)": [
+    3417476,
+    25731584
+   ]
+  },
+  "llama.cpp (KV F32, 기록)": {
+   "(가) 혼자 대 세 문장 한 묶음: 다른 칸": 3416016,
+   "(가) 최대 절대차": 4.554281711578369,
+   "(가) 고른 토큰이 다른 행": 0,
+   "(나) 한 번에 대 64토큰씩: 다른 칸": 25725765,
+   "(나) 한 번에 대 하나씩: 다른 칸": 25725574,
+   "(나) 최대 절대차 (64토큰씩 / 하나씩)": [
+    5.803955078125,
+    4.1309356689453125
+   ],
+   "(나) 고른 토큰이 다른 행 (64토큰씩 / 하나씩)": [
+    0,
+    0
+   ],
+   "(다) 한 번에를 다섯 번 더: 첫 번째와 다른 칸": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "칸 수 (가 / 나)": [
+    3417476,
+    25731584
+   ]
+  },
+  "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": {
+   "(가) 혼자 대 세 문장 한 묶음: 다른 칸": 3416350,
+   "(가) 최대 절대차": 4.696517467498779,
+   "(가) 고른 토큰이 다른 행": 0,
+   "(나) 한 번에 대 64토큰씩: 다른 칸": 25725360,
+   "(나) 한 번에 대 하나씩: 다른 칸": 25725156,
+   "(나) 최대 절대차 (64토큰씩 / 하나씩)": [
+    1.5169506072998047,
+    2.6030120849609375
+   ],
+   "(나) 고른 토큰이 다른 행 (64토큰씩 / 하나씩)": [
+    0,
+    0
+   ],
+   "(다) 한 번에를 다섯 번 더: 첫 번째와 다른 칸": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "칸 수 (가 / 나)": [
+    3417476,
+    25731584
+   ]
+  },
+  "HF transformers": {
+   "(가) 혼자 대 세 문장 한 묶음: 다른 칸": 3005569,
+   "(가) 최대 절대차": 0.012687891721725464,
+   "(가) 고른 토큰이 다른 행": 0,
+   "(나) 한 번에 대 64토큰씩: 다른 칸": 20552605,
+   "(나) 한 번에 대 하나씩: 다른 칸": 23981547,
+   "(나) 최대 절대차 (64토큰씩 / 하나씩)": [
+    0.002437591552734375,
+    0.0025482177734375
+   ],
+   "(나) 고른 토큰이 다른 행 (64토큰씩 / 하나씩)": [
+    0,
+    0
+   ],
+   "(다) 한 번에를 다섯 번 더: 첫 번째와 다른 칸": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "칸 수 (가 / 나)": [
+    3417476,
+    25731584
+   ]
+  },
+  "llama.cpp 묶음 문맥 (로그)": {
+   "llama.cpp (기본: KV F16)": [
+    "llama_context: n_seq_max             = 4",
+    "llama_context: n_ctx                 = 1024",
+    "llama_context: n_ubatch              = 512",
+    "llama_context: flash_attn            = auto",
+    "llama_context: kv_unified            = false",
+    "llama_kv_cache: size =   36.00 MiB (   256 cells,  12 layers,  4/4 seqs), K (f16):   18.00 MiB, V (f16):   18.00 MiB",
+    "resolve_fused_ops: Flash Attention enabled"
+   ],
+   "llama.cpp (KV F32, 기록)": [
+    "llama_context: n_seq_max             = 4",
+    "llama_context: n_ctx                 = 1024",
+    "llama_context: n_ubatch              = 512",
+    "llama_context: flash_attn            = auto",
+    "llama_context: kv_unified            = false",
+    "llama_kv_cache: size =   72.00 MiB (   256 cells,  12 layers,  4/4 seqs), K (f32):   36.00 MiB, V (f32):   36.00 MiB",
+    "resolve_fused_ops: Flash Attention enabled"
+   ],
+   "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": [
+    "llama_context: n_seq_max             = 4",
+    "llama_context: n_ctx                 = 1024",
+    "llama_context: n_ubatch              = 512",
+    "llama_context: flash_attn            = disabled",
+    "llama_context: kv_unified            = false",
+    "llama_kv_cache: size =   72.00 MiB (   256 cells,  12 layers,  4/4 seqs), K (f32):   36.00 MiB, V (f32):   36.00 MiB"
+   ]
+  },
+  "llama.cpp 의 512토큰 한 번에: 기본(KV F16) 대 다른 설정 — 다른 칸": {
+   "llama.cpp (KV F32, 기록)": 0,
+   "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": 25720857
+  },
+  "프롬프트 512행 상대차 (기록)": {
+   "글": {
+    "중앙값": 1.5805213551703387e-07,
+    "최댓값": 0.00013530846533021265,
+    "fp64 와 고른 토큰이 다른 행": 0
+   },
+   "llama.cpp (기본: KV F16)": {
+    "중앙값": 0.00011035183856200625,
+    "최댓값": 0.10016473616798507,
+    "fp64 와 고른 토큰이 다른 행": 0
+   },
+   "llama.cpp (KV F32, 기록)": {
+    "중앙값": 0.00011035183856200625,
+    "최댓값": 0.10016473616798507,
+    "fp64 와 고른 토큰이 다른 행": 0
+   },
+   "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": {
+    "중앙값": 0.00010496464246508198,
+    "최댓값": 0.0912392531295615,
+    "fp64 와 고른 토큰이 다른 행": 0
+   },
+   "HF transformers": {
+    "중앙값": 4.277395566980972e-07,
+    "최댓값": 0.0002076811723707746,
+    "fp64 와 고른 토큰이 다른 행": 0
+   }
+  },
+  "정확도 (fp64 참값 대비 상대차, 문장마다)": {
+   "글": [
+    {
+     "중앙값": 2.0227007633002054e-07,
+     "최댓값": 0.00018090870075285632,
+     "fp64 탐욕과 처음 갈린 자리": null
+    },
+    {
+     "중앙값": 2.0991200589308478e-07,
+     "최댓값": 1.0616577073814869e-05,
+     "fp64 탐욕과 처음 갈린 자리": null
+    },
+    {
+     "중앙값": 4.024685273553671e-07,
+     "최댓값": 2.0879185875121174e-05,
+     "fp64 탐욕과 처음 갈린 자리": null
+    }
+   ],
+   "llama.cpp (기본: KV F16)": [
+    {
+     "중앙값": 0.0001146103947829415,
+     "최댓값": 0.40660084106323396,
+     "fp64 탐욕과 처음 갈린 자리": null
+    },
+    {
+     "중앙값": 5.535969413355662e-05,
+     "최댓값": 0.0039528502555164075,
+     "fp64 탐욕과 처음 갈린 자리": null
+    },
+    {
+     "중앙값": 0.0001339719059680788,
+     "최댓값": 0.008147095467669212,
+     "fp64 탐욕과 처음 갈린 자리": null
+    }
+   ],
+   "llama.cpp (KV F32, 기록)": [
+    {
+     "중앙값": 0.0001146103947829415,
+     "최댓값": 0.40660084106323396,
+     "fp64 탐욕과 처음 갈린 자리": null
+    },
+    {
+     "중앙값": 5.535969413355662e-05,
+     "최댓값": 0.0039528502555164075,
+     "fp64 탐욕과 처음 갈린 자리": null
+    },
+    {
+     "중앙값": 0.0001339719059680788,
+     "최댓값": 0.008147095467669212,
+     "fp64 탐욕과 처음 갈린 자리": null
+    }
+   ],
+   "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": [
+    {
+     "중앙값": 0.00012196471114440008,
+     "최댓값": 0.17208654498518836,
+     "fp64 탐욕과 처음 갈린 자리": null
+    },
+    {
+     "중앙값": 2.872954859478323e-05,
+     "최댓값": 0.0019273019317424794,
+     "fp64 탐욕과 처음 갈린 자리": null
+    },
+    {
+     "중앙값": 0.00021056476651313004,
+     "최댓값": 0.014643061808374894,
+     "fp64 탐욕과 처음 갈린 자리": null
+    }
+   ],
+   "HF transformers": [
+    {
+     "중앙값": 1.5390063790770592e-07,
+     "최댓값": 0.0006942552461636475,
+     "fp64 탐욕과 처음 갈린 자리": null
+    },
+    {
+     "중앙값": 1.214606097944744e-07,
+     "최댓값": 2.009497878112826e-05,
+     "fp64 탐욕과 처음 갈린 자리": null
+    },
+    {
+     "중앙값": 2.8185482714477306e-07,
+     "최댓값": 2.3976758601111814e-05,
+     "fp64 탐욕과 처음 갈린 자리": null
+    }
+   ]
+  },
+  "HF fp32 대비 중앙값 배수": {
+   "글": [
+    1.314,
+    1.728,
+    1.428
+   ],
+   "llama.cpp (기본: KV F16)": [
+    744.704,
+    455.783,
+    475.322
+   ],
+   "llama.cpp (KV F32, 기록)": [
+    744.704,
+    455.783,
+    475.322
+   ],
+   "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": [
+    792.49,
+    236.534,
+    747.068
+   ],
+   "HF transformers": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "통과": true
+ },
+ "4d 안정성": {
+  "글": {
+   "생성 수": 60,
+   "첫 번째와 토큰이 다른 생성": 0,
+   "첫 번째와 로짓 비트가 다른 생성": 0,
+   "실패": 0
+  },
+  "llama.cpp (기본: KV F16)": {
+   "생성 수": 60,
+   "첫 번째와 토큰이 다른 생성": 0,
+   "첫 번째와 로짓 비트가 다른 생성": 0,
+   "실패": 0
+  },
+  "llama.cpp (KV F32, 기록)": {
+   "생성 수": 60,
+   "첫 번째와 토큰이 다른 생성": 0,
+   "첫 번째와 로짓 비트가 다른 생성": 0,
+   "실패": 0
+  },
+  "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": {
+   "생성 수": 60,
+   "첫 번째와 토큰이 다른 생성": 0,
+   "첫 번째와 로짓 비트가 다른 생성": 0,
+   "실패": 0
+  },
+  "HF transformers": {
+   "생성 수": 60,
+   "첫 번째와 토큰이 다른 생성": 0,
+   "첫 번째와 로짓 비트가 다른 생성": 0,
+   "실패": 0
+  },
+  "오류 칸 (글)": 0,
+  "통과": true
+ },
+ "4b 성능 (합성 긴 문맥)": {
+  "프롬프트 처리 + 첫 토큰 ms": {
+   "4096": {
+    "글": 55.2837,
+    "llama.cpp (기본: KV F16)": 47.3344,
+    "llama.cpp (KV F32, 기록)": 52.1433,
+    "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": 95.8692,
+    "HF transformers (기록)": 89.7651
+   },
+   "16384": {
+    "글": 501.3633,
+    "llama.cpp (기본: KV F16)": 279.8876,
+    "llama.cpp (KV F32, 기록)": 352.7621,
+    "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": 1097.7713,
+    "HF transformers (기록)": 679.5076
+   }
+  },
+  "생성 ms/토큰": {
+   "4096": {
+    "글": 1.8661,
+    "llama.cpp (기본: KV F16)": 1.8119,
+    "llama.cpp (KV F32, 기록)": 2.9682,
+    "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": 2.3076,
+    "HF transformers (기록)": 9.1808
+   },
+   "16320": {
+    "글": 3.9657,
+    "llama.cpp (기본: KV F16)": 2.7921,
+    "llama.cpp (KV F32, 기록)": 8.0059,
+    "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": 4.3447,
+    "HF transformers (기록)": 31.2136
+   }
+  },
+  "실패": {},
+  "llama.cpp 문맥 (로그)": {
+   "llama.cpp (기본: KV F16)": [
+    "llama_context: n_seq_max             = 1",
+    "llama_context: n_ctx                 = 16384",
+    "llama_context: n_ubatch              = 512",
+    "llama_context: flash_attn            = auto",
+    "llama_context: kv_unified            = false",
+    "llama_kv_cache: size =  576.00 MiB ( 16384 cells,  12 layers,  1/1 seqs), K (f16):  288.00 MiB, V (f16):  288.00 MiB",
+    "resolve_fused_ops: Flash Attention enabled"
+   ],
+   "llama.cpp (KV F32, 기록)": [
+    "llama_context: n_seq_max             = 1",
+    "llama_context: n_ctx                 = 16384",
+    "llama_context: n_ubatch              = 512",
+    "llama_context: flash_attn            = auto",
+    "llama_context: kv_unified            = false",
+    "llama_kv_cache: size = 1152.00 MiB ( 16384 cells,  12 layers,  1/1 seqs), K (f32):  576.00 MiB, V (f32):  576.00 MiB",
+    "resolve_fused_ops: Flash Attention enabled"
+   ],
+   "llama.cpp (KV F32 · 플래시 어텐션 끔, 기록)": [
+    "llama_context: n_seq_max             = 1",
+    "llama_context: n_ctx                 = 16384",
+    "llama_context: n_ubatch              = 512",
+    "llama_context: flash_attn            = disabled",
+    "llama_context: kv_unified            = false",
+    "llama_kv_cache: size = 1152.00 MiB ( 16384 cells,  12 layers,  1/1 seqs), K (f32):  576.00 MiB, V (f32):  576.00 MiB"
+   ]
+  },
+  "llama-bench (기본 설정, t/s)": [
+   {
+    "n_prompt": 4096,
+    "n_gen": 0,
+    "n_depth": 0,
+    "t/s": 84353.4,
+    "flash_attn": -1,
+    "type_k": "f16"
+   },
+   {
+    "n_prompt": 16384,
+    "n_gen": 0,
+    "n_depth": 0,
+    "t/s": 56213.3,
+    "flash_attn": -1,
+    "type_k": "f16"
+   },
+   {
+    "n_prompt": 0,
+    "n_gen": 32,
+    "n_depth": 4096,
+    "t/s": 533.3,
+    "flash_attn": -1,
+    "type_k": "f16"
+   },
+   {
+    "n_prompt": 0,
+    "n_gen": 32,
+    "n_depth": 16320,
+    "t/s": 355.4,
+    "flash_attn": -1,
+    "type_k": "f16"
+   }
+  ],
+  "통과": false
+ },
+ "오류 칸 (__geul_err)": 0
+}
