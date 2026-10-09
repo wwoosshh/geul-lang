@@ -115,6 +115,26 @@ class 글엔진(이프로세스):
     def 생성(self, ids, n):
         return self.m.생성(ids, n)
 
+    def 대화(self, 덩이들, n, 처음=True):
+        """12단계 지속 사용 — 라마일꾼의 대화와 같은 일: 차례마다 덩이를 앞 캐시에 이어 넣고(글GPT2.이어생성) n 토큰 탐욕 생성(마지막
+        토큰은 다음 덩이의 머리). 차례마다 (넣기 ms, 생성 ms, 위치, 끝토큰) — 넣기는 첫 토큰까지, 생성은 나머지 n − 1 개."""
+        import time
+        m = self.m
+        if 처음:
+            self.위치 = 0
+        out = []
+        for 덩이 in 덩이들:
+            m.dr.맞추기()
+            t0 = time.perf_counter()
+            첫 = m.이어넣기(덩이, self.위치)
+            t1 = time.perf_counter()
+            self.위치 += len(덩이)
+            toks = m.이어생성(첫, self.위치, n - 1) if n > 1 else [첫]
+            t2 = time.perf_counter()
+            self.위치 += n - 1
+            out.append({"넣기 ms": (t1 - t0) * 1000, "생성 ms": (t2 - t1) * 1000, "위치": self.위치, "끝토큰": toks[-1]})
+        return out
+
     def 생성로짓(self, ids, n):
         """탐욕 n 토큰과 걸음마다의 로짓 [n][어휘] (첫 걸음 = 프롬프트의 마지막 행)."""
         toks = self.m.생성(ids, n, 기록=True)
@@ -199,6 +219,10 @@ class 라마엔진:
         f = self.일.파일()
         toks = self.일.부르기("생성", 키=self.키, ids=ids, n=n, 파일=f)["토큰"]
         return toks, self._읽기(f)
+
+    def 대화(self, 덩이들, n, 처음=True):
+        """12단계 지속 사용 — 라마일꾼.엔진.대화 (차례마다 넣기 ms · 생성 ms · 위치 · 끝토큰)."""
+        return self.일.부르기("대화", 키=self.키, 덩이들=덩이들, n=n, 처음=처음)["차례"]
 
     def 로짓들(self, seqs, 방식="한번에", 조각=64):
         f = self.일.파일()

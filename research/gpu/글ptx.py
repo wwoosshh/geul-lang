@@ -122,8 +122,14 @@ ROUND = ("가까운정수",)
 # 낱말 ℓ % 4. 값을 옮기기만 한다(산술이 없다 — 비트 그대로). 판은 공유 메모리여야 한다. 넷(j = 0 … 3)을 같은 인자로 잇달아 부르면 명령
 # 하나가 되고, 그렇지 않은 꼴은 거부한다(정수텐서곱과 같은 규칙).
 MATRIX = ("행렬조각읽기",)
+# 12단계 — 비동기 장벽(mbarrier, sm_80): 공유 메모리의 8 바이트 칸(판 + 4i 바이트 — i 는 짝수여야 8 바이트 정렬)에.
+# 장벽만들기(판, i, 수) = mbarrier.init(도착이 수 번이면 한 단계가 끝난다), 장벽도착(판, i) = mbarrier.arrive(이 스레드의 도착 하나 —
+# 앞의 공유 메모리 쓰기를 내보낸다(release)), 복사도착(판, i) = cp.async.mbarrier.arrive.noinc(이 스레드가 앞서 띄운 비동기 복사가 모두
+# 끝나면 도착 하나), 장벽기다리기(판, i, 짝) = 단계의 짝(0 · 1)이 끝날 때까지 mbarrier.test_wait.parity 를 되풀이(acquire). 값을 만들지
+# 않는다 — 기다림과 보임의 차례만 정한다.
+MBAR = ("장벽만들기", "장벽도착", "복사도착", "장벽기다리기")
 INTRINSICS = ("실행번호", "실행개수", "동기화", "곱해더하기", "근사지수", "제곱근", "큰쪽") + tuple(BLOCK_REGS) + tuple(SHARED) + ASYNC + \
-    PREFETCH + SHUFFLE + GRID + CLOCK + WARP + TENSOR + BYTEDOT + BITS + ROUND + MATRIX
+    PREFETCH + SHUFFLE + GRID + CLOCK + WARP + TENSOR + BYTEDOT + BITS + ROUND + MATRIX + MBAR
 
 
 class PTXError(Exception):
@@ -230,6 +236,8 @@ def is_scalar(t):
 
 
 class FuncPTX:
+    _mbw = 0                                   # 12단계: 장벽기다리기의 되풀이 이름표 번호(모듈 안에서 겹치지 않게)
+
     def __init__(self, f):
         self.f = f
         self.lines = []
@@ -1129,6 +1137,29 @@ class FuncPTX:
         if name == "울타리":
             e("fence.acq_rel.gpu;")
             return
+        if name in MBAR:
+            sp, si = i.args[0], i.args[1]
+            if self.space.get(sp) != "shared":
+                raise PTXError(f"{name} 의 판은 공유 메모리여야 한다")
+            xs, cs = self.split_const(si)
+            e(f"mad.lo.s64 %X1, {self.r(xs)}, 4, {self.r(sp)};")
+            e("cvt.u32.u64 %x1, %X1;")
+            a = f"[%x1+{4 * cs}]"
+            if name == "장벽만들기":
+                e(f"cvt.u32.u64 %x2, {self.r(i.args[2])};")
+                e(f"mbarrier.init.shared.b64 {a}, %x2;")
+            elif name == "장벽도착":
+                e(f"mbarrier.arrive.shared.b64 %X2, {a};")
+            elif name == "복사도착":
+                e(f"cp.async.mbarrier.arrive.noinc.shared.b64 {a};")
+            else:
+                e(f"cvt.u32.u64 %x2, {self.r(i.args[2])};")
+                FuncPTX._mbw += 1
+                lab = f"$Lmbw_{FuncPTX._mbw}"
+                e(f"{lab}:")
+                e(f"mbarrier.test_wait.parity.shared.b64 %q, {a}, %x2;")
+                e(f"@!%q bra {lab};")
+            return
         if name == "미리읽기":
             gp, gi = i.args
             xg, cg = self.split_const(gi)
@@ -1287,7 +1318,7 @@ def translate(src):
     if not kernels:
         raise PTXError("커널이 없다 — 반환값이 없는 함수가 커널이 된다")
     # cp.async(비동기복사)는 sm_80 부터 — 쓰는 커널이 있을 때만 대상을 올린다
-    uses_async = any(i.op == "call" and i.extern and i.callee in ASYNC + GRID + TENSOR + BYTEDOT for f in kernels for i in f.insts)
+    uses_async = any(i.op == "call" and i.extern and i.callee in ASYNC + GRID + TENSOR + BYTEDOT + MBAR for f in kernels for i in f.insts)
     # 반실수(4단계 2)를 쓰는 모듈만 머리의 설명이 길어진다 — 짧은실수만 쓰는 모듈의 PTX 는 예전과 바이트까지 같다
     uses_half = any(getattr(t, "type", None) is not None and t.type.is_float() and t.type.bits == 16 for f in kernels for t in f.temps)
     head = ["//", "// geul -> PTX probe (research/gpu/geulptx). ASCII only: Korean names are mangled as _G + UTF-8 hex.", "//",

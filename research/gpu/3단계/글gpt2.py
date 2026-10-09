@@ -436,27 +436,30 @@ class 글GPT2:
     def 닫기(self):
         """GPU 메모리와 모듈을 돌려준다 — 그 뒤로는 쓰지 않는다."""
         self.dr.맞추기()
-        for _, ex in self._그래프.values():
-            self.dr.확인(self.dr.cu.cuGraphExecDestroy(ex))
+        for 있던 in self._그래프.values():                 # [계획, 실행본, 그래프, 위치마디, 위치] (12단계)
+            self.dr.확인(self.dr.cu.cuGraphExecDestroy(있던[1]))
+            self.dr.확인(self.dr.cu.cuGraphDestroy(있던[2]))
         self._그래프 = {}
         self.dr.놓기()
 
     def _그래프만들기(self, L):
-        """띄움들을 차례로 잇는 CUDA 그래프(마디마다 앞 마디 하나에 기댄다) — 실행본을 돌려준다."""
+        """띄움들을 차례로 잇는 CUDA 그래프(마디마다 앞 마디 하나에 기댄다) — (실행본, 그래프, 마디들). 그래프와 마디는 남겨 둔다(12단계 —
+        실행본의 마디 매개변수를 고칠 때 원래 그래프의 마디가 필요하다)."""
         cu = self.dr.cu
         g = ctypes.c_void_p()
         self.dr.확인(cu.cuGraphCreate(ctypes.byref(g), 0))
         앞 = None
+        마디들 = []
         for x in L:
             p = _노드인자(x.fn, x.grid[0], x.grid[1], 1, x.block[0], x.block[1], 1, 0, ctypes.cast(x.args, ctypes.c_void_p), None)
             마디 = ctypes.c_void_p()
             기댐 = (ctypes.c_void_p * 1)(앞) if 앞 is not None else None
             self.dr.확인(cu.cuGraphAddKernelNode(ctypes.byref(마디), g, 기댐, 1 if 앞 is not None else 0, ctypes.byref(p)))
             앞 = 마디
+            마디들.append(마디)
         ex = ctypes.c_void_p()
         self.dr.확인(cu.cuGraphInstantiateWithFlags(ctypes.byref(ex), g, ctypes.c_ulonglong(0)))
-        self.dr.확인(cu.cuGraphDestroy(g))
-        return ex
+        return ex, g, 마디들
 
     def 오류칸(self):
         """두 모듈의 오류 칸(2c 범위 검사)을 OR 한 값 — 0 이어야 한다."""
@@ -797,13 +800,24 @@ class 글GPT2:
         tok.value = self.토큰칸 if 토큰자리 is None else 토큰자리
         out.value = self.생성칸 if 출력자리 is None else 출력자리
         if self.그래프쓰기 and B * m > 4:
-            gk = (key, pos.value, tok.value, out.value)
+            # 12단계: 그래프의 열쇠에서 위치를 뺐다 — 대화처럼 위치가 매번 바뀌어도 그래프를 다시 만들지 않고, 위치를 받는 마디(임베딩 ·
+            # 어텐션 · KV 끝손질)의 매개변수만 고친다(cuGraphExecKernelNodeSetParams — 값은 띄움의 ctypes 칸에서 그때 읽는다).
+            cu = self.dr.cu
+            gk = (key, tok.value, out.value)
             있던 = self._그래프.get(gk)
             if 있던 is None or 있던[0] is not L:        # 계획을 다시 만들었으면 그래프도 다시
                 if 있던 is not None:
-                    self.dr.확인(self.dr.cu.cuGraphExecDestroy(있던[1]))
-                self._그래프[gk] = (L, self._그래프만들기(L))
-            r = self.dr.cu.cuGraphLaunch(self._그래프[gk][1], None)
+                    self.dr.확인(cu.cuGraphExecDestroy(있던[1]))
+                    self.dr.확인(cu.cuGraphDestroy(있던[2]))
+                ex, g, 마디들 = self._그래프만들기(L)
+                위치마디 = [(마디들[i], x) for i, x in enumerate(L) if any(p is pos for p in x.params)]
+                self._그래프[gk] = [L, ex, g, 위치마디, pos.value]
+            elif 있던[4] != pos.value:
+                for 마디, x in 있던[3]:
+                    np_ = _노드인자(x.fn, x.grid[0], x.grid[1], 1, x.block[0], x.block[1], 1, 0, ctypes.cast(x.args, ctypes.c_void_p), None)
+                    self.dr.확인(cu.cuGraphExecKernelNodeSetParams(있던[1], 마디, ctypes.byref(np_)))
+                있던[4] = pos.value
+            r = cu.cuGraphLaunch(self._그래프[gk][1], None)
             if r != 0:
                 raise RuntimeError(f"그래프 실행 오류 {r}")
             return
@@ -879,6 +893,38 @@ class 글GPT2:
             if r != 0:
                 raise RuntimeError(f"생성 메가커널 실행 오류 {r}")
         out = np.zeros(n, np.int64)
+        self.dr.맞추기()
+        return [int(t) for t in self.dr.내리기(self.생성칸, out)]
+
+    def 이어넣기(self, 덩이, 위치):
+        """12단계 지속 사용: 덩이를 위치부터 앞 캐시에 이어 넣고(프롬프트 길) 마지막 행의 탐욕 토큰을 생성칸[0] 에 — 그 토큰을 돌려준다."""
+        self.토큰넣기(덩이)
+        self.계산(1, len(덩이), 위치, "끝", 출력자리=self.생성칸)
+        self.dr.맞추기()
+        return int(self.dr.내리기(self.생성칸, np.zeros(1, np.int64))[0])
+
+    def 이어생성(self, 첫, 위치, k):
+        """12단계 지속 사용: 생성칸[0] 의 토큰(첫 — 이어넣기가 고른 것)을 위치에 두고 이어서 k 개를 생성 메가커널로(마지막 것은 넣지 않는다).
+        토큰 k + 1 개(첫 포함)를 돌려준다."""
+        assert 위치 + k <= self.최대길이
+        self.dr.확인(self.dr.cu.cuMemsetD8_v2(self.장벽, 0, 256))
+        P, I = c_u64, c_i64
+        g = lambda k_: _가중인자(self.묶음[k_])
+        낱말 = _가중인자(self.wte) + [P(self.wpe)] if self.낱말형식 != "짧은실수" else [P(self.wte), P(self.wpe), P(self.wteT)]
+        ps = [P(self.생성칸)] + 낱말 + [
+              *g("ln_1.weight"), *g("ln_1.bias"), *g("attn.c_attn.weight"), *g("attn.c_attn.bias"),
+              *g("attn.c_proj.weight"), *g("attn.c_proj.bias"), *g("ln_2.weight"), *g("ln_2.bias"),
+              *g("mlp.c_fc.weight"), *g("mlp.c_fc.bias"), *g("mlp.c_proj.weight"), *g("mlp.c_proj.bias"),
+              P(self.lnf_g), P(self.lnf_b), P(self.kc바탕), P(self.vc바탕)] + ([P(self.ke바탕), P(self.ve바탕)] if self.정수KV else []) + [
+              P(self.h), P(self.q), P(self.att), P(self.fc), P(self.logits),
+              P(self.부분값), P(self.부분번호), P(self.장벽), P(self.시각칸), P(self.조각칸), P(self.주의셈),
+              I(위치), I(k + 1), I(self.최대길이), I(self.최대문장), I(0), I(int(self.시각재기))]
+        args = (ctypes.c_void_p * len(ps))(*[ctypes.cast(ctypes.byref(x), ctypes.c_void_p) for x in ps])
+        self._메가인자 = (ps, args)
+        r = self.dr.cu.cuLaunchCooperativeKernel(self.메가, self.메가블록, 1, 1, 256, 1, 1, 0, None, args)
+        if r != 0:
+            raise RuntimeError(f"생성 메가커널 실행 오류 {r}")
+        out = np.zeros(k + 1, np.int64)
         self.dr.맞추기()
         return [int(t) for t in self.dr.내리기(self.생성칸, out)]
 

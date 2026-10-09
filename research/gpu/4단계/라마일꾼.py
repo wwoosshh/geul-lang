@@ -69,6 +69,35 @@ class 엔진:
                 lm.넣기([t], [len(ids) + s], [0], [1])
         return toks, (np.stack(logs) if 로짓도 else None)
 
+    def 대화(self, 덩이들, n, 처음=True):
+        """12단계 지속 사용 — 차례마다 덩이(앞 차례의 마지막 생성 토큰 + 새 토큰들)를 앞 캐시에 이어 넣고(n_batch 씩) 마지막 로짓에서 첫
+        토큰을 고른 뒤 n − 1 개를 하나씩 탐욕 생성한다(마지막 토큰은 넣지 않는다 — 다음 덩이의 머리). 처음 = 참이면 캐시를 비우고 위치 0
+        에서. 차례마다 (넣기 ms, 생성 ms, 끝 위치, 마지막 토큰) — 시간은 로짓을 읽어 GPU 를 맞춘 벽시계."""
+        lm = self.lm
+        if 처음:
+            lm.지우기()
+            self.위치 = 0
+        out = []
+        for 덩이 in 덩이들:
+            t0 = time.perf_counter()
+            c = len(덩이)
+            for a in range(0, c, self.n_batch):
+                b = min(c, a + self.n_batch)
+                로 = [0] * (b - a)
+                if b == c:
+                    로[-1] = 1
+                lm.넣기(덩이[a:b], list(range(self.위치 + a, self.위치 + b)), [0] * (b - a), 로)
+            t = int(np.argmax(self._마지막로짓()))
+            t1 = time.perf_counter()
+            self.위치 += c
+            for s in range(n - 1):
+                lm.넣기([t], [self.위치], [0], [1])
+                self.위치 += 1
+                t = int(np.argmax(self._마지막로짓()))
+            t2 = time.perf_counter()
+            out.append({"넣기 ms": (t1 - t0) * 1000, "생성 ms": (t2 - t1) * 1000, "위치": self.위치, "끝토큰": t})
+        return out
+
     def 로짓들(self, seqs, 방식="한번에", 조각=64):
         """같은 길이의 토큰열들(시퀀스 0, 1, …)의 모든 행 로짓 중 첫 열의 것. 조각·하나씩은 첫 열을 KV 캐시를 이어 가며 나눠 넣는다."""
         lm = self.lm
@@ -122,6 +151,8 @@ def main():
                 if logs is not None:
                     np.save(c["파일"], logs)
                 r = {"ms": ms, "토큰": toks}
+            elif op == "대화":
+                r = {"차례": 엔진들[c["키"]].대화(c["덩이들"], c["n"], c.get("처음", True))}
             elif op == "로짓들":
                 x = 엔진들[c["키"]].로짓들(c["seqs"], c["방식"], c["조각"])
                 np.save(c["파일"], x)
