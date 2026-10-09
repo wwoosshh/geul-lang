@@ -215,11 +215,12 @@ def 끝끝(e, ids):
     return b
 
 
-def 옛모듈같은가():
-    """8단계까지의 모듈 소스가 HEAD 와 같은가(git), 그리고 대표 모듈 넷의 PTX 가 HEAD 의 글ptx.py 로 만든 것과 같은가."""
+def 옛모듈같은가(기준="HEAD"):
+    """8단계까지의 모듈 소스가 HEAD 와 같은가(git), 그리고 대표 모듈 넷의 PTX 가 기준 커밋(기본 HEAD — 11단계는 10단계 끝의 커밋)의
+    글ptx.py 로 만든 것과 같은가."""
     경로들 = [f"research/gpu/3단계/{f}" for f in 옛모듈]
     소스 = K9.git같은가(경로들)
-    옛 = subprocess.run(["git", "show", "HEAD:research/gpu/글ptx.py"], cwd=ROOT, capture_output=True).stdout
+    옛 = subprocess.run(["git", "show", f"{기준}:research/gpu/글ptx.py"], cwd=ROOT, capture_output=True).stdout
     같음 = {}
     옛파일 = os.path.join(ROOT, "research", "gpu", "옛글ptx_임시.py")      # 글ptx.py 는 제 자리에서 ref/ 를 찾는다 — 같은 폴더에 잠시 둔다
     open(옛파일, "wb").write(옛)
@@ -233,7 +234,7 @@ def 옛모듈같은가():
                 같음[f] = open(a, "rb").read() == open(b, "rb").read()
     finally:
         os.remove(옛파일)
-    return {"소스가 HEAD 와 같다": 소스, "PTX 가 HEAD 의 글ptx.py 와 같다": 같음, "통과": 소스 and all(같음.values())}
+    return {"소스가 HEAD 와 같다": 소스, f"PTX 가 {기준} 의 글ptx.py 와 같다": 같음, "통과": 소스 and all(같음.values())}
 
 
 def 어텐션시간us(m, n, 커널="정수어텐션"):

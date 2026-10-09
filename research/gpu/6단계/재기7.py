@@ -121,7 +121,7 @@ def 행렬곱시험(m, g, rng):
                 ref = C.행렬곱(x, q, d, bias, m.자리수)
                 dr.올리기(입력, x)
                 dr.올리기(치우칸, bias)
-                for 판 in ["정수줄선형"] + list(G.정수판들):
+                for 판 in ["정수줄선형"] + list(G.정수판표(m.자리수, m.정수KV)):   # 11단계: 모듈의 판 표 전부(전에는 6단계의 여섯 판만)
                     fn = m.로짓선형[판] if 로짓 else m.선형[(판, "")]
                     if 판 == "정수줄선형":
                         ps = [c_u64(입력)] + G._가중인자(wt) + [c_u64(치우칸), c_u64(출력), c_i64(M), c_i64(K), c_i64(N)]
@@ -130,7 +130,7 @@ def 행렬곱시험(m, g, rng):
                                     [c_u64(입력), c_u64(m.자릿값), c_u64(m.정보), c_i64(M), c_i64(K)])
                         dr.확인(dr.cu.cuLaunchKernel(x0.fn, *x0.grid, 1, *x0.block, 1, 0, None, x0.args, None))
                         ps = [c_u64(m.자릿값), c_u64(m.정보)] + G._가중인자(wt) + [c_u64(치우칸), c_u64(출력), c_i64(M), c_i64(K),
-                                                                              c_i64(N), c_i64((N + 63) // 64 * 64)]
+                                                                              c_i64(N), c_i64((N + 63) // 64 * 64)] +                             ([c_i64(0), c_i64(0)] if m.정수KV else [])            # 11단계: 정수 KV 판의 타일은 행 · 열 시작을 받는다
                     dr.확인(dr.cu.cuMemsetD8_v2(c_u64(출력), 0xFF, M * N * 4))
                     y = G._띄움(fn, *m._격자(판, M, N, K, m.크기 == "small"), ps)   # 줄 판의 열 묶음은 깊이 · 크기에 따른다(호스트와 같은 규칙)
                     dr.확인(dr.cu.cuLaunchKernel(y.fn, *y.grid, 1, *y.block, 1, 0, None, y.args, None))

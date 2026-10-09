@@ -310,6 +310,8 @@ class 글GPT2:
         if self.정수:
             self.k["정수로"] = dr.함수(self.mods[1], "정수로")
             self.k["층정규화정수"] = dr.함수(self.mods[1], "층정규화정수")
+            if self.정수KV:                      # 11단계: 블록 판(블록 하나가 한 행 — 같은 비트), 행 수마다 재서 고른다
+                self.k["층정규화정수줄"] = dr.함수(self.mods[1], "층정규화정수줄")
             if not self.정수KV:
                 self.k["흐름어텐션정수"] = dr.함수(self.mods[1], "흐름어텐션정수")
             판표 = 정수판표(자리수, self.정수KV)
@@ -539,39 +541,111 @@ class 글GPT2:
         kv = 시 + 4 * self.D * self.최대행                         # 시험칸의 q 출력 뒤에 키 · 값 (층 하나, 문장 하나 몫씩)
         extra = {"_잔차": [시], "_KV": [kv, kv + 2 * self.D * self.최대길이], "_겔루정수": [kv],
                  "_KV정수": getattr(self, "시험KV", [])}.get(epi, [])
-        runs = {}
-        for 판 in 정수판표(self.자리수, self.정수KV):
-            if not 로짓 and (판, epi) not in self.선형:   # _겔루정수 는 열 조각 넷 이상인 판만 있다
-                continue
+        def 띄움(판, 격자, 행시작=0, 열시작=0):
             fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]
             ps = [c_u64(self.자릿값), c_u64(self.정보)] + _가중인자(wt) + [c_u64(self.영치우침)] + [c_u64(v) for v in extra] + \
                  ([] if epi == "_KV정수" else [c_u64(시)]) + [c_i64(rows), c_i64(K), c_i64(N), c_i64((N + 63) // 64 * 64)] + \
-                 ([c_i64(rows), c_i64(0), c_i64(self.최대길이)] if epi in ("_KV", "_KV정수") else [])
-            y = _띄움(fn, *self._격자(판, rows, N), ps)
-            runs[판] = (y, lambda y=y: cu.cuLaunchKernel(y.fn, y.grid[0], y.grid[1], 1, y.block[0], y.block[1], 1, 0, None,
-                                                         y.args, None))
-        t0 = time.perf_counter()
-        while time.perf_counter() - t0 < 0.02:
-            for _, run in runs.values():
-                run()
-            self.dr.맞추기()
-        ts = {판: [] for 판 in runs}
-        e0, e1 = ctypes.c_void_p(), ctypes.c_void_p()
-        cu.cuEventCreate(ctypes.byref(e0), 0)
-        cu.cuEventCreate(ctypes.byref(e1), 0)
-        for _ in range(3):
-            for 판, (_, run) in runs.items():
-                cu.cuEventRecord(e0, None)
-                for _ in range(3):
+                 ([c_i64(rows), c_i64(0), c_i64(self.최대길이)] if epi in ("_KV", "_KV정수") else []) + \
+                 ([c_i64(행시작), c_i64(열시작)] if self.정수KV else [])
+            y = _띄움(fn, 격자, (정수판모양(판)[2], 1), ps)
+            return lambda y=y: cu.cuLaunchKernel(y.fn, y.grid[0], y.grid[1], 1, y.block[0], y.block[1], 1, 0, None, y.args, None)
+
+        def 재기(runs):
+            t0 = time.perf_counter()
+            while time.perf_counter() - t0 < 0.02:
+                for run in runs.values():
                     run()
-                cu.cuEventRecord(e1, None)
-                cu.cuEventSynchronize(e1)
-                ms = ctypes.c_float()
-                cu.cuEventElapsedTime(ctypes.byref(ms), e0, e1)
-                ts[판].append(ms.value)
-        cu.cuEventDestroy_v2(e0)
-        cu.cuEventDestroy_v2(e1)
-        return min(ts, key=lambda 판: sorted(ts[판])[1])
+                self.dr.맞추기()
+            ts = {판: [] for 판 in runs}
+            e0, e1 = ctypes.c_void_p(), ctypes.c_void_p()
+            cu.cuEventCreate(ctypes.byref(e0), 0)
+            cu.cuEventCreate(ctypes.byref(e1), 0)
+            for _ in range(3):
+                for 판, run in runs.items():
+                    cu.cuEventRecord(e0, None)
+                    for _ in range(3):
+                        run()
+                    cu.cuEventRecord(e1, None)
+                    cu.cuEventSynchronize(e1)
+                    ms = ctypes.c_float()
+                    cu.cuEventElapsedTime(ctypes.byref(ms), e0, e1)
+                    ts[판].append(ms.value)
+            cu.cuEventDestroy_v2(e0)
+            cu.cuEventDestroy_v2(e1)
+            return {판: sorted(v)[1] for 판, v in ts.items()}
+
+        판들 = [판 for 판 in 정수판표(self.자리수, self.정수KV) if 로짓 or (판, epi) in self.선형]   # _겔루정수 는 열 조각 넷 이상인 판만
+        runs = {판: 띄움(판, self._격자(판, rows, N)[0]) for 판 in 판들}
+        ts = 재기(runs)
+        best = min(ts, key=ts.get)
+        if not self.정수KV:
+            return best
+        # 11단계(정수 KV 판): 꼬리 자르기 — 큰 판이 꽉 찬 바퀴만큼 열의 앞쪽을 맡고 남은 열을 작은 판이 따로(실행 둘, 차례대로). 칸마다의
+        # 계산(k 의 차례)은 그대로라 비트가 같다. 빠른 큰 판 둘 × 칸이 반 이하인 작은 판을 재서, 나누지 않은 가장 빠른 판과 견준다.
+        nsm = ctypes.c_int()
+        self.dr.확인(cu.cuDeviceGetAttribute(ctypes.byref(nsm), 16, 0))
+        후보 = {}
+        for 큰 in sorted(ts, key=ts.get)[:2]:
+            BM, BN, T = 정수판모양(큰)
+            gx, gy = (rows + BM - 1) // BM, (N + BN - 1) // BN
+            점유 = ctypes.c_int()
+            fn = self.로짓선형[큰] if 로짓 else self.선형[(큰, epi)]
+            self.dr.확인(cu.cuOccupancyMaxActiveBlocksPerMultiprocessor(ctypes.byref(점유), fn, T, ctypes.c_size_t(0)))
+            자리 = nsm.value * 점유.value
+            if 자리 <= 0 or gx * gy <= 자리 or (gx * gy) % 자리 == 0:
+                continue
+            ny = ((gx * gy) // 자리 * 자리) // gx              # 큰 판이 맡는 열 조각 수(꽉 찬 바퀴 안)
+            if ny < 1 or ny >= gy:
+                continue
+            Nb = ny * BN
+            for 작 in 판들:
+                BMs, BNs, Ts = 정수판모양(작)
+                if 2 * BMs * BNs > BM * BN:
+                    continue
+                a = 띄움(큰, (gx, ny))
+                b = 띄움(작, ((rows + BMs - 1) // BMs, (N - Nb + BNs - 1) // BNs), 0, Nb)
+                후보[("분할", 큰, 작, Nb)] = lambda a=a, b=b: (a(), b())
+        if not 후보:
+            return best
+        후보[best] = runs[best]
+        ts2 = 재기(후보)
+        return min(ts2, key=ts2.get)
+
+    def _층판(self, M):
+        """11단계(정수 KV 판): 층정규화정수의 워프 판과 블록 판(층정규화정수줄 — 같은 비트)을 행 수마다 한 번 재서 빠른 것. 출력은 시험칸에."""
+        key = ("층", M)
+        if key not in self._고른판:
+            import time
+            cu, 시 = self.dr.cu, self.시험칸
+            RB = 층정규화정수행(self.D)
+            ps = [c_u64(self.h), c_u64(self.층[0]["ln_1.weight"]), c_u64(self.층[0]["ln_1.bias"]), c_u64(시),
+                  c_u64(시 + 4 * self.D * self.최대행), c_i64(M)]
+            xs = {"워프": _띄움(self.k["층정규화정수"], ((M + RB - 1) // RB, 1), (32 * RB, 1), ps),
+                  "줄": _띄움(self.k["층정규화정수줄"], (M, 1), (256, 1), ps)}
+            run = lambda x: cu.cuLaunchKernel(x.fn, x.grid[0], x.grid[1], 1, x.block[0], x.block[1], 1, 0, None, x.args, None)
+            t0 = time.perf_counter()
+            while time.perf_counter() - t0 < 0.02:
+                for x in xs.values():
+                    run(x)
+                self.dr.맞추기()
+            e0, e1 = ctypes.c_void_p(), ctypes.c_void_p()
+            cu.cuEventCreate(ctypes.byref(e0), 0)
+            cu.cuEventCreate(ctypes.byref(e1), 0)
+            ts = {n: [] for n in xs}
+            for _ in range(3):
+                for n, x in xs.items():
+                    cu.cuEventRecord(e0, None)
+                    for _ in range(5):
+                        run(x)
+                    cu.cuEventRecord(e1, None)
+                    cu.cuEventSynchronize(e1)
+                    ms = ctypes.c_float()
+                    cu.cuEventElapsedTime(ctypes.byref(ms), e0, e1)
+                    ts[n].append(ms.value)
+            cu.cuEventDestroy_v2(e0)
+            cu.cuEventDestroy_v2(e1)
+            self._고른판[key] = min(ts, key=lambda n: sorted(ts[n])[1])
+        return self._고른판[key]
 
     def _만들기(self, B, m, 로짓):
         """문장 B 개 × m 행의 한 번 계산. 로짓: "전부"(모든 행), "끝"(문장마다 마지막 행 + 가장큰번호), 정수 k(문장 하나의 마지막 k 행)."""
@@ -601,12 +675,20 @@ class 글GPT2:
                 if not 바뀐:                 # 바뀐 = 참: 앞 커널(층정규화정수 · _겔루정수)이 이미 네 자리로 바꿔 두었다
                     L.append(_띄움(k["정수로"], ((K // 32 + 31) // 32, rows), (256, 1),
                                    [P(src), P(자리[0]), P(자리[1]), I(rows), I(K)]))
-                fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]
-                ps = [P(자리[0]), P(자리[1])] + _가중인자(wt) + [P(b)] + [P(x) for x in extra] + \
-                     ([] if epi == "_KV정수" else [P(dst)]) + [I(rows), I(K), I(N), I((N + 63) // 64 * 64)]
+                ps0 = [P(자리[0]), P(자리[1])] + _가중인자(wt) + [P(b)] + [P(x) for x in extra] + \
+                      ([] if epi == "_KV정수" else [P(dst)]) + [I(rows), I(K), I(N), I((N + 63) // 64 * 64)]
                 if kv is not None:
-                    ps += [I(m), pos, I(self.최대길이)]
-                return _띄움(fn, *self._격자(판, rows, N), ps)
+                    ps0 += [I(m), pos, I(self.최대길이)]
+                if isinstance(판, tuple):        # 11단계 꼬리 자르기: 큰 판(열 [0, Nb)) 다음에 작은 판(열 [Nb, N)) — 같은 비트
+                    _, 큰, 작, Nb = 판
+                    BM, BN, T = 정수판모양(큰)
+                    L.append(_띄움(self.로짓선형[큰] if 로짓 else self.선형[(큰, epi)], ((rows + BM - 1) // BM, Nb // BN), (T, 1),
+                                   ps0 + [I(0), I(0)]))
+                    BMs, BNs, Ts = 정수판모양(작)
+                    return _띄움(self.로짓선형[작] if 로짓 else self.선형[(작, epi)],
+                                 ((rows + BMs - 1) // BMs, (N - Nb + BNs - 1) // BNs), (Ts, 1), ps0 + [I(0), I(Nb)])
+                fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]
+                return _띄움(fn, *self._격자(판, rows, N), ps0 + ([I(0), I(0)] if self.정수KV else []))
             판 = self._판(src, wt, b, rows, K, N, 로짓)
             fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]
             ps = [P(src)] + _가중인자(wt) + [P(b)] + [P(x) for x in extra] + [P(dst), I(rows), I(K), I(N)]
@@ -641,8 +723,11 @@ class 글GPT2:
         if 묶음:
             assert m >= 2
             RB = 층정규화정수행(self.D)
-            정층 = lambda g, b: _띄움(k["층정규화정수"], ((M + RB - 1) // RB, 1), (32 * RB, 1),
-                                    [P(self.h), P(g), P(b), P(self.자릿값), P(self.정보), I(M)])
+            if self.정수KV and self._층판(M) == "줄":
+                정층 = lambda g, b: _띄움(k["층정규화정수줄"], (M, 1), (256, 1), [P(self.h), P(g), P(b), P(self.자릿값), P(self.정보), I(M)])
+            else:
+                정층 = lambda g, b: _띄움(k["층정규화정수"], ((M + RB - 1) // RB, 1), (32 * RB, 1),
+                                        [P(self.h), P(g), P(b), P(self.자릿값), P(self.정보), I(M)])
             어텐션 = lambda l: [_띄움(k["흐름어텐션정수"], (self.NH, B * ((m + 63) // 64)), (256, 1),
                                   [P(self.q), P(self.kc[l]), P(self.vc[l]), P(self.정보), P(self.자릿값), I(M), I(m), pos,
                                    I(self.최대길이)])]

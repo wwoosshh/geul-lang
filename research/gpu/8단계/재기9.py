@@ -39,6 +39,7 @@ import 재기7 as K7            # noqa: E402
 import 재기8 as K8            # noqa: E402
 from 양자화기준 import 견줌    # noqa: E402
 from 커널생성 import 정수판표, 정수판모양    # noqa: E402
+import 커널생성                               # noqa: E402
 
 G = R.G
 형식들 = ("q8_0", "q4_0")
@@ -143,7 +144,7 @@ def 타일효율(dr, ptx, 자리수, M, K, N_):
     runs = {}
     for 판 in 정수판표(자리수):
         행, 열, 스 = 정수판모양(판)
-        ps = [P(dig), P(inf), P(big), P(scale), P(bias), P(out), I(M), I(K), I(N_), I((N_ + 63) // 64 * 64)]
+        ps = [P(dig), P(inf), P(big), P(scale), P(bias), P(out), I(M), I(K), I(N_), I((N_ + 63) // 64 * 64)] +             ([I(0), I(0)] if 커널생성.KV == "정수" else [])     # 11단계: 정수 KV 판의 타일은 행 · 열 시작을 받는다
         x = G._띄움(dr.함수(mod, 판), ((M + 행 - 1) // 행, (N_ + 열 - 1) // 열), (스, 1), ps)
         runs[판] = (x, lambda x=x: cu.cuLaunchKernel(x.fn, x.grid[0], x.grid[1], 1, x.block[0], x.block[1], 1, 0, None, x.args, None))
     t0 = time.perf_counter()
