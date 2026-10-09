@@ -49,7 +49,7 @@ SHARED_BYTES = 4096
 SHARED["큰공유메모리"] = "__geul_bsm"
 SHARED_SIZE = {name: (16384 if name == "큰공유메모리" else SHARED_BYTES) for name in SHARED}
 # 3단계 성능: 공유판N — N KB 짜리 판 하나(N = 4, 8, …, 48). 커널이 필요한 만큼만 잡는다(블록당 정적 공유 메모리는 48 KB 까지).
-for _kb in range(4, 49, 4):
+for _kb in list(range(4, 49, 4)) + [33]:                 # 33: 9단계 정수어텐션의 실험(SM 에 블록 셋 — 3 × 33 KB ≤ 100 KB)
     SHARED[f"공유판{_kb}"] = f"__geul_pan{_kb}"
     SHARED_SIZE[f"공유판{_kb}"] = _kb * 1024
 # 2c: 실수 → 정수, 실수 → 짧은실수 변환의 범위 검사. 넘으면 모듈의 오류 칸 __geul_err 에 비트를 켠다(1 정수, 2 짧은실수) —
@@ -111,7 +111,9 @@ WARP = ("워프동기화",)
 # 실수비트(x) = 짧은실수 x 의 비트를 중간정수로, 비트실수(i) = 그 거꾸로 — 값을 바꾸지 않고 보는 법만 바꾼다(mov.b32).
 TENSOR = ("정수텐서곱", "정수텐서곱_나부호없음")
 BYTEDOT = ("바이트넷곱더하기", "바이트넷곱더하기_나부호없음")
-BITS = ("실수비트", "비트실수")
+# 바이트고르기(a, b, 선택자) = a · b 의 여덟 바이트(a 의 0~3, b 의 4~7)에서 선택자의 니블 i 가 고른 바이트를 결과의 바이트 i 로(prmt.b32 — 값을 바꾸지 않고
+# 옮기기만, 9단계).
+BITS = ("실수비트", "비트실수", "바이트고르기")
 # 가까운정수(x) = 짧은실수 x 를 가장 가까운 정수로(같으면 짝수 — IEEE 의 roundToIntegralTiesToEven) 바꾼 중간정수(cvt.rni.s32.f32).
 # 범위 [−2³¹, 2³¹) 밖이면(NaN 포함) 2c 처럼 오류 칸에 1.
 ROUND = ("가까운정수",)
@@ -1180,6 +1182,10 @@ class FuncPTX:
             return
         if name == "비트실수":
             e(f"mov.b32 {d}, {self.r(i.args[0])};")
+            return
+        if name == "바이트고르기":
+            a, b, c = (self.r(x) for x in i.args)
+            e(f"prmt.b32 {d}, {a}, {b}, {c};")
             return
         if name == "곱해더하기":
             x, y, z = (self.r(a) for a in i.args)

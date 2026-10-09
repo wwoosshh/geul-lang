@@ -17,7 +17,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from 커널생성 import 정수판들, 정수판들둘, 정수판표, 정수판모양, 정수열묶음, 층정규화정수행      # noqa: E402 — 정수 판의 모양(커널과 같은 표 · 규칙)
+from 커널생성 import 어텐션질의수, 정수판들, 정수판들둘, 정수판표, 정수판모양, 정수열묶음, 층정규화정수행      # noqa: E402 — 정수 판의 모양(커널과 같은 표 · 규칙)
 ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 D, NH, NL, V, NCTX = 768, 12, 12, 50257, 1024            # GPT-2 small — 모형마다의 크기는 글GPT2 의 self.D · NH · NL · V (7단계)
 
@@ -231,10 +231,13 @@ class _띄움:
 정수모듈 = {("Q8_0", "Q8_0"): "커널반Q8정수.gl", ("Q4_0", "Q8_0"): "커널반Q4정수.gl"}
 # 8단계 — 자리 둘 계약(활성값 ±2¹⁴): 같은 가중치 배치, 자릿값이 둘. `글GPT2(…, 자리수=2)`
 두자리모듈 = {("Q8_0", "Q8_0"): "커널반Q8둘자리.gl", ("Q4_0", "Q8_0"): "커널반Q4둘자리.gl"}
+# 9단계 — 정수 KV 계약(자리 둘 + KV 캐시도 자리 둘 블록 정수 + 정수 텐서 코어 어텐션 + 적힌지수). `글GPT2(…, KV형식="정수", 자리수=2)`
+정수KV모듈 = {("Q8_0", "Q8_0"): "커널Q8정수KV.gl", ("Q4_0", "Q8_0"): "커널Q4정수KV.gl"}
 # 7단계 — GPT-2 XL(너비 1600, 머리 25, 층 48): 커널생성.py 가 크기만 바꿔 만든 모듈(순서 약속은 같다). 짧은실수 판은 짧은실수 KV.
 XL모듈 = {("짧은실수", "짧은실수", "짧은실수"): "커널XL.gl", ("F16", "F16", "반실수"): "커널XL반F16.gl",
          ("Q8_0", "Q8_0", "정수"): "커널XL반Q8정수.gl", ("Q4_0", "Q8_0", "정수"): "커널XL반Q4정수.gl",
-         ("Q8_0", "Q8_0", "둘자리"): "커널XL반Q8둘자리.gl", ("Q4_0", "Q8_0", "둘자리"): "커널XL반Q4둘자리.gl"}
+         ("Q8_0", "Q8_0", "둘자리"): "커널XL반Q8둘자리.gl", ("Q4_0", "Q8_0", "둘자리"): "커널XL반Q4둘자리.gl",
+         ("Q8_0", "Q8_0", "정수KV"): "커널XLQ8정수KV.gl", ("Q4_0", "Q8_0", "정수KV"): "커널XLQ4정수KV.gl"}
 바이트수 = {"짧은실수": lambda K, N: 4 * K * N, "F16": lambda K, N: 2 * K * N,
           "Q8_0": lambda K, N: K * N + K * N // 16, "Q4_0": lambda K, N: K * N // 2 + K * N // 16}
 
@@ -256,10 +259,12 @@ def _바탕(x):
 class 글GPT2:
     def __init__(self, weights, 최대행=1024, 최대문장=3, 최대길이=NCTX, 로짓행=1024, 프롬메가=False, KV형식="짧은실수", 자리수=4):
         """KV형식: KV 캐시의 원소 — "짧은실수"(커널.gl) 또는 "반실수"(커널반.gl, 4단계 2 — 밝힌 정밀도: 쓸 때 `으로 반실수` 로
-        반올림 한 번, 읽을 때 정확히 넓힌다). 다른 커널과 순서 약속은 같다. 자리수: 정수 블록 계약의 활성값 자리(4 — 6단계, 2 — 8단계)."""
+        반올림 한 번, 읽을 때 정확히 넓힌다). 다른 커널과 순서 약속은 같다. 자리수: 정수 블록 계약의 활성값 자리(4 — 6단계, 2 — 8단계).
+        KV형식 "정수"(9단계): KV 캐시를 자리 둘 블록 정수로 두고 어텐션을 정수 텐서 코어 · dp4a 로(정수 KV 계약, 적힌지수) — 자리수 2 의 정수 판만."""
         assert 자리수 in (2, 4)
         self.자리수 = 자리수
-        assert KV형식 in ("짧은실수", "반실수")
+        assert KV형식 in ("짧은실수", "반실수", "정수")
+        assert not (프롬메가 and KV형식 == "정수")
         assert not (프롬메가 and KV형식 == "반실수"), "프롬프트 메가커널(3l)은 짧은실수 KV 판만 있다"
         # 모형의 크기 — 가중치에서(7단계: GPT-2 small · XL). 머리 하나는 64 칸.
         self.D, self.NCTX = weights["wpe.weight"].shape[1], weights["wpe.weight"].shape[0]
@@ -276,9 +281,11 @@ class 글GPT2:
         self.양자 = (self.층형식, self.낱말형식) != ("짧은실수", "짧은실수")
         self.정수 = self.양자 and getattr(weights["h.0.attn.c_attn.weight"], "배치", "가닥") == "정수"
         if self.양자:
-            assert KV형식 == "반실수", "양자 판(5단계 · 6단계)은 반실수 KV 판만 있다"
+            assert KV형식 in ("반실수", "정수"), "양자 판(5단계 · 6단계)은 반실수 KV 판(또는 9단계의 정수 KV 판)만 있다"
             assert (self.층형식, self.낱말형식) in (정수모듈 if self.정수 else 양자모듈), f"모듈이 없는 형식: {(self.층형식, self.낱말형식)}"
         assert 자리수 == 4 or self.정수, "자리 둘은 정수 계약 판(gguf읽기.gpt2정수)에서만"
+        self.정수KV = KV형식 == "정수"
+        assert not self.정수KV or (self.정수 and 자리수 == 2), "정수 KV 판은 자리 둘의 정수 계약 판에서만"
         self.dr = dr = 드라이버()
 
         def build(gl):
@@ -287,32 +294,37 @@ class 글GPT2:
                             "-o", ptx], check=True, capture_output=True)
             return dr.모듈(open(ptx, "rb").read())
         if self.크기 == "small":
-            모듈 = (((두자리모듈 if 자리수 == 2 else 정수모듈) if self.정수 else 양자모듈)[(self.층형식, self.낱말형식)] if self.양자 else
+            모듈 = (정수KV모듈[(self.층형식, self.낱말형식)] if self.정수KV else
+                   ((두자리모듈 if 자리수 == 2 else 정수모듈) if self.정수 else 양자모듈)[(self.층형식, self.낱말형식)] if self.양자 else
                    ("커널.gl" if KV형식 == "짧은실수" else "커널반.gl"))
         else:
-            열쇠 = (self.층형식, self.낱말형식, ("둘자리" if 자리수 == 2 else "정수") if self.정수 else KV형식)
+            열쇠 = (self.층형식, self.낱말형식, "정수KV" if self.정수KV else ("둘자리" if 자리수 == 2 else "정수") if self.정수 else KV형식)
             assert 열쇠 in XL모듈, f"XL 모듈이 없는 판: {열쇠}"
             모듈 = XL모듈[열쇠]
         self.mods = [build("gpt2.gl" if self.크기 == "small" else "gpt2XL.gl"), build(모듈)]
         self.k = {n: dr.함수(self.mods[0], n) for n in ("임베딩", "층정규화", "줄층정규화", "가장큰번호")}
-        self.k.update({n: dr.함수(self.mods[1], n) for n in ("흐름어텐션", "조각어텐션", "조각접기")})
+        self.k.update({n: dr.함수(self.mods[1], n) for n in (("KV정수로", "정수어텐션", "정수조각어텐션", "정수조각접기") if self.정수KV else
+                                                           ("흐름어텐션", "조각어텐션", "조각접기"))})
         if self.양자:
             self.k["임베딩"] = dr.함수(self.mods[1], "임베딩")
         if self.정수:
             self.k["정수로"] = dr.함수(self.mods[1], "정수로")
             self.k["층정규화정수"] = dr.함수(self.mods[1], "층정규화정수")
-            self.k["흐름어텐션정수"] = dr.함수(self.mods[1], "흐름어텐션정수")
+            if not self.정수KV:
+                self.k["흐름어텐션정수"] = dr.함수(self.mods[1], "흐름어텐션정수")
             판표 = 정수판표(자리수)
             self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in (*판표, "정수줄선형")
-                       for epi in ("", "_잔차", "_겔루", "_KV")}
-            self.선형.update({(판, "_겔루정수"): dr.함수(self.mods[1], f"{판}_겔루정수") for 판 in 판표 if 판표[판][3] >= 4})
+                       for epi in (("", "_잔차", "_겔루") if self.정수KV else ("", "_잔차", "_겔루", "_KV"))}
+            self.선형.update({(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in 판표 if 판표[판][3] >= 4
+                            for epi in (("_겔루정수", "_KV정수") if self.정수KV else ("_겔루정수",))})
             self.로짓선형 = {판: dr.함수(self.mods[1], f"로짓{판}") for 판 in (*판표, "정수줄선형")}
         else:
             판들 = ("줄선형1", "깊은줄선형1", "줄선형4", "타일선형", "작은타일선형") + (() if self.양자 else ("타일선형넷",))
             self.선형 = {(판, epi): dr.함수(self.mods[1], f"{판}{epi}") for 판 in 판들 for epi in ("", "_잔차", "_겔루", "_KV")}
             self.로짓선형 = ({판: dr.함수(self.mods[1], f"로짓{판}") for 판 in ("줄선형1", "줄선형4", "타일선형", "작은타일선형")}
                          if self.양자 else {판: self.선형[(판, "")] for 판 in 판들})
-        assert 최대길이 % 64 == 0 and 최대길이 <= 16384, "최대길이는 64 의 배수, 16384 까지 (어텐션의 키 조각 — 접기는 조각 256 개까지)"
+        assert 최대길이 % 64 == 0 and 최대길이 <= (131072 if self.정수KV else 16384), \
+            "최대길이는 64 의 배수, 16384 까지 (어텐션의 키 조각 — 접기는 조각 256 개까지; 정수 KV 판은 131072 까지)"
         self.최대행, self.최대문장, self.최대길이 = 최대행, 최대문장, 최대길이
 
         def up(a):
@@ -361,7 +373,7 @@ class 글GPT2:
             # c_fc 의 끝손질(_겔루정수)이 mlp c_proj 의 자리를 바로 쓰는 칸 — c_fc 가 읽는 칸과 따로
             self.자릿값2, self.정보2 = dr.할당(자리수 * M * 4 * D), dr.할당(M * (4 * D // 32) * 16)
         self.h, self.x = dr.할당(M * D * 4), dr.할당(M * D * 4)
-        self.q, self.att = dr.할당(M * D * 4), dr.할당(M * D * 4)
+        self.q, self.att = dr.할당(max(M, 12) * D * 4), dr.할당(M * D * 4)     # 정수 KV 판의 줄 길은 q 에 행 넷의 q · k · v(짧은실수)
         self.fc = dr.할당(M * 4 * D * 4)
         # 모든 행의 로짓("전부")은 로짓행 행까지만 — 긴 문맥에서는 문장마다 마지막 행만 쓴다
         self.로짓행 = max(min(로짓행, M), 최대문장)
@@ -376,6 +388,17 @@ class 글GPT2:
         dr.확인(dr.cu.cuMemsetD8_v2(c_u64(self.vc바탕), 0, ctypes.c_size_t(NL * kv)))
         self.kc = [self.kc바탕 + l * kv for l in range(NL)]
         self.vc = [self.vc바탕 + l * kv for l in range(NL)]
+        if self.정수KV:                              # 9단계: 키 · 값의 블록 지수(E + 114, 바이트) [문장·머리][위치][2], q 의 자리 둘 · 정보(활성값 배치)
+            ek = 최대문장 * NH * 최대길이 * 2
+            self.ke바탕, self.ve바탕 = dr.할당(NL * ek), dr.할당(NL * ek)
+            dr.확인(dr.cu.cuMemsetD8_v2(c_u64(self.ke바탕), 0, ctypes.c_size_t(NL * ek)))
+            dr.확인(dr.cu.cuMemsetD8_v2(c_u64(self.ve바탕), 0, ctypes.c_size_t(NL * ek)))
+            self.ke = [self.ke바탕 + l * ek for l in range(NL)]
+            self.ve = [self.ve바탕 + l * ek for l in range(NL)]
+            정보폭 = (M + 63) // 64 * 64
+            self.자릿값q, self.정보q = dr.할당(2 * M * D), dr.할당(D // 32 * 정보폭 * 4)
+            # 판 고르기의 시험용 캐시(문장 하나 몫 — 진짜 캐시를 건드리지 않게)
+            self.시험KV = [dr.할당(n) for n in (2 * M * D, D // 32 * 정보폭 * 4, 최대길이 * D * 2, 최대길이 * D * 2, NH * 최대길이 * 2, NH * 최대길이 * 2)]
         self.부분값, self.부분번호, self.장벽 = dr.할당(4096), dr.할당(8192), dr.할당(256)
         self.주의셈 = self.장벽 + 64               # 메가커널의 어텐션: 머리마다 도착한 블록 수 (장벽과 함께 0 으로)
         self.메가 = dr.함수(self.mods[1], "생성메가")
@@ -514,15 +537,16 @@ class 글GPT2:
         wt = self.wteT if 로짓 else self.층[0][{(self.D, 3 * self.D): "attn.c_attn.weight", (self.D, self.D): "attn.c_proj.weight",
                                             (self.D, 4 * self.D): "mlp.c_fc.weight", (4 * self.D, self.D): "mlp.c_proj.weight"}[(K, N)]]
         kv = 시 + 4 * self.D * self.최대행                         # 시험칸의 q 출력 뒤에 키 · 값 (층 하나, 문장 하나 몫씩)
-        extra = {"_잔차": [시], "_KV": [kv, kv + 2 * self.D * self.최대길이], "_겔루정수": [kv]}.get(epi, [])
+        extra = {"_잔차": [시], "_KV": [kv, kv + 2 * self.D * self.최대길이], "_겔루정수": [kv],
+                 "_KV정수": getattr(self, "시험KV", [])}.get(epi, [])
         runs = {}
         for 판 in 정수판표(self.자리수):
             if not 로짓 and (판, epi) not in self.선형:   # _겔루정수 는 열 조각 넷 이상인 판만 있다
                 continue
             fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]
             ps = [c_u64(self.자릿값), c_u64(self.정보)] + _가중인자(wt) + [c_u64(self.영치우침)] + [c_u64(v) for v in extra] + \
-                 [c_u64(시), c_i64(rows), c_i64(K), c_i64(N), c_i64((N + 63) // 64 * 64)] + \
-                 ([c_i64(rows), c_i64(0), c_i64(self.최대길이)] if epi == "_KV" else [])
+                 ([] if epi == "_KV정수" else [c_u64(시)]) + [c_i64(rows), c_i64(K), c_i64(N), c_i64((N + 63) // 64 * 64)] + \
+                 ([c_i64(rows), c_i64(0), c_i64(self.최대길이)] if epi in ("_KV", "_KV정수") else [])
             y = _띄움(fn, *self._격자(판, rows, N), ps)
             runs[판] = (y, lambda y=y: cu.cuLaunchKernel(y.fn, y.grid[0], y.grid[1], 1, y.block[0], y.block[1], 1, 0, None,
                                                          y.args, None))
@@ -579,7 +603,7 @@ class 글GPT2:
                                    [P(src), P(자리[0]), P(자리[1]), I(rows), I(K)]))
                 fn = self.로짓선형[판] if 로짓 else self.선형[(판, epi)]
                 ps = [P(자리[0]), P(자리[1])] + _가중인자(wt) + [P(b)] + [P(x) for x in extra] + \
-                     [P(dst), I(rows), I(K), I(N), I((N + 63) // 64 * 64)]
+                     ([] if epi == "_KV정수" else [P(dst)]) + [I(rows), I(K), I(N), I((N + 63) // 64 * 64)]
                 if kv is not None:
                     ps += [I(m), pos, I(self.최대길이)]
                 return _띄움(fn, *self._격자(판, rows, N), ps)
@@ -622,10 +646,30 @@ class 글GPT2:
             어텐션 = lambda l: [_띄움(k["흐름어텐션정수"], (self.NH, B * ((m + 63) // 64)), (256, 1),
                                   [P(self.q), P(self.kc[l]), P(self.vc[l]), P(self.정보), P(self.자릿값), I(M), I(m), pos,
                                    I(self.최대길이)])]
+        c_attn = lambda l, w: [lin("_KV", self.x, w["attn.c_attn.weight"], w["attn.c_attn.bias"], self.q, self.D, 3 * self.D,
+                                   (self.kc[l], self.vc[l]), kv=True, 바뀐=묶음)]
+        if self.정수KV:
+            # 9단계 — 정수 KV 계약: 행 다섯 이상은 타일 c_attn 의 끝손질(_KV정수)이 q 자리 · 키 · 값 캐시를 바로 쓰고 정수어텐션(텐서 코어)이
+            # c_proj 의 자리 둘을 바로 쓴다(바꾸기를 묶는 길만). 행 넷까지는 줄 판 c_attn → q 칸(짧은실수) → KV정수로 → 행마다
+            # 정수조각어텐션 + 정수조각접기(생성 판 — 같은 비트). 두 길의 캐시 바이트는 같다.
+            assert 묶음 or M <= 4, "정수 KV 판의 프롬프트(행 다섯 이상)는 바꾸기를 묶는 길(묶어바꾸기)만 있다"
+            KV인자 = lambda l: [P(self.kc[l]), P(self.vc[l]), P(self.ke[l]), P(self.ve[l])]
+            조각수 = self.최대길이 // 64
+            if M > 4:
+                c_attn = lambda l, w: [lin("_KV정수", self.x, w["attn.c_attn.weight"], w["attn.c_attn.bias"], None, self.D, 3 * self.D,
+                                           [self.자릿값q, self.정보q, self.kc[l], self.vc[l], self.ke[l], self.ve[l]], kv=True, 바뀐=True)]
+                어텐션 = lambda l: [_띄움(k["정수어텐션"], (self.NH, B * ((m + 어텐션질의수 - 1) // 어텐션질의수)), (2 * 어텐션질의수, 1),
+                                      [P(self.자릿값q), P(self.정보q)] + KV인자(l) + [P(self.정보), P(self.자릿값), I(M), I(m), pos, I(self.최대길이)])]
+            else:
+                c_attn = lambda l, w: [lin("", self.x, w["attn.c_attn.weight"], w["attn.c_attn.bias"], self.q, self.D, 3 * self.D),
+                                       _띄움(k["KV정수로"], ((3 * self.D // 32 + 31) // 32, M), (256, 1),
+                                            [P(self.q), P(self.자릿값q), P(self.정보q)] + KV인자(l) + [I(M), I(m), pos, I(self.최대길이)])]
+                어텐션 = lambda l: [_띄움(k["정수조각어텐션"], ((조각수 + 7) // 8, M * self.NH), (256, 1),
+                                      [P(self.자릿값q), P(self.정보q)] + KV인자(l) + [P(self.조각칸), I(M), I(m), pos, I(self.최대길이)]),
+                                    _띄움(k["정수조각접기"], (M * self.NH, 1), (256, 1), [P(self.조각칸), P(self.att), I(M), I(m), pos, I(self.최대길이)])]
         for l, w in enumerate(self.층):
             L.append(정층(w["ln_1.weight"], w["ln_1.bias"]) if 묶음 else 층(w["ln_1.weight"], w["ln_1.bias"]))
-            L.append(lin("_KV", self.x, w["attn.c_attn.weight"], w["attn.c_attn.bias"], self.q, self.D, 3 * self.D,
-                         (self.kc[l], self.vc[l]), kv=True, 바뀐=묶음))
+            L += c_attn(l, w)
             L += 어텐션(l)
             L.append(lin("_잔차", self.att, w["attn.c_proj.weight"], w["attn.c_proj.bias"], self.h, self.D, self.D, (self.h,), 바뀐=묶음))
             L.append(정층(w["ln_2.weight"], w["ln_2.bias"]) if 묶음 else 층(w["ln_2.weight"], w["ln_2.bias"]))
@@ -739,7 +783,7 @@ class 글GPT2:
                   *g("ln_1.weight"), *g("ln_1.bias"), *g("attn.c_attn.weight"), *g("attn.c_attn.bias"),
                   *g("attn.c_proj.weight"), *g("attn.c_proj.bias"), *g("ln_2.weight"), *g("ln_2.bias"),
                   *g("mlp.c_fc.weight"), *g("mlp.c_fc.bias"), *g("mlp.c_proj.weight"), *g("mlp.c_proj.bias"),
-                  P(self.lnf_g), P(self.lnf_b), P(self.kc바탕), P(self.vc바탕),
+                  P(self.lnf_g), P(self.lnf_b), P(self.kc바탕), P(self.vc바탕)] + ([P(self.ke바탕), P(self.ve바탕)] if self.정수KV else []) + [
                   P(self.h), P(self.q), P(self.att), P(self.fc), P(self.로짓기록칸 or self.logits),
                   P(self.부분값), P(self.부분번호), P(self.장벽), P(self.시각칸), P(self.조각칸), P(self.주의셈),
                   I(p), I(n), I(self.최대길이), I(self.최대문장), I(1 if 기록 else 0), I(int(self.시각재기))]
