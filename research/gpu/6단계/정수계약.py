@@ -123,63 +123,86 @@ def 거듭제곱(E):
     return ((np.asarray(E, np.int64) + 114) << 23).astype(np.int32).view(f32)
 
 
-def 어텐션(q, k, v, 조각=64):
-    """머리 하나의 어텐션(원인 가림, × 0.125) — 정수 KV 계약의 참조. q · k · v [n][64] 짧은실수 → 출력 [n][64] 짧은실수(O / L).
-    프롬프트 판(mma)과 생성 판(dp4a) 모두와 비트까지 같아야 한다(9a)."""
+def _조각몫(nq, nk, nv, Pq, Pk, Pv, Rr, 시작, n):
+    """행 Rr(위치 — 모두 시작 이상)의 키 조각 [시작, 시작 + 64) 몫 (m, l, o) — 9단계 계약의 1~4(점수 · 최댓값 · 적힌지수 · 합 · e′ 자리 ·
+    가중합)."""
+    keys = np.arange(시작, min(시작 + 64, n))
+    valid = keys[None, :] <= Rr[:, None]                         # [R][keys]
+    # 1. 점수
+    s = None
+    for b in range(2):
+        sl = slice(32 * b, 32 * b + 32)
+        u = (nq[Rr][:, sl] @ nk[keys][:, sl].T).astype(f32)        # 정확한 정수 합 → 반올림 하나
+        부분 = (u * Pq[Rr, b][:, None]).astype(f32)                 # 정확
+        s = (부분 * Pk[keys, b][None, :]).astype(f32) if b == 0 else fma32(부분, np.broadcast_to(Pk[keys, b][None, :], 부분.shape), s)
+    s = (s * f32(0.125)).astype(f32)
+    s = np.where(valid, s, f32(-3.0e38)).astype(f32)
+    # 2. 최댓값 · 지수
+    m = s.max(1)
+    e = np.where(valid, 적힌지수((s - m[:, None]).astype(f32)), f32(0)).astype(f32)
+    # 3. 합 — 2⁻²³ 눈금의 정수 합, 반올림 하나
+    l = (np.rint((e * f32(8388608.0)).astype(f32)).astype(np.int64).sum(1).astype(f32) * f32(2.0 ** -23)).astype(f32)
+    # 4. 가중합 — 값의 블록 b 마다 e′ = e · 2^(E_v − 13), 키 32 개 블록 j 마다 자리 둘
+    o = np.zeros((len(Rr), 64), f32)
+    for b in range(2):
+        ep = (e * Pv[keys, b][None, :]).astype(f32)                 # 정확
+        uj = []
+        for j in range(0, len(keys), 32):
+            epj = np.zeros((len(Rr), 32), f32)
+            epj[:, :min(32, len(keys) - j)] = ep[:, j:j + 32]
+            ne, Ee = e자리(epj)                                     # [R][32] ∈ [0, 2¹⁴], [R][1]
+            nvj = np.zeros((32, 32), np.int64)
+            nvj[:min(32, len(keys) - j)] = nv[keys[j:j + 32]][:, 32 * b:32 * b + 32]
+            uj.append(((ne @ nvj).astype(f32), 거듭제곱(Ee[:, 0])))
+        if len(uj) == 1:
+            uj.append((np.zeros_like(uj[0][0]), 거듭제곱(np.full(len(Rr), -98))))
+        (u0, P0), (u1, P1) = uj
+        o[:, 32 * b:32 * b + 32] = fma32(u1, P1[:, None], (u0 * P0[:, None]).astype(f32))
+    return m, l, o
+
+
+def _접기(M, L, O, m, l, o):
+    """접기 한 걸음 — M′ = max(M, m), 가 = 적힌지수(M − M′), 나 = 적힌지수(m − M′), L′ = 곱해더하기(l, 나, L·가), O′ = 곱해더하기(o, 나, O·가)."""
+    M2 = np.maximum(M, m)
+    가 = 적힌지수((M - M2).astype(f32))
+    나 = 적힌지수((m - M2).astype(f32))
+    return M2, fma32(l, 나, (L * 가).astype(f32)), fma32(o, 나[:, None], (O * 가[:, None]).astype(f32))
+
+
+def 어텐션(q, k, v, 조각=64, 묶음=16, 첫행=0):
+    """머리 하나의 어텐션(원인 가림, × 0.125) — 정수 KV 계약의 참조. q · k · v [n][64] 짧은실수 → 출력 [n − 첫행][64] 짧은실수(O / L).
+    프롬프트 판(mma)과 생성 판(dp4a) 모두와 비트까지 같아야 한다(9a).
+    접기(13단계 계약): 키 조각(위치 64)을 묶음(조각 `묶음` 개 = 위치 1024 — 묶음 g 는 위치 [1024g, 1024g + 1024))으로 나눠, 묶음 안에서
+    조각을 차례로 접어 묶음의 (M_g, L_g, O_g) 를 만들고(묶음의 첫 조각이 처음 값), 묶음들을 차례로 같은 식으로 접는다(첫 묶음이 처음 값).
+    위치 1024 까지는 묶음이 하나라 9~12단계의 한 층 접기와 같다. 묶음=None 이면 한 층(9~12단계 계약 — 견주기용).
+    첫행: 이 행부터만 계산한다(긴 문맥의 짧은 덩이 대조 — 앞 행은 건너뛴다; 값은 모든 행을 계산할 때의 그 행과 같다)."""
     q, k, v = (np.asarray(x, f32) for x in (q, k, v))
     n = q.shape[0]
     (Dq, Eq), (Dk, Ek), (Dv, Ev) = 자리로(q, 2), 자리로(k, 2), 자리로(v, 2)
     nq, nk, nv = (D[1] * 256 + D[0] for D in (Dq, Dk, Dv))          # [n][64] int64
     Pq, Pk, Pv = 거듭제곱(Eq), 거듭제곱(Ek), 거듭제곱(Ev)              # [n][2]
-    M = np.full(n, -np.inf, f32)
-    L = np.zeros(n, f32)
-    O = np.zeros((n, 64), f32)
-    rows = np.arange(n)
-    for 시작 in range(0, n, 조각):
-        R = rows[시작:]                                              # 이 조각에 유효한 키가 있는 질의들
-        keys = np.arange(시작, min(시작 + 조각, n))
-        valid = keys[None, :] <= R[:, None]                          # [R][keys]
-        # 1. 점수
-        s = None
-        for b in range(2):
-            sl = slice(32 * b, 32 * b + 32)
-            u = (nq[R][:, sl] @ nk[keys][:, sl].T).astype(f32)        # 정확한 정수 합 → 반올림 하나
-            부분 = (u * Pq[R, b][:, None]).astype(f32)                 # 정확
-            s = (부분 * Pk[keys, b][None, :]).astype(f32) if b == 0 else fma32(부분, np.broadcast_to(Pk[keys, b][None, :], 부분.shape), s)
-        s = (s * f32(0.125)).astype(f32)
-        s = np.where(valid, s, f32(-3.0e38)).astype(f32)
-        # 2. 최댓값 · 지수
-        m = s.max(1)
-        e = np.where(valid, 적힌지수((s - m[:, None]).astype(f32)), f32(0)).astype(f32)
-        # 3. 합 — 2⁻²³ 눈금의 정수 합, 반올림 하나
-        l = (np.rint((e * f32(8388608.0)).astype(f32)).astype(np.int64).sum(1).astype(f32) * f32(2.0 ** -23)).astype(f32)
-        # 4. 가중합 — 값의 블록 b 마다 e′ = e · 2^(E_v − 13), 키 32 개 블록 j 마다 자리 둘
-        o = np.zeros((len(R), 64), f32)
-        for b in range(2):
-            ep = (e * Pv[keys, b][None, :]).astype(f32)                 # 정확
-            uj = []
-            for j in range(0, len(keys), 32):
-                epj = np.zeros((len(R), 32), f32)
-                epj[:, :min(32, len(keys) - j)] = ep[:, j:j + 32]
-                ne, Ee = e자리(epj)                                     # [R][32] ∈ [0, 2¹⁴], [R][1]
-                nvj = np.zeros((32, 32), np.int64)
-                nvj[:min(32, len(keys) - j)] = nv[keys[j:j + 32]][:, 32 * b:32 * b + 32]
-                uj.append(((ne @ nvj).astype(f32), 거듭제곱(Ee[:, 0])))
-            if len(uj) == 1:
-                uj.append((np.zeros_like(uj[0][0]), 거듭제곱(np.full(len(R), -98))))
-            (u0, P0), (u1, P1) = uj
-            o[:, 32 * b:32 * b + 32] = fma32(u1, P1[:, None], (u0 * P0[:, None]).astype(f32))
-        # 5. 접기
-        첫 = 시작 == 0
-        if 첫:
-            M[R], L[R], O[R] = m, l, o
+    R_ = np.arange(첫행, n)
+    M = np.zeros(len(R_), f32)
+    L = np.zeros(len(R_), f32)
+    O = np.zeros((len(R_), 64), f32)
+    폭 = 조각 * 묶음 if 묶음 else n + 조각                              # 묶음 하나의 위치 수
+    for g0 in range(0, n, 폭):
+        selg = R_ >= g0                                              # 이 묶음에 유효한 키가 있는 행
+        Mg = np.zeros(int(selg.sum()), f32)
+        Lg = np.zeros(int(selg.sum()), f32)
+        Og = np.zeros((int(selg.sum()), 64), f32)
+        for 시작 in range(g0, min(g0 + 폭, n), 조각):
+            sel = R_ >= 시작
+            m, l, o = _조각몫(nq, nk, nv, Pq, Pk, Pv, R_[sel], 시작, n)
+            idx = np.nonzero(sel[selg])[0]
+            if 시작 == g0:                                          # 묶음의 첫 조각 — 처음 값
+                Mg[idx], Lg[idx], Og[idx] = m, l, o
+            else:
+                Mg[idx], Lg[idx], Og[idx] = _접기(Mg[idx], Lg[idx], Og[idx], m, l, o)
+        if g0 == 0:                                                  # 첫 묶음 — 처음 값
+            M[selg], L[selg], O[selg] = Mg, Lg, Og
         else:
-            M2 = np.maximum(M[R], m)
-            가 = 적힌지수((M[R] - M2).astype(f32))
-            나 = 적힌지수((m - M2).astype(f32))
-            L[R] = fma32(l, 나, (L[R] * 가).astype(f32))
-            O[R] = fma32(o, 나[:, None], (O[R] * 가[:, None]).astype(f32))
-            M[R] = M2
+            M[selg], L[selg], O[selg] = _접기(M[selg], L[selg], O[selg], Mg, Lg, Og)
     return (O / L[:, None]).astype(f32)
 
 
