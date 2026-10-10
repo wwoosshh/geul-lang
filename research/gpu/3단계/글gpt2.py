@@ -7,6 +7,7 @@ GPU 계산은 모두 gpt2.gl 의 커널(글ptx.py → PTX → nvcuda.dll)이 한
 행의 배치: 한 번 부를 때 문장 B 개가 m 행씩(행 r 은 문장 r // m, 위치 위치시작 + r % m) — 한 묶음의 문장은 길이가 같다.
 """
 import ctypes
+import gc
 import json
 import os
 import subprocess
@@ -17,7 +18,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from 커널생성 import 어텐션질의수, 정수판들, 정수판들둘, 정수판들KV, 정수판표, 정수판모양, 정수열묶음, 층정규화정수행      # noqa: E402 — 정수 판의 모양(커널과 같은 표 · 규칙)
+from 커널생성 import 어텐션질의수, 갈래워프, 정수판들, 정수판들둘, 정수판들KV, 정수판표, 정수판모양, 정수열묶음, 층정규화정수행      # noqa: E402 — 정수 판의 모양(커널과 같은 표 · 규칙)
 ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 D, NH, NL, V, NCTX = 768, 12, 12, 50257, 1024            # GPT-2 small — 모형마다의 크기는 글GPT2 의 self.D · NH · NL · V (7단계)
 
@@ -303,7 +304,7 @@ class 글GPT2:
             모듈 = XL모듈[열쇠]
         self.mods = [build("gpt2.gl" if self.크기 == "small" else "gpt2XL.gl"), build(모듈)]
         self.k = {n: dr.함수(self.mods[0], n) for n in ("임베딩", "층정규화", "줄층정규화", "가장큰번호")}
-        self.k.update({n: dr.함수(self.mods[1], n) for n in (("KV정수로", "정수어텐션", "정수어텐션둘", "정수조각어텐션", "정수조각접기") if self.정수KV else
+        self.k.update({n: dr.함수(self.mods[1], n) for n in (("KV정수로", "정수어텐션", "정수어텐션둘", "정수어텐션갈래", "정수조각어텐션", "정수조각접기") if self.정수KV else
                                                            ("흐름어텐션", "조각어텐션", "조각접기"))})
         if self.양자:
             self.k["임베딩"] = dr.함수(self.mods[1], "임베딩")
@@ -401,8 +402,10 @@ class 글GPT2:
             self.자릿값q, self.정보q = dr.할당(2 * M * D), dr.할당(D // 32 * 정보폭 * 4)
             # 판 고르기의 시험용 캐시(문장 하나 몫 — 진짜 캐시를 건드리지 않게)
             self.시험KV = [dr.할당(n) for n in (2 * M * D, D // 32 * 정보폭 * 4, 최대길이 * D * 2, 최대길이 * D * 2, NH * 최대길이 * 2, NH * 최대길이 * 2)]
-        self.부분값, self.부분번호, self.장벽 = dr.할당(4096), dr.할당(8192), dr.할당(256)
-        self.주의셈 = self.장벽 + 64               # 메가커널의 어텐션: 머리마다 도착한 블록 수 (장벽과 함께 0 으로)
+        self.부분값, self.부분번호, self.장벽 = dr.할당(4096), dr.할당(8192), dr.할당(1024)
+        # 메가커널의 어텐션: 주의셈[머리] — 머리마다 도착한 블록 수, 주의셈[16 + 머리·8 + 묶음] — 12단계의 묶음(조각 256 개)마다 다 쓴 조각 수
+        # (커널이 층의 P1 에서 0 으로). 장벽과 함께 띄우기 전에 0 으로.
+        self.주의셈 = self.장벽 + 64
         self.메가 = dr.함수(self.mods[1], "생성메가")
         # 프롬프트 메가커널: 장벽 [16] · 일셈 [16] · 끝셈 [층 12][단계 8][행 묶음] (정수) — 띄우기 전에 0 으로(참조는 16 바이트 정렬)
         self.프롬 = dr.함수(build("커널프롬.gl"), "프롬메가") if 프롬메가 else None     # 3l 의 시도 — 따로 도는 커널보다 느려 기본은 끔
@@ -413,6 +416,10 @@ class 글GPT2:
         self.프롬메가쓰기 = 프롬메가              # 문장 하나의 프롬프트를 메가커널로(값은 따로 도는 커널들과 같다)
         self.프롬시각칸, self.프롬시각재기 = dr.할당(8 * 4 * (8 + 12 * 600) * self.묶음최대), 0     # 재기용: 일마다 [가져옴, 기다림 끝, 끝남, 블록]
         self.메가블록 = 120                      # 커널생성.py 의 생성메가(G) 와 같아야 한다 (SM 60 개 × 2)
+        sm = ctypes.c_int()
+        dr.확인(dr.cu.cuDeviceGetAttribute(ctypes.byref(sm), 16, 0))      # CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT (장치 0 — 드라이버가 잡은 것)
+        self.SM수 = sm.value
+        self.갈래쓰기 = True                      # 12단계: 프롬프트 어텐션의 갈래 판을 쓸 수 있으면(_갈래쓰나) — 거짓이면 늘 차례 판(재는 데만)
         dr.cu.cuLaunchCooperativeKernel.argtypes = [ctypes.c_void_p] + [ctypes.c_uint] * 7 + [ctypes.c_void_p] * 2
         self.로짓기록칸 = None
         self.시각칸, self.시각재기 = dr.할당(8 * 70 * 1100), 0          # 재기용: 0 이 아니면 블록 (값 − 1) 이 장벽마다 GPU 시각을 남긴다
@@ -425,6 +432,8 @@ class 글GPT2:
         self._그래프 = {}
         self.그래프쓰기 = True
         self._고른판 = {}
+        self._계획쓰임 = {}                       # 12단계: 계획마다 쓰인 횟수(두 번째부터 그래프)
+        self._점유칸 = {}                         # 12단계: (판, 끝손질, 로짓) → SM 마다 블록 수
         self.미리읽기 = True                    # 줄 판이 끝에서 다음 줄 판의 가중치를 L2 로 미리 읽는다(값과는 상관없다)
         self.묶어바꾸기 = True                  # 6단계: 네 자리 바꾸기를 앞 커널에 묶는다(값과는 상관없다 — 끄는 것은 대조 시험만)
         cu = dr.cu
@@ -490,6 +499,8 @@ class 글GPT2:
         if self.정수:                        # 6단계: 행 넷까지는 dp4a 줄 판, 그 위는 정수 텐서 코어 판 둘 중 재서 빠른 것 — 같은 계약(비트가 같다)
             if rows <= 4:
                 return "정수줄선형"
+            if self.정수KV:                   # 12단계: 행 수의 묶음(2 의 거듭제곱, 최대행까지)마다 한 번 — 길이가 제각각인 대화에서 새 길이마다
+                rows = self._묶음행(rows)     # 다시 재지 않는다(어느 판이든 비트가 같으니 고르는 일은 값과 상관없다)
             key = (rows, K, N, 로짓, epi)
             if key not in self._고른판:
                 self._고른판[key] = self._정수판재기(rows, K, N, 로짓, epi)
@@ -529,6 +540,47 @@ class 글GPT2:
                     best = (t, 판)
             self._고른판[key] = best[1]
         return self._고른판[key]
+
+    def 판미리고르기(self):
+        """12단계(정수 KV 판, 실사용): 모델을 올릴 때 행 수 묶음(8 … 최대행)마다 네 행렬곱의 타일 판과 층정규화 판을 미리 재서 고른다 —
+        대화의 첫 차례가 판 고르기를 치르지 않게. 값과는 상관없다."""
+        D = self.D
+        b = 8
+        while True:
+            r = self._묶음행(b)
+            if r > 4:
+                for K, N, epi in ((D, 3 * D, "_KV정수"), (D, D, "_잔차"), (D, 4 * D, "_겔루정수"), (4 * D, D, "_잔차")):
+                    self._판(None, None, None, r, K, N, False, epi)
+                self._층판(r)
+            if r >= self.최대행:
+                break
+            b *= 2
+        gc.freeze()                              # 12단계: 올린 모델 · 고른 판의 객체를 영구 세대로(뒤의 쓰레기 수거가 훑지 않게)
+
+    def _묶음행(self, rows):
+        """12단계: 행 수의 묶음 — 8 이상의 2 의 거듭제곱으로 올리되 최대행을 넘지 않게."""
+        b = 8
+        while b < rows:
+            b *= 2
+        return min(b, self.최대행)
+
+    def _분할열(self, 큰, rows, N, 로짓, epi):
+        """12단계: 꼬리 자르기의 경계 — 큰 판이 꽉 찬 바퀴만큼 맡는 열 수(_정수판재기 와 같은 규칙), 나눌 것이 없으면 None."""
+        cu = self.dr.cu
+        BM, BN, T = 정수판모양(큰)
+        gx, gy = (rows + BM - 1) // BM, (N + BN - 1) // BN
+        열쇠 = (큰, epi, 로짓)
+        if 열쇠 not in self._점유칸:
+            nsm, 점유 = ctypes.c_int(), ctypes.c_int()
+            self.dr.확인(cu.cuDeviceGetAttribute(ctypes.byref(nsm), 16, 0))
+            fn = self.로짓선형[큰] if 로짓 else self.선형[(큰, epi)]
+            self.dr.확인(cu.cuOccupancyMaxActiveBlocksPerMultiprocessor(ctypes.byref(점유), fn, T, ctypes.c_size_t(0)))
+            self._점유칸[열쇠] = nsm.value * 점유.value
+        자리 = self._점유칸[열쇠]
+        if 자리 <= 0 or gx * gy <= 자리 or (gx * gy) % 자리 == 0:
+            return None
+        ny = ((gx * gy) // 자리 * 자리) // gx
+        return ny * BN if 1 <= ny < gy else None
 
     def _정수판재기(self, rows, K, N, 로짓, epi=""):
         """정수 텐서 코어 판들(커널생성.정수판들 — 칸을 나누는 모양만 다르다)을 재서 빠른 것 — 비트는 같다(계약). 끝손질까지 같은
@@ -612,10 +664,12 @@ class 글GPT2:
             return best
         후보[best] = runs[best]
         ts2 = 재기(후보)
-        return min(ts2, key=ts2.get)
+        고름 = min(ts2, key=ts2.get)
+        return 고름[:3] if isinstance(고름, tuple) else 고름     # 12단계: 경계(Nb)는 쓸 때 실제 행 수로 다시(_분할열)
 
     def _층판(self, M):
         """11단계(정수 KV 판): 층정규화정수의 워프 판과 블록 판(층정규화정수줄 — 같은 비트)을 행 수마다 한 번 재서 빠른 것. 출력은 시험칸에."""
+        M = self._묶음행(M)                  # 12단계: 행 수 묶음마다 한 번
         key = ("층", M)
         if key not in self._고른판:
             import time
@@ -683,7 +737,10 @@ class 글GPT2:
                 if kv is not None:
                     ps0 += [I(m), pos, I(self.최대길이)]
                 if isinstance(판, tuple):        # 11단계 꼬리 자르기: 큰 판(열 [0, Nb)) 다음에 작은 판(열 [Nb, N)) — 같은 비트
-                    _, 큰, 작, Nb = 판
+                    _, 큰, 작 = 판[:3]
+                    Nb = self._분할열(큰, rows, N, 로짓, epi)
+                    판 = 판 if Nb else 큰
+                if isinstance(판, tuple):
                     BM, BN, T = 정수판모양(큰)
                     L.append(_띄움(self.로짓선형[큰] if 로짓 else self.선형[(큰, epi)], ((rows + BM - 1) // BM, Nb // BN), (T, 1),
                                    ps0 + [I(0), I(0)]))
@@ -746,8 +803,14 @@ class 글GPT2:
             if M > 4:
                 c_attn = lambda l, w: [lin("_KV정수", self.x, w["attn.c_attn.weight"], w["attn.c_attn.bias"], None, self.D, 3 * self.D,
                                            [self.자릿값q, self.정보q, self.kc[l], self.vc[l], self.ke[l], self.ve[l]], kv=True, 바뀐=True)]
-                어텐션 = lambda l: [_띄움(k["정수어텐션"], (self.NH, B * ((m + 어텐션질의수 - 1) // 어텐션질의수)), (2 * 어텐션질의수, 1),
-                                      [P(self.자릿값q), P(self.정보q)] + KV인자(l) + [P(self.정보), P(self.자릿값), I(M), I(m), pos, I(self.최대길이)])]
+                if self._갈래쓰나(B, m):
+                    # 12단계: 갈래 판 — 블록 하나가 (머리, 질의 16), 워프마다 키 조각 하나씩 여덟을 함께 계산하고 차례대로 접는다(같은 비트).
+                    # 질의가 적을 때(짧은 덩이) 차례 판은 블록이 머리 수만큼뿐이라 긴 문맥에서 느렸다.
+                    어텐션 = lambda l: [_띄움(k["정수어텐션갈래"], (self.NH, B * ((m + 15) // 16)), (32 * 갈래워프, 1),
+                                          [P(self.자릿값q), P(self.정보q)] + KV인자(l) + [P(self.정보), P(self.자릿값), I(M), I(m), pos, I(self.최대길이)])]
+                else:
+                    어텐션 = lambda l: [_띄움(k["정수어텐션"], (self.NH, B * ((m + 어텐션질의수 - 1) // 어텐션질의수)), (2 * 어텐션질의수, 1),
+                                          [P(self.자릿값q), P(self.정보q)] + KV인자(l) + [P(self.정보), P(self.자릿값), I(M), I(m), pos, I(self.최대길이)])]
             else:
                 c_attn = lambda l, w: [lin("", self.x, w["attn.c_attn.weight"], w["attn.c_attn.bias"], self.q, self.D, 3 * self.D),
                                        _띄움(k["KV정수로"], ((3 * self.D // 32 + 31) // 32, M), (256, 1),
@@ -789,17 +852,35 @@ class 글GPT2:
                 x.params[-2].value, x.params[-1].value = wt, n
         return pos, tok, out, L
 
+    def _갈래쓰나(self, B, m):
+        """12단계: 프롬프트 어텐션을 갈래 판(정수어텐션갈래 — 블록 (머리, 질의 16), SM 에 블록 하나, 바퀴마다 조각 여덟)으로 할까, 차례 판
+        (정수어텐션 — 블록 (머리, 질의 64), SM 에 블록 둘, 조각 하나씩)으로 할까 — 값은 같다(비트), 시간만. 블록 하나의 시간은 문맥에 비례하고
+        갈래 판이 차례 판의 1/3.4 (small · 문맥 8K · 32K · 98K 에서 잰 것): 갈래 판의 바퀴 수(올림)가 차례 판의 바퀴 수(1 이상) × 3.4 보다
+        적으면 갈래 판. small 에서 질의 192 까지 갈래(1.13배), 256 은 차례(갈래가 0.88~0.93배)."""
+        if not self.갈래쓰기:
+            return False
+        sm = self.SM수
+        갈래 = -(-(self.NH * B * -(-m // 16)) // sm)
+        차례 = max(1.0, self.NH * B * -(-m // 어텐션질의수) / (2 * sm))
+        return 갈래 < 3.4 * 차례
+
     def 계산(self, B, m, 위치시작, 로짓="전부", 토큰자리=None, 출력자리=None):
         """토큰은 토큰자리(기본 self.토큰칸)에 [B·m] int64 로 있어야 한다. 기다리지 않는다."""
         key = (B, m, 로짓)
         if key not in self._계획:
             self._계획[key] = self._만들기(B, m, 로짓)
+            # 12단계(지속 사용): 계획(띄움 수십 개의 ctypes 칸)은 오래 산다 — 파이썬의 세대 2 쓰레기 수거가 계획이 쌓일수록 길어져(객체 17만 → 26만,
+            # 한 번에 27 ms — 대화의 넣기 시간에 튀었다) 만든 자리에서 영구 세대로 옮긴다(gc.freeze — 값과 상관없다)
+            gc.freeze()
         pos, tok, out, L = self._계획[key]
         assert 위치시작 + m <= self.최대길이
         pos.value = 위치시작
         tok.value = self.토큰칸 if 토큰자리 is None else 토큰자리
         out.value = self.생성칸 if 출력자리 is None else 출력자리
-        if self.그래프쓰기 and B * m > 4:
+        쓰임 = self._계획쓰임.get(key, 0) + 1
+        self._계획쓰임[key] = 쓰임
+        if self.그래프쓰기 and B * m > 4 and (쓰임 >= 2 or not self.정수KV):
+            # 12단계(정수 KV 판): 처음 쓰는 계획은 그래프 없이 바로 띄운다 — 길이가 제각각인 대화에서 한 번 쓰고 말 그래프를 만들지 않는다.
             # 12단계: 그래프의 열쇠에서 위치를 뺐다 — 대화처럼 위치가 매번 바뀌어도 그래프를 다시 만들지 않고, 위치를 받는 마디(임베딩 ·
             # 어텐션 · KV 끝손질)의 매개변수만 고친다(cuGraphExecKernelNodeSetParams — 값은 띄움의 ctypes 칸에서 그때 읽는다).
             cu = self.dr.cu
@@ -812,6 +893,7 @@ class 글GPT2:
                 ex, g, 마디들 = self._그래프만들기(L)
                 위치마디 = [(마디들[i], x) for i, x in enumerate(L) if any(p is pos for p in x.params)]
                 self._그래프[gk] = [L, ex, g, 위치마디, pos.value]
+                gc.freeze()
             elif 있던[4] != pos.value:
                 for 마디, x in 있던[3]:
                     np_ = _노드인자(x.fn, x.grid[0], x.grid[1], 1, x.block[0], x.block[1], 1, 0, ctypes.cast(x.args, ctypes.c_void_p), None)
@@ -874,7 +956,7 @@ class 글GPT2:
         if n > 1:
             if 기록 and (self.로짓기록칸 is None or self._기록수 < n):
                 self.로짓기록칸, self._기록수 = self.dr.할당(n * self.V * 4), n
-            self.dr.확인(self.dr.cu.cuMemsetD8_v2(self.장벽, 0, 256))
+            self.dr.확인(self.dr.cu.cuMemsetD8_v2(self.장벽, 0, 1024))
             P, I = c_u64, c_i64
             g = lambda k: _가중인자(self.묶음[k])
             낱말 = _가중인자(self.wte) + [P(self.wpe)] if self.낱말형식 != "짧은실수" else [P(self.wte), P(self.wpe), P(self.wteT)]
@@ -907,7 +989,7 @@ class 글GPT2:
         """12단계 지속 사용: 생성칸[0] 의 토큰(첫 — 이어넣기가 고른 것)을 위치에 두고 이어서 k 개를 생성 메가커널로(마지막 것은 넣지 않는다).
         토큰 k + 1 개(첫 포함)를 돌려준다."""
         assert 위치 + k <= self.최대길이
-        self.dr.확인(self.dr.cu.cuMemsetD8_v2(self.장벽, 0, 256))
+        self.dr.확인(self.dr.cu.cuMemsetD8_v2(self.장벽, 0, 1024))
         P, I = c_u64, c_i64
         g = lambda k_: _가중인자(self.묶음[k_])
         낱말 = _가중인자(self.wte) + [P(self.wpe)] if self.낱말형식 != "짧은실수" else [P(self.wte), P(self.wpe), P(self.wteT)]

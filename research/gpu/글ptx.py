@@ -66,6 +66,32 @@ VECTOR_LOADS = True
 # 같은 묶어 읽기를 전역 메모리에서도(ld.global.v4) — 커널의 참조 매개변수가 16 바이트 정렬이라는 약속 아래에서만(호스트가 확인).
 VECTOR_GLOBAL = True
 LAUNCH_BOUNDS = {}                               # 커널 이름 -> (블록당 스레드 수, SM 당 블록 수) — 소스의 실행한도 주석에서
+# 12단계: 상수(2 이상)로 나누기 · 나머지를 하위 함수 부름 없이 — 드라이버 컴파일러는 64 비트 div · rem 을 나누는 수가 상수(즉시값이어도)여도
+# __cuda_sm20_div_s64 · rem_s64(명령 약 90 개)를 부르는 것으로 바꾼다. 2 의 거듭제곱은 밀기로, 아니면 곱셈 상위(mul.hi)와 밀기로(Hacker's
+# Delight 10장의 마법수) — 몫과 나머지가 div · rem(0 쪽으로 자름)과 모든 입력에서 같다. 모듈의 주석 (* 상수나눗셈 *) 이 켠다(그 주석이 없는
+# 모듈 — 8단계까지 — 의 PTX 는 예전과 바이트까지 같다).
+CONST_DIV = False
+
+
+def magic_s64(d):
+    """부호 있는 64 비트 나눗셈의 마법수(Hacker's Delight 그림 10-1 의 64 비트 판, d ≥ 2) — (M 부호없는 64 비트 표기, s)."""
+    two63 = 1 << 63
+    anc = two63 - 1 - two63 % d
+    p = 63
+    q1, r1 = two63 // anc, two63 - (two63 // anc) * anc
+    q2, r2 = two63 // d, two63 - (two63 // d) * d
+    while True:
+        p += 1
+        q1, r1 = 2 * q1, 2 * r1
+        if r1 >= anc:
+            q1, r1 = q1 + 1, r1 - anc
+        q2, r2 = 2 * q2, 2 * r2
+        if r2 >= d:
+            q2, r2 = q2 + 1, r2 - d
+        delta = d - r2
+        if not (q1 < delta or (q1 == delta and r1 == 0)):
+            break
+    return (q2 + 1) & ((1 << 64) - 1), p - 64
 
 
 def flit(x, t):
@@ -268,6 +294,7 @@ class FuncPTX:
         self.space = self.address_spaces()
         self.rng = self.ranges() if WIDTH_PROOF else {}
         self.narrowed = {"나눗셈·나머지": 0}
+        self.constdiv = 0                                # 12단계: 하위 함수 부름 없이 낮춘 상수 나눗셈 · 나머지 수
         self.addr_off = self.fold_offsets() if FOLD_OFFSETS else {}
         self.vst_last, self.vst_skip = {}, set()
         self.vec_lead, self.vec_skip = self.vector_loads() if (VECTOR_LOADS and FOLD_OFFSETS) else ({}, set())
@@ -737,6 +764,54 @@ class FuncPTX:
                 out[v] = n
         return out
 
+    def const_div(self, i, d, a):
+        """12단계: 나누는 수가 상수 c ≥ 2 로 증명된(2e 의 구간이 한 점) 64 비트 나누기 · 나머지를 낮춘다 — 낮췄으면 참.
+        c = 2^k: 나뉘는 수가 음이 아니거나 부호없음이면 shr · and 하나, 아니면 부호를 고쳐(음수에 2^k − 1 을 더해) 밀기 — 0 쪽으로 자른다.
+        그 밖(부호 있는 것만): q = mulhi(M, n) (+ n, M 이 음이면) >> s, 음수면 + 1 — 나머지는 n − q·c. 64 비트 흉내로 c 2 … 5000 과 큰 수,
+        나뉘는 수 끝값 · 배수 ± 1 · 무작위 716 만 가지가 div · rem 과 같았다(scratch 의 마법수시험.py — 12단계 README)."""
+        rb = self.rng.get(i.b)
+        if rb is None or rb[0] != rb[1] or rb[0] < 2:
+            return False
+        c = rb[0]
+        ra = self.rng.get(i.a)
+        nonneg = ra is not None and ra[0] >= 0
+        signed = i.bop in ("sdiv", "srem")
+        div = i.bop.endswith("div")
+        e = self.emit
+        k = c.bit_length() - 1
+        if c == 1 << k:
+            if nonneg or not signed:
+                e(f"shr.u64 {d}, {a}, {k};" if div else f"and.b64 {d}, {a}, {c - 1};")
+            else:
+                e(f"shr.s64 %X1, {a}, 63;")
+                e(f"shr.u64 %X1, %X1, {64 - k};")
+                e(f"add.s64 %X1, {a}, %X1;")
+                if div:
+                    e(f"shr.s64 {d}, %X1, {k};")
+                else:
+                    e(f"and.b64 %X1, %X1, 0x{(-c) & ((1 << 64) - 1):016X};")
+                    e(f"sub.s64 {d}, {a}, %X1;")
+        elif signed and c < (1 << 62):
+            M, sh = magic_s64(c)
+            e(f"mov.b64 %X1, 0x{M:016X};")
+            e(f"mul.hi.s64 %X1, {a}, %X1;")
+            if M >> 63:
+                e(f"add.s64 %X1, %X1, {a};")
+            if sh:
+                e(f"shr.s64 %X1, %X1, {sh};")
+            if not nonneg:
+                e(f"shr.u64 %X2, {a}, 63;")
+                e(f"add.s64 %X1, %X1, %X2;")
+            if div:
+                e(f"mov.b64 {d}, %X1;")
+            else:
+                e(f"mul.lo.s64 %X1, %X1, {c};")
+                e(f"sub.s64 {d}, {a}, %X1;")
+        else:
+            return False
+        self.constdiv += 1
+        return True
+
     def fits32(self, t):
         r = self.rng.get(t)
         return r is not None and I32_MIN <= r[0] and r[1] <= I32_MAX
@@ -814,6 +889,8 @@ class FuncPTX:
             self.inst(i)
         n = self.narrowed
         out.insert(0, f"// 2e width proof: {n['나눗셈·나머지']} div/rem computed with 32-bit operands")
+        if CONST_DIV:
+            out.insert(1, f"// 12: {self.constdiv} div/rem by a constant lowered to shifts / mul.hi (no division subroutine)")
         return "\n".join(out + self.lines + ["}"])
 
     def inst(self, i):
@@ -934,6 +1011,8 @@ class FuncPTX:
                 amt = "%x0"
             ty = ".b" + str(width(t)) if i.bop == "shl" else self.int_type(t, signed=(i.bop == "ashr"))
             self.emit(f"{base}{ty} {d}, {a}, {amt};")
+        elif CONST_DIV and width(t) == 64 and i.bop in ("sdiv", "srem", "udiv", "urem") and self.const_div(i, d, a):
+            pass
         elif (width(t) == 64 and i.bop in ("sdiv", "srem", "udiv", "urem") and self.fits32(i.a) and self.fits32(i.b)
               and self.rng[i.a][0] >= 0 and self.rng[i.b][0] >= 1):
             # 2e: 음이 아닌 두 값이 32비트 범위임이 증명됐다 — 32비트 나눗셈(부호 있는 것과 없는 것의 답이 같다)
@@ -1306,10 +1385,13 @@ class FuncPTX:
 def translate(src):
     # 3단계 성능: 소스의 주석 `(* 실행한도 이름 스레드수 블록수 *)` — 그 커널을 블록당 그 스레드 수 이하로만 띄우고 SM 하나에
     # 블록을 그만큼 올리겠다는 약속(PTX .maxntid·.minnctapersm). 드라이버 컴파일러가 레지스터 수를 거기에 맞춘다. 값과는 상관없다.
+    global CONST_DIV
     LAUNCH_BOUNDS.clear()
+    text = open(src, encoding="utf-8").read()
     pat = r"\(\*\s*실행한도\s+(\S+)\s+(\d+)\s+(\d+)\s*\*\)"
-    for name, nt, nb in re.findall(pat, open(src, encoding="utf-8").read()):
+    for name, nt, nb in re.findall(pat, text):
         LAUNCH_BOUNDS[name] = (int(nt), int(nb))
+    CONST_DIV = re.search(r"\(\*\s*상수나눗셈\s*\*\)", text) is not None     # 12단계 — 위 CONST_DIV 의 설명
     research.enable()                 # 연구 옵션의 언어 확장(반실수) — 1.x 의 geulc.py 는 켜지 않는다
     program = load_program(src, os.path.join(ROOT, "표준"), auto_std=False)
     unit = sema.analyze(program, fragment=True)

@@ -30,8 +30,10 @@ cu = dr.cu
 
 
 def 모듈(읽기, 판목록):
-    K.타일읽기 = 읽기.split("+")[0]
-    K.타일변형 = frozenset(읽기.split("+")[1:])
+    조각들 = 읽기.split("+")
+    K.타일읽기 = 조각들[0]
+    K.둘자리길 = next((x for x in 조각들[1:] if x in ("누적", "마법둘", "cvt")), "cvt")      # 12단계: 끝 계산 길도 변형 이름으로
+    K.타일변형 = frozenset(x for x in 조각들[1:] if x not in ("누적", "마법둘", "cvt"))
     body = []
     for 판 in 판목록:
         body += K.정수타일선형("", 판, 형식, 판) + [""]
@@ -46,7 +48,7 @@ def 모듈(읽기, 판목록):
 mods = {"짝": 모듈("짝", ["정수깊은타일선형"])}
 for v in 변형들:
     mods[v] = 모듈(v, 판들)
-K.타일읽기, K.타일변형 = "행렬", frozenset()
+K.타일읽기, K.타일변형, K.둘자리길 = "행렬", frozenset(), "cvt"
 fns = {}
 for v, mod in mods.items():
     for 판 in (["정수깊은타일선형"] if v == "짝" else 판들):
@@ -89,7 +91,10 @@ for (M, Kd, N_) in 모양들:
             기준 = y
         else:
             다른 = int(np.count_nonzero(y.view(np.uint32) != 기준.view(np.uint32)))
-            assert 다른 == 0, (k, 다른)
+            if args.get("검사", "1") == "1":
+                assert 다른 == 0, (k, 다른)
+            elif 다른:
+                print(f"   (값 다름 — 시간만) {k} 다른 칸 {다른}")
     t0 = time.perf_counter()
     while time.perf_counter() - t0 < 0.4:
         for x in runs.values():
@@ -104,7 +109,7 @@ for (M, Kd, N_) in 모양들:
             cu.cuEventRecord(e1, None); cu.cuEventSynchronize(e1)
             ms = ctypes.c_float(); cu.cuEventElapsedTime(ctypes.byref(ms), e0, e1)
             ts[k].append(ms.value / 10 * 1000)
-    print(f"--- {형식} M {M} K {Kd} N {N_}: 모두 기준과 비트까지 같다")
+    print(f"--- {형식} M {M} K {Kd} N {N_}" + (": 모두 기준과 비트까지 같다" if args.get("검사", "1") == "1" else ": (시간 나누기 — 값 검사 끔)"))
     for (v, 판), x in sorted(runs.items(), key=lambda kv: sorted(ts[kv[0]])[3]):
         t = sorted(ts[(v, 판)])[3]
         fn, regs, loc = fns[(v, 판)]
