@@ -24,7 +24,79 @@ RUNTIME_EXTERNS = {
 }
 
 
+LINUX_EXTERNS = {
+    "exit": T.FuncType((I32,), None),
+    "__cxa_atexit": T.FuncType((T.VOIDPTR, T.VOIDPTR, T.VOIDPTR), I32),
+}
+
+
+def build_startup_linux(mod):
+    """리눅스 대상 (D-50): 진입 토막(codegen)이 argc · argv · ld.so 의 끝 함수를 글 호출 규약으로 넘긴다.
+    끝 함수를 __cxa_atexit 에 올리고(glibc 의 _start 와 같다), 예외 처리기 · 시작하기 · 출력 비우기 · exit."""
+    from .ir import TARGET  # noqa: F401
+    for name, ft in LINUX_EXTERNS.items():
+        if name not in mod.externs:
+            mod.externs[name] = (dll_for(name), ft)
+    entry = None
+    for fn in mod.functions:
+        if fn.name == mod.entry:
+            entry = fn
+    if entry is None:
+        raise RuntimeError("시작하기 없음")
+    pc = VarSym("argc", T.INT, "param", None)
+    pv = VarSym("argv", T.VOIDPTR, "param", None)
+    pf = VarSym("fini", T.VOIDPTR, "param", None)
+    f = IRFunction("__글_시작", [(pc, T.INT), (pv, T.VOIDPTR), (pf, T.VOIDPTR)], None)
+    f.locals += [pc, pv, pf]
+
+    def call(name, args, ret):
+        dst = f.new_temp(ret) if ret is not None else None
+        f.emit("call", dst=dst, callee=name, extern=True, args=args, sig=LINUX_EXTERNS[name], nfixed=len(args))
+        f.max_call_args = max(f.max_call_args, len(args))
+        return dst
+
+    def param(sym, t):
+        a = f.new_temp(T.PtrType(t))
+        f.emit("addr_local", dst=a, var=sym)
+        d = f.new_temp(t)
+        f.emit("load", dst=d, addr=a, type=t)
+        return d
+
+    fini = param(pf, T.VOIDPTR)
+    z1 = f.new_temp(T.VOIDPTR)
+    f.emit("const", dst=z1, value=0)
+    z2 = f.new_temp(T.VOIDPTR)
+    f.emit("const", dst=z2, value=0)
+    call("__cxa_atexit", [fini, z1, z2], I32)
+    f.emit("call", dst=None, callee="__글_예외설치", extern=False, args=[], sig=T.FuncType((), None), nfixed=0)
+    args = []
+    if len(entry.params) == 2:
+        argc = param(pc, T.INT)
+        argc_t = entry.params[0][1]
+        argc_arg = argc if argc_t.bits == 64 else f.new_temp(argc_t)
+        if argc_t.bits != 64:
+            f.emit("cast", dst=argc_arg, kind="trunc", src=argc)
+        args = [argc_arg, param(pv, T.VOIDPTR)]
+    f.max_call_args = max(f.max_call_args, len(args))
+    if entry.ret is not None:
+        code = f.new_temp(entry.ret)
+        f.emit("call", dst=code, callee=entry.name, extern=False, args=args, sig=T.FuncType(tuple(t for _, t in entry.params), entry.ret), nfixed=len(args))
+        code32 = f.new_temp(I32)
+        f.emit("cast", dst=code32, kind="trunc" if entry.ret.bits > 32 else "sext", src=code)
+    else:
+        f.emit("call", dst=None, callee=entry.name, extern=False, args=args, sig=T.FuncType(tuple(t for _, t in entry.params), None), nfixed=len(args))
+        code32 = f.new_temp(I32)
+        f.emit("const", dst=code32, value=0)
+    f.emit("call", dst=None, callee="__글_출력비우기", extern=False, args=[], sig=T.FuncType((), None), nfixed=0)
+    call("exit", [code32], None)
+    f.emit("ret", value=None)
+    return f
+
+
 def build_startup(mod):
+    from . import ir
+    if ir.TARGET == "리눅스":
+        return build_startup_linux(mod)
     for name, ft in RUNTIME_EXTERNS.items():
         if name not in mod.externs:
             mod.externs[name] = (dll_for(name), ft)

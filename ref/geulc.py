@@ -21,6 +21,7 @@ USAGE = """사용법: geulc <소스.gl> [-o <출력.exe>] [--check] [--dump-ir] 
   --창, --gui   콘솔 없이 뜨는 창 프로그램으로 만든다 (PE 서브시스템 2)
   --핫스왑, --hotswap  내부 호출을 함수 테이블로 우회한다 (실행 중 본문 교체용; 개발 빌드)
   --조각, --fragment  순수 잎 함수 하나를 위치 독립 기계코드(.bin)로 낸다 (핫스왑 적재용)
+  --대상 <윈도|리눅스>, --target <windows|linux>  만들 실행 파일: 윈도 — PE, 리눅스 — x86-64 ELF (기본: 이 컴퓨터의 운영체제, D-50)
   --dump-ir     타입 IR 을 표준출력으로
   --dump-tokens 토큰 덤프 (docs/05-덤프-형식.md)
   --dump-ast    구문 트리 덤프 (파일 하나, 포함 파일의 타입 이름만 반영)
@@ -47,6 +48,7 @@ def main(argv):
     fragment = False
     dump_ir = False
     dump = None
+    target = "리눅스" if sys.platform.startswith("linux") else "윈도"     # 기본은 이 컴퓨터의 운영체제 (D-50)
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -74,6 +76,12 @@ def main(argv):
             dump = "risky"
         elif a == "--dump-ast":
             dump = "ast"
+        elif a in ("--대상", "--target"):
+            if i + 1 >= len(argv) or argv[i + 1] not in ("윈도", "리눅스", "windows", "linux"):
+                print("사용법 오류: --대상 뒤에 윈도 또는 리눅스가 필요합니다", file=sys.stderr)
+                return EXIT_USAGE_ERROR
+            target = {"windows": "윈도", "linux": "리눅스"}.get(argv[i + 1], argv[i + 1])
+            i += 1
         elif a == "-o":
             if i + 1 >= len(argv):
                 print("사용법 오류: -o 뒤에 출력 파일이 필요합니다", file=sys.stderr)
@@ -93,7 +101,7 @@ def main(argv):
         print(USAGE, end="", file=sys.stderr)
         return EXIT_USAGE_ERROR
     try:
-        return driver.compile_file(src, out, check=check, dump_ir=dump_ir, std_dir=os.path.join(HERE, "..", "표준"), dump=dump, gui=gui, hotswap=hotswap, fragment=fragment)
+        return driver.compile_file(src, out, check=check, dump_ir=dump_ir, std_dir=os.path.join(HERE, "..", "표준"), dump=dump, gui=gui, hotswap=hotswap, fragment=fragment, target=target)
     except CompileError as e:
         print(str(e), file=sys.stderr)
         return EXIT_USER_ERROR

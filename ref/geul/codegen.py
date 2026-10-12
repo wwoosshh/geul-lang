@@ -28,6 +28,14 @@ from .x64 import Asm, RAX, RCX, RDX, RBX, RBP, RSP, RSI, RDI, R8, R9, R10, R11, 
 from .ir import Temp
 from .diagnostics import InternalError
 from . import runtime
+from . import ir as _ir
+
+# 리눅스 대상 (D-50): 글 함수끼리의 호출은 윈도와 같은 규약(rcx rdx r8 r9 / xmm0-3, 섀도 32B)이다. 바깥(C) 함수와 함수 값의
+# 호출만 System V 다 — 정수류 rdi rsi rdx rcx r8 r9, 실수 xmm0-7, 나머지는 스택 차례대로, 가변 인자는 al = 쓴 xmm 수.
+# 글이 피호출자 보존으로 쓰는 rsi · rdi · xmm6-15 는 System V 에서 호출자 보존이라 그 호출 앞뒤로 저장 · 복원한다.
+# 함수 값은 썽크(System V → 글 규약)의 주소다 — C 가 부를 수 있고, 글의 간접 호출도 System V 로 한다.
+SYSV_INT = [RDI, RSI, RDX, RCX, R8, R9]
+THUNK_PREFIX = "__글_썽크:"
 
 
 class Image:
@@ -66,11 +74,13 @@ CC_OF = {"eq": "e", "ne": "ne", "lt": "l", "le": "le", "gt": "g", "ge": "ge", "u
 
 
 class FuncGen:
-    def __init__(self, asm, f, mod, hotswap=False, func_names=None):
+    def __init__(self, asm, f, mod, hotswap=False, func_names=None, thunks=None):
         self.a = asm
         self.f = f
         self.mod = mod
         self.hotswap = hotswap
+        self.linux = _ir.TARGET == "리눅스"
+        self.thunks = thunks if thunks is not None else []      # 리눅스: 값으로 쓰인 함수(썽크를 낼 차례)
         self.func_names = func_names if func_names is not None else set()
         self.slots = {}             # VarSym or Temp -> disp from rbp
         self.frame = 0
@@ -110,6 +120,10 @@ class FuncGen:
             self.slots[t] = -cur
         locals_size = align(cur, 16)
         out = align(max(4, self.f.max_call_args) * 8, 16)
+        if self.linux:
+            # [rsp, +8m) 스택 인자 · [+8m, +16m) System V 레지스터 인자의 대기칸 · [+16m, +16) rsi · rdi · 그 뒤 xmm6-15 저장(160)
+            m = max(4, self.f.max_call_args)
+            out = align(16 * m + 16 + 160, 16)
         self.frame = locals_size + out
 
     def slot(self, x):
@@ -660,6 +674,10 @@ class FuncGen:
             rd = self.dst_reg(i.dst)
             if i.extern:
                 a.load_rip(rd, "iat", i.name)
+            elif self.linux:
+                if i.name not in self.thunks:
+                    self.thunks.append(i.name)
+                a.lea_rip(rd, "func", THUNK_PREFIX + i.name)
             else:
                 a.lea_rip(rd, "func", i.name)
             self.finish_in(k, i.dst, rd)
@@ -748,6 +766,25 @@ class FuncGen:
             if not self.hotswap:
                 raise InternalError("교체는 --핫스왑 빌드에서만 쓸 수 있습니다")
             self.load_into(RAX, i.addr)
+            if self.linux:
+                # 리눅스 (D-50): 함수 값은 썽크(System V)의 주소이고 함수 테이블은 글 규약으로 부른다 — 새 주소가
+                # 썽크표([수][썽크 · 본문]…)에 있으면 그 본문의 주소로 바꾼다. 없으면(새 기계코드) 그대로.
+                self.copy_labels += 1
+                top, found, done = (f".{self.f.name}.{h}{self.copy_labels}" for h in ("th", "tf", "td"))
+                a.lea_rip(R10, "data", "__글_썽크표")
+                a.load(R11, R10, 0)
+                a.label(top)
+                a.test(R11, R11)
+                a.jcc("e", done)
+                a.load(RCX, R10, 8)
+                a.alu("cmp", RCX, RAX)
+                a.jcc("e", found)
+                a.alu_imm("add", R10, 16)
+                a.alu_imm("sub", R11, 1)
+                a.jmp(top)
+                a.label(found)
+                a.load(RAX, R10, 16)
+                a.label(done)
             a.lea_rip(R11, "ftab", i.name)
             a.store(R11, 0, RAX)
             self.rax_temp = None
@@ -1034,6 +1071,9 @@ class FuncGen:
         self.rax_temp = None
 
     def gen_call(self, k, i):
+        if self.linux and (i.extern or not isinstance(i.callee, str)):
+            self.gen_call_sysv(k, i)
+            return
         a = self.a
         sig = i.sig
         args = i.args
@@ -1070,6 +1110,131 @@ class FuncGen:
                 self.finish_in(k, i.dst, RAX)
 
 
+    def gen_call_sysv(self, k, i):
+        """리눅스: 바깥 함수 · 함수 값의 호출 (System V). 값을 대기칸에 모은 뒤 rsi · rdi · xmm6-15 를 모두 저장하고 인자
+        레지스터를 채운다. 모두 저장하는 까닭: 글 규약은 이 열둘을 피호출자 보존으로 약속하므로, 이 함수가 쓰지 않아도 이 함수를
+        부른 쪽의 값이 들어 있을 수 있다(System V 의 피호출자는 이것들을 지운다)."""
+        a = self.a
+        args = i.args
+        m = max(4, self.f.max_call_args)
+        stage = 8 * m
+        save = 16 * m
+        plan = []
+        ni = nx = ns = 0
+        for arg in args:
+            if arg.type.is_float():
+                if nx < 8:
+                    plan.append(("x", nx))
+                    nx += 1
+                else:
+                    plan.append(("s", ns))
+                    ns += 1
+            elif ni < 6:
+                plan.append(("i", ni))
+                ni += 1
+            else:
+                plan.append(("s", ns))
+                ns += 1
+        for j, arg in enumerate(args):
+            kind, idx = plan[j]
+            to = 8 * idx if kind == "s" else stage + 8 * j
+            if arg.type.is_float():
+                bits = self.fbits(arg.type)
+                a.movsd_store(RSP, to, self.fsrc(arg, XMM0, bits), bits)
+            else:
+                a.store(RSP, to, self.src_reg(arg, RAX))
+        if not isinstance(i.callee, str):
+            self.load_into(R11, i.callee)
+        a.store(RSP, save, RSI)
+        a.store(RSP, save + 8, RDI)
+        for q in range(10):
+            a.movups_store(RSP, save + 16 + 16 * q, XMM_REGS[q])
+        for j, arg in enumerate(args):
+            kind, idx = plan[j]
+            if kind == "i":
+                a.load(SYSV_INT[idx], RSP, stage + 8 * j)
+            elif kind == "x":
+                a.movsd_load(idx, RSP, stage + 8 * j, self.fbits(arg.type))
+        if i.sig.variadic:
+            a.mov_imm(RAX, nx)
+        if isinstance(i.callee, str):
+            a.call_iat(i.callee)
+        else:
+            a.call_reg(R11)
+        a.load(RSI, RSP, save)
+        a.load(RDI, RSP, save + 8)
+        for q in range(10):
+            a.movups_load(XMM_REGS[q], RSP, save + 16 + 16 * q)
+        self.rax_temp = None
+        if i.dst is not None:
+            t = i.dst.type
+            if t.is_float():
+                self.fresult(i.dst, XMM0, self.fbits(t))
+            else:
+                self.normalize(RAX, t)
+                self.finish_in(k, i.dst, RAX)
+
+
+def gen_entry_linux(asm):
+    """리눅스 진입: rsp → argc, argv = rsp + 8, rdx = ld.so 의 끝 함수. 글 규약으로 __글_시작(argc, argv, 끝) 을 부른다."""
+    asm.label("__글_진입")
+    asm.emit(0x31, 0xED)                 # xor ebp, ebp
+    asm.mov_rr(R8, RDX)
+    asm.load(RCX, RSP, 0)
+    asm.lea(RDX, RSP, 8)
+    asm.alu_imm("and", RSP, -16)
+    asm.sub_rsp(32)
+    asm.call_label("__글_시작")
+    asm.emit(0xF4)                       # hlt — __글_시작 은 exit 로 끝나 돌아오지 않는다
+
+
+def gen_thunk_linux(asm, f):
+    """썽크: System V 로 불린 글 함수 f 를 글 규약으로 부른다. 인자를 모두 대기칸에 모은 뒤 글 규약의 자리로.
+    가변 인자 함수도 고정 매개변수만 옮긴다 — 함수 타입에는 가변 인자가 없어서 값으로 부를 때 넘어오는 것은 그것뿐이다(윈도와 같다)."""
+    params = [t for _, t in f.params]
+    n = len(params)
+    m = max(4, n)
+    stage = 8 * m
+    asm.label(THUNK_PREFIX + f.name)
+    asm.push(RBP)
+    asm.mov_rr(RBP, RSP)
+    asm.sub_rsp(align(16 * m, 16))
+    ni = nx = ns = 0
+    for j, t in enumerate(params):
+        bits = 32 if (t.is_float() and t.bits == 32) else 64
+        to = stage + 8 * j
+        if t.is_float() and nx < 8:
+            asm.movsd_store(RSP, to, nx, bits)
+            nx += 1
+        elif not t.is_float() and ni < 6:
+            asm.store(RSP, to, SYSV_INT[ni])
+            ni += 1
+        else:
+            asm.load(RAX, RBP, 16 + 8 * ns)
+            asm.store(RSP, to, RAX)
+            ns += 1
+    def int_load(r, j):
+        # C 는 64 비트보다 좁은 정수 인자의 윗자리를 정하지 않는다 — 글 규약은 정규 표현(부호/영 확장)을 약속하므로 그 폭으로 읽는다
+        t = params[j]
+        if t.is_int() and t.bits < 64:
+            asm.load(r, RSP, stage + 8 * j, bits=t.bits, signed=t.signed)
+        else:
+            asm.load(r, RSP, stage + 8 * j)
+    for j in range(4, n):
+        int_load(RAX, j)
+        asm.store(RSP, 8 * j, RAX)
+    for j in range(min(4, n)):
+        t = params[j]
+        if t.is_float():
+            asm.movsd_load(j, RSP, stage + 8 * j, 32 if t.bits == 32 else 64)
+        else:
+            int_load(ARG_REGS[j], j)
+    asm.call_label(f.name)
+    asm.mov_rr(RSP, RBP)
+    asm.pop(RBP)
+    asm.ret()
+
+
 def generate_fragment(mod, src="<조각>"):
     """--조각: 순수 잎 함수 하나를 위치 독립 기계코드 바이트로 낸다 (핫스왑 적재용).
     다른 함수 호출·전역·문자열을 쓰면(외부 참조가 남으면) 거부한다."""
@@ -1097,11 +1262,19 @@ def generate(mod, hotswap=False):
     start = runtime.build_startup(mod)
     funcs = [start] + mod.functions
     func_names = {f.name for f in funcs}
+    linux = _ir.TARGET == "리눅스"
+    thunks = []
+    if linux:
+        gen_entry_linux(asm)
     for f in funcs:
-        FuncGen(asm, f, mod, hotswap, func_names).gen()
+        FuncGen(asm, f, mod, hotswap, func_names, thunks).gen()
+    if linux:
+        by_name = {f.name: f for f in funcs}
+        for name in thunks:
+            gen_thunk_linux(asm, by_name[name])
     asm.resolve_labels()
     img.code = bytes(asm.code)
-    img.entry = asm.labels[start.name]
+    img.entry = asm.labels["__글_진입"] if linux else asm.labels[start.name]
     # 코드 fixup: func 라벨은 코드 내부 상대 주소로 바로 해결
     for off, kind, target in asm.ext_fixups:
         if kind == "func":
@@ -1143,5 +1316,14 @@ def generate(mod, hotswap=False):
             img.func_table[f.name] = len(img.data)
             img.data_abs_fixups.append((len(img.data), "faddr", f.name))
             img.data += b"\0" * 8
+        if linux:
+            # 썽크표 (D-50): [수][썽크 · 본문]… — 교체가 함수 값(썽크)을 받으면 본문 주소로 바꾸는 데 쓴다
+            img.data_globals["__글_썽크표"] = len(img.data)
+            img.data += struct.pack("<Q", len(thunks))
+            for name in thunks:
+                img.func_offsets[THUNK_PREFIX + name] = asm.labels[THUNK_PREFIX + name]
+                for target in (THUNK_PREFIX + name, name):
+                    img.data_abs_fixups.append((len(img.data), "faddr", target))
+                    img.data += b"\0" * 8
     img.strings = list(mod.strings)
     return img
