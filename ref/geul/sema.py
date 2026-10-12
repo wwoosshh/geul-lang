@@ -688,6 +688,8 @@ class Sema:
         if src.is_int() and target.is_int():
             if isinstance(e, A.IntLit):
                 self.check_int_range(e.value, target, e.pos)
+            elif target.bits > src.bits:
+                self.check_wrap(e, target)
             return self.wrap_cast(e, target)
         if target.is_float() and target.bits == 16 and (src.is_int() or (src.is_float() and src.bits > 16)):
             # 반실수로 좁히기는 밝혀야 한다 (연구 옵션 research.py — docs/17 §7 "4단계 2", 가상 문법 v0 규칙 9)
@@ -715,6 +717,51 @@ class Sema:
         c.type = target
         c.implicit = True
         return c
+
+    # 좁은 셈의 넓히기 (명세 3.8, D-49): 16비트 이하의 정수 타입에서 넘칠 수 있는 셈(+ - * << 단항 -)의 결과가
+    # 암시 변환으로 넓혀지면 오류다. 넘친 자리는 넓히기 전에 이미 잘려서, 넓힌 값이 뜻한 값처럼 보이기 때문이다.
+    # 32비트(중간정수)의 셈은 C 의 int 처럼 그대로 둔다 — 셈의 폭으로 고르는 타입이다.
+    WRAP_OPS = ("+", "-", "*", "<<")
+
+    def wrap_site(self, e):
+        """e 의 좁은 정수 결과에 닿는, 넘칠 수 있는 셈. 없으면 None.
+        & | ^ >> / % ~ ?: 를 거쳐 찾는다. 상대가 그 타입에 드는 음 아닌 리터럴인 & 는 넘친 자리를 지우므로 멈춘다.
+        변환(명시·암시)은 그 자리에서 따로 검사하므로 들어가지 않는다. 왼쪽부터 찾는다."""
+        t = getattr(e, "type", None)
+        if isinstance(e, A.Binary):
+            if t is None or not t.is_int() or t.bits > 16:
+                return None
+            if e.op in self.WRAP_OPS:
+                return e
+            if e.op == "&":
+                for side in (e.left, e.right):
+                    if isinstance(side, A.IntLit) and 0 <= side.value <= t.max_value():
+                        return None
+                return self.wrap_site(e.left) or self.wrap_site(e.right)
+            if e.op in ("|", "^", "/", "%"):
+                return self.wrap_site(e.left) or self.wrap_site(e.right)
+            if e.op == ">>":
+                return self.wrap_site(e.left)
+            return None
+        if isinstance(e, A.Unary):
+            if t is None or not t.is_int() or t.bits > 16:
+                return None
+            if e.op == "-" and not isinstance(e.operand, (A.IntLit, A.CharLit)):
+                return e
+            if e.op == "~":
+                return self.wrap_site(e.operand)
+            return None
+        if isinstance(e, A.Ternary):
+            return self.wrap_site(e.a) or self.wrap_site(e.b)
+        return None
+
+    def check_wrap(self, e, target):
+        site = self.wrap_site(e)
+        if site is None:
+            return
+        op = f"'{site.op}'" if isinstance(site, A.Binary) else "단항 '-'"
+        self.error(site.pos, f"{op}의 결과는 '{site.type}'({site.type.bits}비트)에서 넘친 자리가 잘린 뒤 '{target}'(으)로 넓혀집니다 — "
+                             f"넓혀서 계산하려면 피연산자를 먼저 '으로 {target}'로 바꾸고, 잘린 값이 맞으면 '(…) 으로 {target}'로 밝히세요")
 
     def arith_common(self, a, b, pos, op):
         """이항 산술의 공통 타입."""
@@ -1127,7 +1174,11 @@ class Sema:
     def promote_vararg(self, a):
         t = T.decay(a.type)
         if t.is_int():
-            return self.wrap_cast(a, T.IntType(64, t.signed)) if t.bits < 64 else a
+            if t.bits < 64:
+                wide = T.IntType(64, t.signed)
+                self.check_wrap(a, wide)
+                return self.wrap_cast(a, wide)
+            return a
         if t.is_float():
             return self.wrap_cast(a, T.DOUBLE) if t.bits < 64 else a
         if t.is_array():
@@ -1272,6 +1323,18 @@ class Sema:
                     return ftype
         return None
 
+    def prefix_candidates(self, cands, want):
+        """D-37 의 후보(이름 순)와, 그중 접두어가 want(인자의 선언 타입 이름들)에 있는 것."""
+        allf = self.global_funcs()
+        pref = []
+        for name, sym in sorted(allf.items()):
+            for c in cands:
+                if name.endswith("_" + c):
+                    pref.append((name, sym))
+                    break
+        picked = [(n, s2) for n, s2 in pref if n[: n.rfind("_")] in want]
+        return pref, picked
+
     def resolve_verb(self, root, pos, pairs=None):
         """명세 2.6: X기 → X → (X가 Y하이면) Y. 못 찾으면 접두어를 생략한 것으로 본다 (D-37)."""
         cands = [root + "기", root]
@@ -1290,25 +1353,26 @@ class Sema:
             names = ", ".join(c for c, _ in found)
             self.error(pos, f"동사 '{root}다'에 해당하는 함수가 여럿입니다 (찾은 이름: {names}) — "
                             f"괄호 호출로 하나를 고르세요")
+        want = set()
+        for a, _role in (pairs or []):
+            t = self.decl_type_of(a)
+            if t is not None:
+                want |= self.type_prefix_names(t)
         if found:
+            # 정확한 이름이 이긴다(D-37). 다만 접두어를 생략한 읽기도 인자의 선언 타입으로 닿으면 어느 쪽인지 소리 없이
+            # 정할 수 없다 — 정확한 이름이 나중에 생기면 부름이 그리로 옮겨 가기 때문이다 (D-49).
+            if want:
+                _pref, picked = self.prefix_candidates(cands, want)
+                if picked:
+                    names = ", ".join(n for n, _ in picked)
+                    self.error(pos, f"동사 '{root}다'가 '{found[0][0]}'(으)로도, 접두어를 생략한 '{names}'(으)로도 읽힙니다 — "
+                                    f"괄호 호출로 하나를 고르세요")
             return found[0][1]
-        # D-37: 정확한 이름이 없을 때만 '<접두어>_<후보>' 를 본다. 정확한 이름이 있으면 언제나 그것이 이긴다.
-        allf = self.global_funcs()
-        pref = []
-        for name, sym in sorted(allf.items()):
-            for c in cands:
-                if name.endswith("_" + c):
-                    pref.append((name, sym))
-                    break
+        # D-37: 정확한 이름이 없을 때만 '<접두어>_<후보>' 를 본다.
+        pref, picked = self.prefix_candidates(cands, want)
         if pref:
             if len(pref) == 1:
                 return pref[0][1]
-            want = set()
-            for a, _role in (pairs or []):
-                t = self.decl_type_of(a)
-                if t is not None:
-                    want |= self.type_prefix_names(t)
-            picked = [(n, s2) for n, s2 in pref if n[: n.rfind("_")] in want]
             if len(picked) == 1:
                 return picked[0][1]
             names = ", ".join(n for n, _ in pref)
