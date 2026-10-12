@@ -3,9 +3,11 @@
 
   python build.py test [필터] [--self]  spec-tests 실행 (컴파일 실패 = 실패, 건너뜀 없음; --self: 글로 쓴 컴파일러 build/self_컴파일러.exe 로)
                                     테스트의 opts.txt 는 컴파일러 옵션 (D-46) — 모든 단계가 양쪽 구현에 같이 준다
+  python build.py test --대상 리눅스 [--self]  리눅스에서: ELF 로 만들어 돌린다 (D-50). 대상.txt 가 다른 테스트는 돌리지 않는다
   python build.py test --핫스왑 [--self]  핫스왑 투명성: 긍정 테스트 전부를 --핫스왑 으로 빌드해 같은 기대값과 맞춘다
   python build.py check <파일.gl>  문법·의미 검사
-  python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 컴파일러 — 마지막은 exe 바이트 비교 + 고정점 + 명령줄)
+  python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 컴파일러 교차 — 컴파일러는 실행 파일 바이트 비교 + 고정점 + 명령줄,
+                                    교차는 다른 대상(윈도에서는 리눅스 ELF, 리눅스에서는 윈도 PE)의 바이트 비교. 리눅스에서도 돈다 — D-50)
   python build.py docs [필터]      문서의 ```글 예제를 컴파일·실행해 ```출력 과 맞춘다
   python build.py tools           프로그램/ 의 도구들을 만들어 본다
   python build.py release          배포물 만들기: dist/geul-<버전>-windows-x64/ (자기 컴파일한 geulc.exe + 표준/ + 문서) 와 zip
@@ -34,6 +36,14 @@ def read(path, default=""):
 
 IR_OPTS = ("--핫스왑", "--hotswap")    # IR 을 바꾸는 옵션 (교체 허용, 인라인 끔). 덤프 드라이버는 이것만 받는다
 EXTRA_OPTS = []                         # test --핫스왑: 모든 긍정 테스트에 더하는 옵션 (투명성 검사)
+HOST_TARGET = "리눅스" if sys.platform.startswith("linux") else "윈도"    # 이 컴퓨터의 운영체제 = 두 컴파일러의 기본 대상 (D-50)
+EXE = "" if HOST_TARGET == "리눅스" else ".exe"
+TARGET = HOST_TARGET                     # test --대상 <윈도|리눅스>: 그 대상의 실행 파일로 만들어 이 컴퓨터에서 돌린다
+
+
+def target_opts(target):
+    """컴파일러에 줄 대상 옵션. 이 컴퓨터의 기본과 같으면 주지 않는다 (윈도의 명령줄을 예전 그대로 두려고)."""
+    return [] if target == HOST_TARGET else ["--대상", target]
 
 
 def test_opts(path):
@@ -52,10 +62,11 @@ def run_test(test_dir, verbose):
     opts += [o for o in EXTRA_OPTS if o not in opts]
     tmp = tempfile.mkdtemp(prefix="geul-")
     try:
-        exe = os.path.join(tmp, "main.exe")
+        exe = os.path.join(tmp, "main.exe" if TARGET == "윈도" else "main")
+        topts = target_opts(TARGET)
         t0 = time.time()
         try:
-            r = subprocess.run(COMPILER + [main, "-o", exe] + opts, capture_output=True, timeout=60, stdin=subprocess.DEVNULL, env=COMPILER_ENV)
+            r = subprocess.run(COMPILER + [main, "-o", exe] + opts + topts, capture_output=True, timeout=60, stdin=subprocess.DEVNULL, env=COMPILER_ENV)
             cout = (r.stdout + r.stderr).decode("utf-8", "replace")
             crc = r.returncode
         except subprocess.TimeoutExpired:
@@ -81,8 +92,8 @@ def run_test(test_dir, verbose):
         except subprocess.TimeoutExpired:
             return name, False, "실행 10초 초과"
         got = rr.stdout.decode("utf-8", "replace").replace("\r\n", "\n")
-        want = read(os.path.join(test_dir, "expect.stdout"))
-        want_code = int(read(os.path.join(test_dir, "expect.code"), "0").strip() or 0)
+        want = read(expect_path(test_dir, "stdout"))
+        want_code = int(read(expect_path(test_dir, "code"), "0").strip() or 0)
         code = rr.returncode & 0xFFFFFFFF
         if code >= 0x80000000:
             return name, False, f"실행 크래시 {code:#x}"
@@ -104,13 +115,83 @@ def run_test(test_dir, verbose):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def expect_path(test_dir, kind):
+    """기대값 파일: 대상의 것(expect.<대상>.stdout · expect.<대상>.code)이 있으면 그것 — 운영체제가 정한 차이
+    (텍스트 모드 줄바꿈, 셸의 종료 코드, 셸 명령의 출력)만 담는다. 없으면 expect.<kind>."""
+    p = os.path.join(test_dir, f"expect.{TARGET}.{kind}")
+    return p if os.path.exists(p) else os.path.join(test_dir, f"expect.{kind}")
+
+
+OVERLAY_START = "(* ==== 체계층 시작 ==== *)\n"
+OVERLAY_END = "(* ==== 체계층 끝 ==== *)\n"
+
+
+def overlay_shared(text):
+    """체계층 표시 밖의 조각들. 표시가 짝이 맞지 않으면 None."""
+    out = []
+    rest = text
+    while True:
+        i = rest.find(OVERLAY_START)
+        j = rest.find(OVERLAY_END)
+        if i < 0:
+            return None if j >= 0 else out + [rest]
+        if j < i or OVERLAY_START in rest[i + len(OVERLAY_START):j]:
+            return None
+        out.append(rest[:i])
+        rest = rest[j + len(OVERLAY_END):]
+
+
+def check_overlay():
+    """대상별 표준 파일 표준/<대상>/X.gl 은 표준/X.gl 과 체계층 표시 밖에서 글자까지 같아야 한다 (D-50).
+    공유 코드를 한쪽만 고치면 여기서 멈춘다. 잘못된 것들의 설명 목록을 돌려준다."""
+    bad = []
+    for alt in sorted(glob.glob(os.path.join(ROOT, "표준", "*", "*.gl"))):
+        rel = os.path.relpath(alt, ROOT).replace(os.sep, "/")
+        base = os.path.join(ROOT, "표준", os.path.basename(alt))
+        if not os.path.exists(base):
+            bad.append(f"{rel}: 짝인 표준/{os.path.basename(alt)} 이 없다")
+            continue
+        a = overlay_shared(read(base))
+        b = overlay_shared(read(alt))
+        if a is None or b is None:
+            bad.append(f"{rel}: 체계층 표시의 짝이 맞지 않는다")
+        elif len(a) != len(b):
+            bad.append(f"{rel}: 체계층 수가 다르다 (표준/ {len(a) - 1}개, {rel} {len(b) - 1}개)")
+        else:
+            for k, (x, y) in enumerate(zip(a, b)):
+                if x != y:
+                    xl, yl = x.splitlines(), y.splitlines()
+                    n = next((i for i in range(min(len(xl), len(yl))) if xl[i] != yl[i]), min(len(xl), len(yl)))
+                    bad.append(f"{rel}: {k + 1}번째 공유 조각이 다르다 — 그 조각의 {n + 1}번째 줄:\n"
+                               f"        표준/: {xl[n] if n < len(xl) else '<끝>'!r}\n        {rel}: {yl[n] if n < len(yl) else '<끝>'!r}")
+                    break
+    return bad
+
+
+def 대상만(d, target=None):
+    """테스트의 대상.txt(있으면): 그 대상에서만 돈다 — 운영체제의 기능을 시험하는 테스트(예: kernel32 의 코드 적재)."""
+    t = read(os.path.join(d if os.path.isdir(d) else os.path.dirname(d), "대상.txt")).strip()
+    return t == "" or t == (target or TARGET)
+
+
 def cmd_test(args):
-    global COMPILER
+    global COMPILER, TARGET
     verbose = "-v" in args
+    if "--대상" in args:
+        k = args.index("--대상")
+        TARGET = args[k + 1]
+        args = args[:k] + args[k + 2:]
+        print(f"대상: {TARGET}")
+    bad = check_overlay()
+    if bad:
+        print("표준 라이브러리의 대상별 파일이 공유 코드에서 어긋났습니다 (D-50):")
+        for b in bad:
+            print("  " + b)
+        return 1
     if "--self" in args:
-        self_exe = os.path.join(ROOT, "build", "self_컴파일러.exe")
+        self_exe = os.path.join(ROOT, "build", "self_컴파일러" + EXE)
         if not os.path.exists(self_exe):
-            print("build/self_컴파일러.exe 가 없습니다 — 먼저 python build.py selfhost 컴파일러")
+            print(f"build/self_컴파일러{EXE} 가 없습니다 — 먼저 python build.py selfhost 컴파일러")
             return 3
         COMPILER = [self_exe]
         print(f"컴파일러: {os.path.relpath(self_exe, ROOT)} (글로 쓴 컴파일러)")
@@ -118,6 +199,10 @@ def cmd_test(args):
     dirs = sorted(d for d in glob.glob(os.path.join(TESTS, "*", "*")) if os.path.isfile(os.path.join(d, "main.gl")))
     if filters:
         dirs = [d for d in dirs if any(f in d for f in filters)]
+    다른대상 = [d for d in dirs if not 대상만(d)]
+    if 다른대상:
+        print(f"대상이 다른 테스트 {len(다른대상)}개는 돌리지 않는다: {', '.join(os.path.relpath(d, TESTS).replace(os.sep, '/') for d in 다른대상)}")
+        dirs = [d for d in dirs if 대상만(d)]
     if "--핫스왑" in args or "--hotswap" in args:
         # 핫스왑 투명성 (D-42): 함수 테이블 우회는 동작을 바꾸지 않는다. 대상은 긍정 테스트 전부 —
         # 부정 테스트는 옵션이 오류를 바꿀 수 있으므로(교체 허용) 이 검사의 모집단이 아니다.
@@ -424,21 +509,50 @@ def pe_imports(path):
     return sorted(out)
 
 
-def selfhost_exe_stage(exe, build_dir):
-    """4단계: 긍정 테스트마다 참조 컴파일러와 글로 쓴 컴파일러로 exe 를 만들어 바이트를 비교한다."""
+def elf_needed(path):
+    """ELF64 의 동적 표에서 DT_NEEDED 이름 목록 (프로그램 머리의 PT_DYNAMIC 과 DT_STRTAB 으로)."""
+    import struct
+    b = open(path, "rb").read()
+    phoff, = struct.unpack_from("<Q", b, 32)
+    phnum, = struct.unpack_from("<H", b, 56)
+    loads, dyn = [], None
+    for k in range(phnum):
+        typ, _, off, va, _, filesz, _, _ = struct.unpack_from("<IIQQQQQQ", b, phoff + 56 * k)
+        if typ == 1:
+            loads.append((va, off, filesz))
+        elif typ == 2:
+            dyn = (off, filesz)
+    def va2off(va):
+        for v, o, n in loads:
+            if v <= va < v + n:
+                return o + (va - v)
+        raise ValueError(va)
+    tags = [struct.unpack_from("<qQ", b, dyn[0] + 16 * k) for k in range(dyn[1] // 16)]
+    strtab = va2off(next(v for t, v in tags if t == 5))
+    return sorted(b[strtab + v:b.index(b"\0", strtab + v)].decode("ascii") for t, v in tags if t == 1)
+
+
+def selfhost_inputs_exe(target):
+    """실행 파일 바이트 비교의 입력: 그 대상에서 도는 긍정 테스트, 덤프 드라이버, 컴파일러 자신."""
+    inputs = sorted(d for d in glob.glob(os.path.join(TESTS, "*", "*", "main.gl"))
+                    if not os.path.exists(os.path.join(os.path.dirname(d), "expect.errors")) and 대상만(d, target))
+    return inputs + sorted(glob.glob(os.path.join(ROOT, "self", "*덤프.gl"))) + [os.path.join(ROOT, "self", "컴파일러.gl")]
+
+
+def selfhost_bytes(exe, build_dir, target, label):
+    """입력마다 참조 컴파일러와 글로 쓴 컴파일러(exe)로 target 의 실행 파일을 만들어 바이트를 비교한다. 불일치 수."""
     failed = 0
     n = 0
-    inputs = sorted(d for d in glob.glob(os.path.join(TESTS, "*", "*", "main.gl"))
-                    if not os.path.exists(os.path.join(os.path.dirname(d), "expect.errors")))
-    inputs += sorted(glob.glob(os.path.join(ROOT, "self", "*덤프.gl"))) + [os.path.join(ROOT, "self", "컴파일러.gl")]
-    ref_exe = os.path.join(build_dir, "cmp_ref.exe")
-    self_exe = os.path.join(build_dir, "cmp_self.exe")
+    ext = ".exe" if target == "윈도" else ""
+    ref_exe = os.path.join(build_dir, "cmp_ref" + ext)
+    self_exe = os.path.join(build_dir, "cmp_self" + ext)
     env = dict(os.environ, GEUL_ROOT=ROOT)
-    for f in inputs:
+    topts = target_opts(target)
+    for f in selfhost_inputs_exe(target):
         for x in (ref_exe, self_exe):
             if os.path.exists(x):
                 os.remove(x)
-        o = test_opts(f)
+        o = test_opts(f) + topts
         want = subprocess.run([sys.executable, GEULC, f, "-o", ref_exe] + o, capture_output=True)
         got = subprocess.run([exe, f, "-o", self_exe] + o, capture_output=True, stdin=subprocess.DEVNULL, timeout=120, env=env)
         n += 1
@@ -454,18 +568,32 @@ def selfhost_exe_stage(exe, build_dir):
             failed += 1
             k = next((i for i in range(min(len(a), len(b))) if a[i] != b[i]), min(len(a), len(b)))
             print(f"  DIFF  {rel}: 바이트 불일치, 첫 차이 오프셋 0x{k:X} (ref {len(a)}B, self {len(b)}B) ref={a[k:k+8].hex()} self={b[k:k+8].hex()}")
-    print(f"[컴파일러] exe 바이트 비교 {n}개, 불일치 {failed}개")
-    dlls = pe_imports(exe)
-    print(f"[컴파일러] 임포트 DLL: {dlls}")
-    if any(d.lower().startswith(("msvcr", "ucrt", "api-ms-win-crt")) for d in dlls):
-        print("[컴파일러] C 런타임 DLL 을 임포트합니다 — 런타임 독립 위반")
-        failed += 1
+    print(f"[{label}] {target} 실행 파일 바이트 비교 {n}개, 불일치 {failed}개")
+    return failed
+
+
+def selfhost_exe_stage(exe, build_dir):
+    """4단계: 이 컴퓨터의 대상으로 실행 파일 바이트 비교, 런타임 독립, 고정점 (self1 → self2 → self3)."""
+    failed = selfhost_bytes(exe, build_dir, HOST_TARGET, "컴파일러")
+    if HOST_TARGET == "윈도":
+        dlls = pe_imports(exe)
+        print(f"[컴파일러] 임포트 DLL: {dlls}")
+        if any(d.lower().startswith(("msvcr", "ucrt", "api-ms-win-crt")) for d in dlls):
+            print("[컴파일러] C 런타임 DLL 을 임포트합니다 — 런타임 독립 위반")
+            failed += 1
+    else:
+        libs = elf_needed(exe)
+        print(f"[컴파일러] DT_NEEDED: {libs}")
+        if libs != ["libc.so.6"]:
+            print("[컴파일러] libc.so.6 밖의 공유 라이브러리를 씁니다 — 체계층은 libc 만 (D-50)")
+            failed += 1
     # 고정점: self1(ref 가 만든 글 컴파일러) → self2 → self3 이 모두 같은 바이트여야 한다
     import hashlib
     src = os.path.join(ROOT, "self", "컴파일러.gl")
+    env = dict(os.environ, GEUL_ROOT=ROOT)
     gens = [exe]
     for k in (2, 3):
-        out = os.path.join(build_dir, f"self{k}_컴파일러.exe")
+        out = os.path.join(build_dir, f"self{k}_컴파일러{EXE}")
         if os.path.exists(out):
             os.remove(out)
         r = subprocess.run([gens[-1], src, "-o", out], capture_output=True, stdin=subprocess.DEVNULL, timeout=300, env=env)
@@ -484,19 +612,35 @@ def selfhost_exe_stage(exe, build_dir):
     return failed
 
 
+def selfhost_cross_stage(exe, build_dir):
+    """교차 (D-50): 이 컴퓨터의 글 컴파일러가 다른 대상(윈도에서는 리눅스 ELF, 리눅스에서는 윈도 PE)으로 만든 실행 파일도
+    참조 컴파일러의 것과 바이트가 같아야 한다. 다른 대상의 컴파일러 자신도 입력에 들어 있다 — 그 결과를 그 운영체제에서
+    돌리면 거기서의 고정점이 이어진다."""
+    other = "리눅스" if HOST_TARGET == "윈도" else "윈도"
+    return selfhost_bytes(exe, build_dir, other, "교차")
+
+
 def cmd_selfhost(args):
     if not check_version_file():
         return 1
     """자체호스팅 단계별 교차 검증. 지금은 1단계(렉서): self/렉서.gl 을 ref 로 빌드해 토큰 덤프를 비교한다."""
     build_dir = os.path.join(ROOT, "build")
     os.makedirs(build_dir, exist_ok=True)
-    stages = [("토큰덤프", "--dump-tokens"), ("구문덤프", "--dump-ast"), ("IR덤프", "--dump-ir"), ("컴파일러", None)]
+    stages = [("토큰덤프", "--dump-tokens"), ("구문덤프", "--dump-ast"), ("IR덤프", "--dump-ir"), ("컴파일러", None), ("교차", None)]
     if args:
         stages = [st for st in stages if st[0] in args]
     failed = 0
     for name, opt in stages:
+        if name == "교차":
+            exe = os.path.join(build_dir, f"self_컴파일러{EXE}")
+            r = subprocess.run([sys.executable, GEULC, os.path.join(ROOT, "self", "컴파일러.gl"), "-o", exe], capture_output=True)
+            if r.returncode != 0 or not os.path.exists(exe):
+                print(f"[교차] 빌드 실패:\n{(r.stdout + r.stderr).decode('utf-8', 'replace')}")
+                return 1
+            failed += selfhost_cross_stage(exe, build_dir)
+            continue
         src = os.path.join(ROOT, "self", f"{name}.gl")
-        exe = os.path.join(build_dir, f"self_{name}.exe")
+        exe = os.path.join(build_dir, f"self_{name}{EXE}")
         r = subprocess.run([sys.executable, GEULC, src, "-o", exe], capture_output=True)
         if r.returncode != 0 or not os.path.exists(exe):
             print(f"[{name}] 빌드 실패:\n{(r.stdout + r.stderr).decode('utf-8', 'replace')}")
@@ -706,8 +850,10 @@ def cmd_docs(args):
 
 
 def cmd_tools(args):
-    """프로그램/ 의 도구들을 실제로 만들어 본다. 창 프로그램은 --창 으로."""
+    """프로그램/ 의 도구들을 실제로 만들어 본다. 창 프로그램은 --창 으로 (윈도에서만 — 리눅스에서는 백업.gl 을 ELF 로)."""
     tools = [("프로그램/백업.gl", []), ("프로그램/백업창.gl", ["--창"])]
+    if HOST_TARGET == "리눅스":
+        tools = [("프로그램/백업.gl", [])]
     tmp = tempfile.mkdtemp(prefix="gltool-")
     failed = 0
     try:
@@ -727,6 +873,13 @@ def cmd_tools(args):
             sub = 0
             with open(exe, "rb") as f:
                 d = f.read()
+            if HOST_TARGET == "리눅스":
+                if d[:4] != b"\x7fELF":
+                    failed += 1
+                    print(f"  FAIL  {rel}: ELF 가 아니다")
+                    continue
+                print(f"  PASS  {rel} ({len(d)}B, ELF)")
+                continue
             pe_off = int.from_bytes(d[0x3C:0x40], "little")
             sub = int.from_bytes(d[pe_off + 4 + 20 + 68:pe_off + 4 + 20 + 70], "little")
             want = 2 if "--창" in opts else 3
