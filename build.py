@@ -386,6 +386,12 @@ def wheel_smoke(whl, version):
         if rr.returncode != 0 or out != "안녕, 글 휠" + chr(10):
             print("휠 연기 시험 실패 (실행):", rr.returncode, repr(out))
             return False
+        # 리눅스 대상(D-50): 표준/리눅스/ 가 꾸러미에 들었는가 — 교차 컴파일한 것이 ELF 여야 한다
+        r = subprocess.run([geulc, "안녕.gl", "--대상", "리눅스", "-o", "안녕"], cwd=work, env=clean_env, capture_output=True, timeout=120)
+        elf = os.path.join(work, "안녕")
+        if r.returncode != 0 or not os.path.exists(elf) or open(elf, "rb").read(4) != b"\x7fELF":
+            print("휠 연기 시험 실패 (리눅스 대상으로 교차 컴파일):", (r.stdout + r.stderr).decode("utf-8", "replace")[-300:])
+            return False
         r = subprocess.run([geulc, "틀림.gl"], cwd=work, env=clean_env, capture_output=True, timeout=120)
         if r.returncode != 1:
             print(f"휠 연기 시험 실패: 틀린 프로그램의 종료 코드가 1 이 아니라 {r.returncode} — 런처가 종료 코드를 잃는다")
@@ -421,7 +427,10 @@ def cmd_wheel(args):
         return rc
     rel = os.path.join(ROOT, "dist", name)
     payload = [("geulc.exe", open(os.path.join(rel, "geulc.exe"), "rb").read())]
-    payload += [(f"표준/{f}", open(os.path.join(rel, "표준", f), "rb").read()) for f in sorted(os.listdir(os.path.join(rel, "표준")))]
+    # 표준/ 의 하위 디렉터리(표준/리눅스/ — 리눅스 대상의 체계층, D-50)까지. 경로는 / 로, 차례는 경로의 글자 차례
+    std = os.path.join(rel, "표준")
+    names = sorted(os.path.relpath(os.path.join(b, f), std).replace(os.sep, "/") for b, _, fs in os.walk(std) for f in fs)
+    payload += [(f"표준/{n}", open(os.path.join(std, *n.split("/")), "rb").read()) for n in names]
     if ref is not None:
         bad = [p for p, data in payload if ref.get(p) != data] + sorted(set(ref) - {p for p, _ in payload})
         if bad:
@@ -456,7 +465,7 @@ def cmd_wheel(args):
     print(f"휠: {os.path.relpath(whl, ROOT)}  ({os.path.getsize(whl)}B, 파일 {len(entries)}개, sha256 {sha[:16]}…)")
     if not wheel_smoke(whl, version):
         return 1
-    print("휠 연기 시험 통과: 임시 가상환경에 설치, 한글·공백 폴더에서 GEUL_ROOT 없이 geulc 로 컴파일·실행, 오류 종료 코드 전달, python -m geul --version")
+    print("휠 연기 시험 통과: 임시 가상환경에 설치, 한글·공백 폴더에서 GEUL_ROOT 없이 geulc 로 컴파일·실행, 리눅스 대상 교차 컴파일, 오류 종료 코드 전달, python -m geul --version")
     return 0
 
 
