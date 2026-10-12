@@ -20,6 +20,7 @@ def main():
     ap.add_argument("--횟수", type=int, default=1)
     ap.add_argument("--출력")
     a = ap.parse_args()
+    a.뒷단 = os.path.abspath(a.뒷단)
     기대 = {}
     for 줄 in open(os.path.join(a.geulpu, "시험", "모듈해시.txt"), encoding="utf-8"):
         칸 = [x.strip() for x in 줄.split("|")]
