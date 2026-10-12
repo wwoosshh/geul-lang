@@ -217,8 +217,13 @@ KERNEL32 = {
 }
 SHELL32 = {"CommandLineToArgvW"}
 
+# 대상 (D-50): "윈도" — PE · kernel32 · Win64, "리눅스" — ELF · libc.so.6 · 바깥(C) 함수에는 System V. 드라이버가 정한다.
+TARGET = "윈도"
+
 
 def dll_for(link_name):
+    if TARGET == "리눅스":
+        return "libc.so.6"
     if link_name in KERNEL32:
         return "kernel32.dll"
     if link_name in SHELL32:

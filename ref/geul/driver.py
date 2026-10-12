@@ -7,12 +7,22 @@ from .parser import parse
 from . import ast as A
 
 
+def target_overlay(p, std_dir=None):
+    """대상별 포함 (D-50): 리눅스 대상이면 포함할 파일 D/X.gl 대신 D/리눅스/X.gl 이 있으면 그것을.
+    표준 라이브러리의 리눅스 체계층(표준/리눅스/X.gl)이 이 규칙으로 들어온다. 윈도 대상의 포함은 예전 그대로다(1.x 약속)."""
+    from . import ir
+    if ir.TARGET == "윈도":
+        return p
+    alt = os.path.join(os.path.dirname(p), ir.TARGET, os.path.basename(p))
+    return alt if os.path.isfile(alt) else p
+
+
 def resolve_include(name, from_dir, std_dir, pos):
     """명세 3.1: (1) 현재 파일 디렉터리 (2) 표준 라이브러리 디렉터리."""
     for base in (from_dir, os.path.dirname(std_dir.rstrip("/\\"))):
         p = os.path.normpath(os.path.join(base, name))
         if os.path.isfile(p):
-            return p
+            return target_overlay(p, std_dir)
     raise CompileError(pos, f"포함할 파일을 찾을 수 없습니다: {name}")
 
 
@@ -49,7 +59,7 @@ def load_program(path, std_dir, auto_std=True):
     if auto_std:
         std = os.path.join(std_dir, "기본.gl")
         if os.path.isfile(std):
-            visit(std, Pos(path, 0, 0))
+            visit(target_overlay(std, std_dir), Pos(path, 0, 0))
     visit(path, Pos(path, 0, 0))
     return A.Program(Pos(path, 1, 1), [], decls)
 
@@ -78,7 +88,7 @@ def dump_file(src, std_dir, what):
 
     std = os.path.join(std_dir, "기본.gl")
     if os.path.isfile(std):
-        collect(std, Pos(src, 0, 0))
+        collect(target_overlay(std, std_dir), Pos(src, 0, 0))
     for ipos, name in scan_includes(toks):
         collect(resolve_include(name, os.path.dirname(os.path.abspath(src)), std_dir, ipos), ipos)
     prog = parse(toks, src, type_names, generic_names)
@@ -86,9 +96,13 @@ def dump_file(src, std_dir, what):
     return EXIT_OK
 
 
-def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None, gui=False, hotswap=False, fragment=False):
+def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None, gui=False, hotswap=False, fragment=False, target="윈도"):
+    from . import ir as _ir
+    _ir.TARGET = target
     if not os.path.isfile(src):
         raise CompileError(Pos(src, 0, 0), "파일을 열 수 없습니다")
+    if target == "리눅스" and gui:
+        raise CompileError(Pos(src, 0, 0), "--창 은 윈도 대상에만 있습니다 (PE 서브시스템)")
     if dump in ("tokens", "ast"):
         return dump_file(src, std_dir, dump)
     # --조각: 표준 라이브러리를 자동 포함하지 않는다 (순수 잎 함수 하나만).
@@ -122,9 +136,14 @@ def compile_file(src, out, check=False, dump_ir=False, std_dir=None, dump=None, 
             fp.write(blob)
         return EXIT_OK
     if out is None:
-        out = os.path.splitext(src)[0] + ".exe"
+        out = os.path.splitext(src)[0] + (".exe" if target != "리눅스" else "")
     if os.path.exists(out):
         os.remove(out)
     image = codegen.generate(ir, hotswap=hotswap)
-    pe.write_pe(image, out, 2 if gui else 3)
+    if target == "리눅스":
+        from . import elf
+        elf.write_elf(image, out)
+        os.chmod(out, 0o755)
+    else:
+        pe.write_pe(image, out, 2 if gui else 3)
     return EXIT_OK
