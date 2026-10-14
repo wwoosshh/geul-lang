@@ -96,6 +96,10 @@
 상수 정수 OpGroupNonUniformShuffle = 345.
 상수 정수 OpSDot = 4450.
 상수 정수 OpSUDot = 4452.
+상수 정수 OpTypeCooperativeMatrixKHR = 4456.        (* SPV_KHR_cooperative_matrix — GeulPU 34단계 *)
+상수 정수 OpCooperativeMatrixLoadKHR = 4457.
+상수 정수 OpCooperativeMatrixStoreKHR = 4458.
+상수 정수 OpCooperativeMatrixMulAddKHR = 4459.
 
 (* GLSL.std.450 *)
 상수 정수 GLSL_RoundEven = 2.
