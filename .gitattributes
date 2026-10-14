@@ -3,3 +3,7 @@
 *.png binary
 spec-tests/**/stdin.txt -text
 spec-tests/**/expect.stdout -text
+
+# GeulPU 이전(3 ~ 13단계)의 GPU 커널 소스 — research/gpu/3단계/커널생성.py 가 만든 것(약 87만 줄). 그 단계의 엔진(글GPT2)이 읽으므로
+# 지우지 않고, 언어 통계 · 차이 보기에서만 생성된 파일로 다룬다.
+research/gpu/3단계/커널*.gl linguist-generated=true
