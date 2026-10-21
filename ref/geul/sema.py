@@ -691,6 +691,9 @@ class Sema:
             elif target.bits > src.bits:
                 self.check_wrap(e, target)
             return self.wrap_cast(e, target)
+        if target.is_float() and target.bits == 16 and (src.is_int() or (src.is_float() and src.bits > 16)):
+            # 반실수로 좁히기는 밝혀야 한다 (연구 옵션 research.py — 명세 9절)
+            self.error(pos, f"{what}: '{src}'를 '{target}'(으)로 좁히려면 '으로 {target}' 명시 변환이 필요합니다 (정밀도를 밝힌다)")
         if src.is_int() and target.is_float():
             if isinstance(e, A.IntLit):
                 return self.wrap_cast(e, target)
@@ -766,7 +769,8 @@ class Sema:
         if ta.is_float() or tb.is_float():
             if not ((ta.is_float() or ta.is_int()) and (tb.is_float() or tb.is_int())):
                 self.error(pos, f"'{op}'를 '{ta}'와 '{tb}'에 쓸 수 없습니다")
-            return T.DOUBLE if 64 in (getattr(ta, "bits", 0), getattr(tb, "bits", 0)) and (ta.is_float() and ta.bits == 64 or tb.is_float() and tb.bits == 64) else (ta if ta.is_float() else tb)
+            ct = T.DOUBLE if 64 in (getattr(ta, "bits", 0), getattr(tb, "bits", 0)) and (ta.is_float() and ta.bits == 64 or tb.is_float() and tb.bits == 64) else (ta if ta.is_float() else tb)
+            return T.FLOAT if ct.bits == 16 else ct          # 반실수는 짧은실수로 올려 계산한다 (연구 옵션 research.py)
         if ta.is_int() and tb.is_int():
             bits = max(ta.bits, tb.bits)
             signed = ta.signed and tb.signed
@@ -786,6 +790,8 @@ class Sema:
             return self.check_error_ctor(e, expected)
         if expected is not None and expected.is_result():
             expected = expected.value            # 리터럴은 결과의 값 타입을 따른다
+        if expected is not None and expected.is_float() and expected.bits == 16 and isinstance(e, (A.IntLit, A.FloatLit)):
+            expected = T.FLOAT                   # 리터럴은 반실수가 되지 않는다 — 좁히기는 밝힌다 (연구 옵션 research.py)
         if isinstance(e, A.IntLit):
             if expected is not None and (expected.is_int() or expected.is_float()):
                 if expected.is_int():
@@ -891,6 +897,9 @@ class Sema:
                     self.error(e.pos, f"'-'를 '{t}'에 쓸 수 없습니다")
                 if t.is_int() and not t.signed:
                     return T.IntType(t.bits, True) if t.bits < 64 else T.INT
+                if t.is_float() and t.bits == 16:  # 반실수는 짧은실수로 올려 계산한다 (연구 옵션 research.py)
+                    e.operand = self.wrap_cast(e.operand, T.FLOAT)
+                    return T.FLOAT
                 return t
             if e.op == "~":
                 if not t.is_int():

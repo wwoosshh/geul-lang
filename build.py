@@ -6,8 +6,9 @@
   python build.py test --대상 리눅스 [--self]  리눅스에서: ELF 로 만들어 돌린다 (D-50). 대상.txt 가 다른 테스트는 돌리지 않는다
   python build.py test --핫스왑 [--self]  핫스왑 투명성: 긍정 테스트 전부를 --핫스왑 으로 빌드해 같은 기대값과 맞춘다
   python build.py check <파일.gl>  문법·의미 검사
-  python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 컴파일러 교차 — 컴파일러는 실행 파일 바이트 비교 + 고정점 + 명령줄,
-                                    교차는 다른 대상(윈도에서는 리눅스 ELF, 리눅스에서는 윈도 PE)의 바이트 비교. 리눅스에서도 돈다 — D-50)
+  python build.py selfhost [단계]  자체호스팅 단계별 교차 검증 (단계: 토큰덤프 구문덤프 IR덤프 확장 컴파일러 교차 — 컴파일러는 실행 파일 바이트 비교 + 고정점 + 명령줄,
+                                    교차는 다른 대상(윈도에서는 리눅스 ELF, 리눅스에서는 윈도 PE)의 바이트 비교. 리눅스에서도 돈다 — D-50.
+                                    확장은 확장-시험/ 을 조각 모드 · 연구 옵션(명세 9절)을 켠 두 구현의 앞단으로 — D-51)
   python build.py docs [필터]      문서의 ```글 예제를 컴파일·실행해 ```출력 과 맞춘다
   python build.py tools           프로그램/ 의 도구들을 만들어 본다
   python build.py release          배포물 만들기: dist/geul-<버전>-windows-x64/ (자기 컴파일한 geulc.exe + 표준/ + 문서) 와 zip
@@ -26,6 +27,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 ROOT = os.path.dirname(os.path.abspath(__file__))
 GEULC = os.path.join(ROOT, "ref", "geulc.py")
 TESTS = os.path.join(ROOT, "spec-tests")
+EXT_TESTS = os.path.join(ROOT, "확장-시험")   # 컴파일러를 품는 프로그램의 두 스위치 (명세 9절, D-51) — build.py selfhost 확장
 COMPILER = [sys.executable, GEULC]        # --self 면 글로 쓴 컴파일러
 COMPILER_ENV = dict(os.environ, GEUL_ROOT=ROOT)
 
@@ -34,7 +36,7 @@ def read(path, default=""):
     return open(path, encoding="utf-8").read() if os.path.exists(path) else default
 
 
-IR_OPTS = ("--핫스왑", "--hotswap")    # IR 을 바꾸는 옵션 (교체 허용, 인라인 끔). 덤프 드라이버는 이것만 받는다
+IR_OPTS = ("--핫스왑", "--hotswap")    # IR 을 바꾸는 옵션 (교체 허용, 인라인 끔). spec-tests 의 덤프 비교는 이것만 준다 (--조각 · --연구 는 확장 단계)
 EXTRA_OPTS = []                         # test --핫스왑: 모든 긍정 테스트에 더하는 옵션 (투명성 검사)
 HOST_TARGET = "리눅스" if sys.platform.startswith("linux") else "윈도"    # 이 컴퓨터의 운영체제 = 두 컴파일러의 기본 대상 (D-50)
 EXE = "" if HOST_TARGET == "리눅스" else ".exe"
@@ -635,11 +637,21 @@ def cmd_selfhost(args):
     """자체호스팅 단계별 교차 검증. 지금은 1단계(렉서): self/렉서.gl 을 ref 로 빌드해 토큰 덤프를 비교한다."""
     build_dir = os.path.join(ROOT, "build")
     os.makedirs(build_dir, exist_ok=True)
-    stages = [("토큰덤프", "--dump-tokens"), ("구문덤프", "--dump-ast"), ("IR덤프", "--dump-ir"), ("컴파일러", None), ("교차", None)]
+    stages = [("토큰덤프", "--dump-tokens"), ("구문덤프", "--dump-ast"), ("IR덤프", "--dump-ir"), ("확장", None), ("컴파일러", None), ("교차", None)]
     if args:
         stages = [st for st in stages if st[0] in args]
     failed = 0
     for name, opt in stages:
+        if name == "확장":
+            # IR 덤프 드라이버를 쓴다 — IR덤프 단계가 이번에 만들었으면 그것을, 아니면 여기서 만든다
+            exe = os.path.join(build_dir, f"self_IR덤프{EXE}")
+            if not any(st[0] == "IR덤프" for st in stages):
+                r = subprocess.run([sys.executable, GEULC, os.path.join(ROOT, "self", "IR덤프.gl"), "-o", exe], capture_output=True)
+                if r.returncode != 0 or not os.path.exists(exe):
+                    print(f"[확장] 빌드 실패:\n{(r.stdout + r.stderr).decode('utf-8', 'replace')}")
+                    return 1
+            failed += selfhost_ext_stage(exe)
+            continue
         if name == "교차":
             exe = os.path.join(build_dir, f"self_컴파일러{EXE}")
             r = subprocess.run([sys.executable, GEULC, os.path.join(ROOT, "self", "컴파일러.gl"), "-o", exe], capture_output=True)
@@ -742,6 +754,42 @@ def selfhost_calls_stage(exe):
             print(f"  DIFF  {os.path.relpath(f, ROOT)} 위험 보고")
     print(f"[컴파일러] 위험 보고 비교 {n}개, 불일치 {bad2}개")
     return bad + bad2
+
+
+def selfhost_ext_stage(exe):
+    """컴파일러를 품는 프로그램의 두 스위치 (명세 9절, D-51): 조각 모드(--조각)와 연구 옵션(--연구)을 켠 앞단이 두 구현에서 같은가.
+    확장-시험/ 의 테스트마다 opts.txt 의 옵션을 양쪽에 준다 — 참조 구현은 geulc.py --dump-ir, 자체 구현은 IR 덤프 드라이버.
+    맞는 프로그램은 둘 다 성공하고 IR 덤프가 같다. 부정 테스트(expect.errors)는 둘 다 종료 코드 1, 첫 오류 줄이 같고 기대 메시지가 있다."""
+    bad = 0
+    env = dict(os.environ, GEUL_ROOT=ROOT)
+
+    def norm(b):
+        return b.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")
+
+    tests = sorted(glob.glob(os.path.join(EXT_TESTS, "*", "main.gl")))
+    for f in tests:
+        d = os.path.dirname(f)
+        o = [l.strip() for l in read(os.path.join(d, "opts.txt")).splitlines() if l.strip()]
+        want = subprocess.run([sys.executable, GEULC, "--dump-ir", f] + o, capture_output=True)
+        got = subprocess.run([exe] + o + [f], capture_output=True, stdin=subprocess.DEVNULL, timeout=30, env=env)
+        errs = os.path.join(d, "expect.errors")
+        if os.path.exists(errs):
+            msgs = [l.strip() for l in read(errs).splitlines() if l.strip()]
+            we, ge = norm(want.stderr), norm(got.stderr)
+            missing = [m for m in msgs if m not in we or m not in ge]
+            ok = want.returncode == 1 and got.returncode == 1 and we.splitlines()[:1] == ge.splitlines()[:1] and not missing
+        else:
+            ok = want.returncode == 0 and got.returncode == 0 and norm(want.stdout) == norm(got.stdout)
+        if not ok:
+            bad += 1
+            print(f"  DIFF  {os.path.relpath(f, ROOT)} (ref rc={want.returncode}, self rc={got.returncode})")
+            print("        ref :", norm(want.stderr).splitlines()[:1])
+            print("        self:", norm(got.stderr).splitlines()[:1])
+    if not tests:
+        bad += 1
+        print(f"  {os.path.relpath(EXT_TESTS, ROOT)} 에 시험이 없다")
+    print(f"[확장] 조각 모드 · 연구 옵션 {len(tests)}개(부정 {sum(os.path.exists(os.path.join(os.path.dirname(f), 'expect.errors')) for f in tests)}개), 불일치 {bad}개")
+    return bad
 
 
 def selfhost_cli_stage(exe, build_dir):

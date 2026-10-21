@@ -198,7 +198,7 @@ class IRModule:
             out.append(f"전역 {g.name}: {g.type} = {s}")
         for i, s in enumerate(self.strings):
             out.append(f'문자열 #{i} "{escape_bytes(s)}"')
-        out.append(f"진입 {self.entry}")
+        out.append(f"진입 {'없음' if self.entry is None else self.entry}")    # 조각 모드(명세 9절)에서 '시작하기' 가 없을 때 없음
         for f in self.functions:
             out.append(f.dump())
         return "\n".join(out)
