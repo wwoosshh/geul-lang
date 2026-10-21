@@ -21,6 +21,7 @@ USAGE = """사용법: geulc <소스.gl> [-o <출력.exe>] [--check] [--dump-ir] 
   --창, --gui   콘솔 없이 뜨는 창 프로그램으로 만든다 (PE 서브시스템 2)
   --핫스왑, --hotswap  내부 호출을 함수 테이블로 우회한다 (실행 중 본문 교체용; 개발 빌드)
   --조각, --fragment  순수 잎 함수 하나를 위치 독립 기계코드(.bin)로 낸다 (핫스왑 적재용)
+  --연구, --research  연구 옵션(명세 9절)을 켠다 — '반실수' 타입. --check 나 --dump-* 와만 쓴다
   --대상 <윈도|리눅스>, --target <windows|linux>  만들 실행 파일: 윈도 — PE, 리눅스 — x86-64 ELF (기본: 이 컴퓨터의 운영체제, D-50)
   --dump-ir     타입 IR 을 표준출력으로
   --dump-tokens 토큰 덤프 (docs/05-덤프-형식.md)
@@ -46,6 +47,7 @@ def main(argv):
     gui = False
     hotswap = False
     fragment = False
+    research = False
     dump_ir = False
     dump = None
     target = "리눅스" if sys.platform.startswith("linux") else "윈도"     # 기본은 이 컴퓨터의 운영체제 (D-50)
@@ -66,6 +68,8 @@ def main(argv):
             hotswap = True
         elif a in ("--조각", "--fragment"):
             fragment = True
+        elif a in ("--연구", "--research"):
+            research = True
         elif a == "--dump-ir":
             dump_ir = True
         elif a == "--dump-tokens":
@@ -100,6 +104,13 @@ def main(argv):
     if src is None:
         print(USAGE, end="", file=sys.stderr)
         return EXIT_USAGE_ERROR
+    if research:
+        # 연구 옵션은 컴파일러를 품는 프로그램의 것이다(명세 9절). 여기서는 앞단의 출력을 자체 구현의 덤프 드라이버와 견주는 데만 쓴다.
+        if not (check or dump_ir or dump):
+            print("사용법 오류: --연구 는 --check 나 --dump-* 와만 씁니다 (기계어는 반실수를 다루지 않습니다)", file=sys.stderr)
+            return EXIT_USAGE_ERROR
+        from geul import research as research_ext
+        research_ext.enable()
     try:
         return driver.compile_file(src, out, check=check, dump_ir=dump_ir, std_dir=os.path.join(HERE, "..", "표준"), dump=dump, gui=gui, hotswap=hotswap, fragment=fragment, target=target)
     except CompileError as e:
