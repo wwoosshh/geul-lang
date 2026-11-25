@@ -160,7 +160,7 @@ python ref/geulc.py 파일.gl     # 참조 구현으로 컴파일
 | `확장-시험/` | 조각 모드 · 연구 옵션(명세 9절)을 켠 앞단의 시험 6개 — `build.py selfhost 확장` 이 두 구현으로 견준다 |
 | `프로그램/` | 글로 쓴 도구: 백업 CLI·GUI |
 | `research/hotswap/` | 실행 중 함수 교체의 탐침·데모(생명 게임, 요금 튜닝기) |
-| `research/cpu/` | 생성 코드의 속도: 같은 알고리즘의 C(zig cc -O0·-O2)와 견주는 여섯 짝, 두 판의 전후 비교, 표본 프로파일러 |
+| `research/cpu/` | 속도: 같은 알고리즘의 C(zig cc -O0·-O2)와 견주는 여섯 짝, 두 판의 생성 코드 · 컴파일 시간 · 출력 대조, 표본 프로파일러 |
 | `docs/` | 헌장, 1세대 교훈, 설계 결정(ADR), 문법 명세, 자체호스팅 계획, 덤프 형식, 표준 라이브러리, 입문서, 점검·조사 기록, 작동 원리 |
 | `editors/vscode/` | TextMate 문법 강조 |
 | `packaging/pypi/` | PyPI 꾸러미의 런처와 설명 — 휠은 `build.py wheel` 이 만들고 `.github/workflows/pypi.yml` 이 올린다 |
