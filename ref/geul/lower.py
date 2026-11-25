@@ -89,6 +89,8 @@ class Lowerer:
                     f.emit("index_addr", dst=v, base=cur, idx=idx, size=t.target.size)
                 else:
                     v = self.binop(s.op[:-1], cur, rhs, t, s.target)
+                if self.plain_local(s.target):
+                    addr = self.lvalue(s.target)     # D-53: 저장도 제 지역주소로
             f.emit("store", addr=addr, src=v, type=t)
         elif isinstance(s, A.IncDec):
             addr = self.lvalue(s.target)
@@ -99,6 +101,8 @@ class Lowerer:
             f.emit("const", dst=one, value=1)
             res = f.new_temp(t)
             f.emit("bin", dst=res, bop="add" if s.delta > 0 else "sub", a=cur, b=one)
+            if self.plain_local(s.target):
+                addr = self.lvalue(s.target)         # D-53
             f.emit("store", addr=addr, src=res, type=t)
         elif isinstance(s, A.If):
             end = f.new_label("끝")
@@ -243,6 +247,15 @@ class Lowerer:
         sym = VarSym(f"__{hint}{self.copy_counter}", t, "local", None)
         self.f.locals.append(sym)
         return sym
+
+    def plain_local(self, e):
+        """지역 · 매개변수 스칼라의 이름인가 — 주소가 지역주소 한 명령이고 다시 내도 부작용이 없다 (D-53).
+        복합 대입 · 증감은 이런 좌변의 저장에 주소를 다시 내어 지역주소마다 한 번만 쓰이게 한다. 코드 생성은 한 번만
+        쓰이는 지역주소만 직접 접근으로 보고, 직접 접근만 있는 지역만 레지스터에 두기 때문이다 (D-20)."""
+        while isinstance(e, A.Cast) and getattr(e, "implicit", False):
+            e = e.expr
+        return (isinstance(e, A.Name) and isinstance(e.sym, VarSym) and e.sym.kind in ("local", "param")
+                and not e.sym.type.is_agg())
 
     def lvalue(self, e):
         """식의 주소 (참조 타입 임시값)."""
