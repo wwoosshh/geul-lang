@@ -156,7 +156,7 @@ python ref/geulc.py 파일.gl     # 참조 구현으로 컴파일
 | `ref/` | 파이썬 참조 컴파일러 — `geulc.py`, `geul/`(lexer·parser·sema·ir·lower·inline·codegen·x64·pe·runtime) |
 | `self/` | 글로 쓴 컴파일러 — 렉서·파서·타입·의미·하강·x64·코드생성·PE·ELF, 드라이버 `컴파일러.gl` |
 | `표준/` | 표준 라이브러리 (`기본.gl` 자동 포함). `표준/리눅스/` 는 Linux 체계층 — 체계층 표시 밖은 `표준/` 의 같은 파일과 글자까지 같다 |
-| `spec-tests/` | 수용 테스트 227개 — Windows 전용 3개, Linux 전용 5개 (형식은 그 안의 README) |
+| `spec-tests/` | 수용 테스트 231개 — Windows 전용 4개, Linux 전용 6개 (형식은 그 안의 README) |
 | `확장-시험/` | 조각 모드 · 연구 옵션(명세 9절)을 켠 앞단의 시험 6개 — `build.py selfhost 확장` 이 두 구현으로 견준다 |
 | `프로그램/` | 글로 쓴 도구: 백업 CLI·GUI |
 | `research/hotswap/` | 실행 중 함수 교체의 탐침·데모(생명 게임, 요금 튜닝기) |
