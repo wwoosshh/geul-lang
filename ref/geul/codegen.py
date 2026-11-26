@@ -13,14 +13,22 @@ Win64 호출 규약: rcx rdx r8 r9 / xmm0-3, 섀도 32B, 5번째부터 스택, r
 - 생존 구간: 기본 블록 단위 역방향 자료 흐름으로 생존 집합을 구하고, 변수마다 [처음 닿는 위치, 마지막 위치].
 - 선형 스캔: 시작 위치(같으면 변수 번호) 순서로, 끝 < 시작인 구간만 만료. 빈 레지스터가 없으면 끝이 가장 먼
   활성 구간이 지금 것보다 멀 때만 그 자리를 빼앗는다. 레지스터 없는 값은 슬롯에 산다.
+- 복사 전파 (D-56): 후보 지역의 직접 적재가 바로 다음이 아닌 같은 기본 블록의 한 곳에서만 쓰이고, 그 사이에 그 지역의
+  저장이 없으면(교체의 피연산자는 빼고) 복사 후보다. 한 번 할당한 뒤 레지스터를 받은 지역의 복사 후보를 후보 임시값에서
+  빼고, 그 지역을 쓰는 자리까지 산 것으로 보아 다시 할당한다. 그 적재는 명령을 내지 않고 지역의 레지스터(실수는 XMM)를
+  그대로 쓴다(별칭). 다시 할당에서 그 지역이 레지스터를 잃으면 그 적재는 슬롯 값으로 남는다.
 - 프롤로그가 쓰는 정수 레지스터를 push 하고 XMM 은 16바이트씩 저장하며, 지역 슬롯은 그 아래에 놓는다.
 내보내기 규칙 (결정적):
 - 결과 레지스터: 값에 레지스터가 있으면 거기, RAX 전달 값이 레지스터 지역에 바로 저장되면 그 지역의 레지스터,
-  아니면 RAX. 계산은 결과 레지스터에서 한다 (나눗셈·호출·가변인자·실수→정수는 RAX). 실수는 결과 XMM 에서 하고 없으면 XMM0.
-- 원본 읽기: 별칭(레지스터 지역의 전달되는 직접 적재는 그 레지스터 자체) → 레지스터 → RAX(전달) → 슬롯에서
+  아니면 RAX. 계산은 결과 레지스터에서 한다 (나눗셈·호출·가변인자·실수→정수는 RAX). 실수는 결과 XMM 에서 하고, 없으면
+  RAX 전달 값이 XMM 지역에 바로 저장될 때 그 지역의 XMM(저장은 내지 않는다), 아니면 XMM0. 그 밖의 곳에 바로 저장되는
+  실수 전달 값은 RAX 를 거치지 않고 그 XMM 에서 저장한다 (D-56).
+- 원본 읽기: 별칭(레지스터 지역의 전달되는 직접 적재와 복사 전파는 그 레지스터 자체) → 레지스터 → RAX(전달) → 슬롯에서
   스크래치로 적재. 첫 피연산자의 스크래치는 RAX(적재하면 RAX 전달 상태가 된다), 둘째는 RCX.
 - 접기: 적재·저장의 주소로만 쓰이는 오프셋·원소주소(크기 1·2·4·8 또는 상수 색인)는 메모리 피연산자에 접는다.
 - 비교가 바로 분기의 조건이면 setcc 없이 jcc 로 잇는다.
+- 분기 꼴 (D-56): 다음에 내는 명령부터 이어진 라벨들(넘어가면 닿는 라벨)에 분기의 참 쪽이 있으면 조건을 뒤집어 거짓
+  쪽으로만, 거짓 쪽이 있으면 참 쪽으로만 뛴다(둘 다 있으면 뛰지 않는다). 점프의 라벨이 거기 있으면 점프를 내지 않는다.
 """
 import struct
 from . import types as T
@@ -71,6 +79,7 @@ OPERANDS = {
 ALLOC_REGS = [RBX, RSI, RDI, R12, R13, R14, R15]     # 피호출자 보존, 이 순서로 배정
 XMM_REGS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]           # XMM6-XMM15: 피호출자 보존, 실수 값
 CC_OF = {"eq": "e", "ne": "ne", "lt": "l", "le": "le", "gt": "g", "ge": "ge", "ult": "b", "ule": "be", "ugt": "a", "uge": "ae"}
+CC_NOT = {"e": "ne", "ne": "e", "l": "ge", "ge": "l", "le": "g", "g": "le", "b": "ae", "ae": "b", "be": "a", "a": "be"}
 
 
 class FuncGen:
@@ -98,7 +107,11 @@ class FuncGen:
         self.nsaved = 0             # 프롤로그가 저장하는 레지스터 수 (ALLOC_REGS 의 앞부분)
         self.xreg = {}              # VarSym or Temp -> XMM 레지스터 (실수)
         self.nxmm = 0               # 프롤로그가 저장하는 XMM 수 (XMM_REGS 의 앞부분)
-        self.alias = {}             # Temp -> VarSym (레지스터 지역의 전달되는 직접 적재)
+        self.alias = {}             # Temp -> VarSym (레지스터 지역의 전달되는 직접 적재 · 복사 전파)
+        self.falias = {}            # Temp -> VarSym (XMM 지역의 복사 전파, D-56)
+        self.cp_cand = {}           # Temp -> VarSym (복사 후보, D-56)
+        self.cp = {}                # Temp -> VarSym (다시 할당에서 후보 임시값이 아닌 복사 전파)
+        self.xmm_fwd = None         # (임시값, XMM): 바로 다음 저장이 그 XMM 에서 저장할 실수 전달 값 (D-56)
         self.pre_stored = None      # 결과를 저장 대상 레지스터에 바로 계산한 임시값
         self.pending_cc = None      # 분기로 이어질 비교의 조건 코드
         self.pending_cond = None
@@ -212,6 +225,16 @@ class FuncGen:
             j += 1
         return j if j < len(insts) else None
 
+    def next_labels(self, k):
+        """다음에 내는 명령부터 이어진 라벨들의 이름 — 그 자리로 넘어가면 닿는 라벨들 (D-56).
+        `아니면` 없는 조건은 `점프 끝; 아니면: 끝:` 로 펴지므로 바로 다음 라벨 하나만 보면 이 점프가 남는다."""
+        names = set()
+        j = self.next_emitting(k)
+        while j is not None and self.f.insts[j].op == "label":
+            names.add(self.f.insts[j].name)
+            j = self.next_emitting(j)
+        return names
+
     # ---------- 레지스터 할당 (D-20) ----------
     def scalar_ok(self, t):
         return t.is_int() or t.is_ptr() or t.is_func() or t.is_float()
@@ -254,10 +277,26 @@ class FuncGen:
                     if not T.same_type(u.type, i.var.type):
                         ok.discard(i.var)
         self.local_ok = ok
+        # 복사 후보 (D-56): 후보 지역의 직접 적재가 바로 다음이 아닌 같은 블록의 한 곳에서만 쓰이고, 사이에 그 지역의 저장이 없다
+        for k, i in enumerate(insts):
+            if i.op != "load" or i.addr not in self.direct or i.dst in self.forwarded:
+                continue
+            var = self.direct[i.addr]
+            if var not in ok or self.defs.get(i.dst) != 1 or self.uses.get(i.dst) != 1:
+                continue
+            u = self.user[i.dst]
+            if u <= k or insts[u].op == "swap":      # 교체의 피연산자: 자체 구현은 쓰임으로 세지 않는다
+                continue
+            for m in range(k + 1, u):
+                x = insts[m]
+                if x.op in ("label", "jmp", "br", "ret") or (x.op == "store" and x.addr in self.direct and self.direct[x.addr] is var):
+                    break
+            else:
+                self.cp_cand[i.dst] = var
 
     def cand_temp(self, t):
-        return (isinstance(t, Temp) and t not in self.imm_only
-                and t not in self.direct and t not in self.forwarded and t not in self.fold)
+        return (isinstance(t, Temp) and t not in self.imm_only and t not in self.direct
+                and t not in self.forwarded and t not in self.fold and t not in self.cp)
 
     def inst_def(self, i):
         d = getattr(i, "dst", None)
@@ -281,9 +320,32 @@ class FuncGen:
                 out.append(i.callee)
         if i.op == "load" and i.addr in self.direct and self.direct[i.addr] in self.local_ok:
             out.append(self.direct[i.addr])
+        if self.cp:
+            # 복사 전파된 적재를 쓰는 자리는 그 지역을 쓰는 자리다
+            vals = [getattr(i, name) for name in OPERANDS.get(i.op, ())]
+            if i.op == "call":
+                vals += list(i.args) + ([] if isinstance(i.callee, str) else [i.callee])
+            for v in vals:
+                if isinstance(v, Temp) and v in self.cp:
+                    out.append(self.cp[v])
         return out
 
     def allocate(self):
+        """할당하고, 레지스터를 받은 지역의 복사 후보가 있으면 그것을 빼고 다시 할당한다 (D-56)."""
+        self.allocate_once()
+        keep = {d: v for d, v in self.cp_cand.items() if v in self.reg or v in self.xreg}
+        if keep:
+            self.cp = keep
+            self.reg, self.xreg, self.alias = {}, {}, {}
+            self.nsaved = self.nxmm = 0
+            self.allocate_once()
+            for d, v in self.cp.items():
+                if v in self.reg:
+                    self.alias[d] = v
+                elif v in self.xreg:
+                    self.falias[d] = v
+
+    def allocate_once(self):
         insts = self.f.insts
         n = len(insts)
         # 변수 번호: 후보 지역(지역 순서) 다음 후보 임시(번호 순서)
@@ -438,8 +500,9 @@ class FuncGen:
         r = self.holder(t)
         if r is not None:
             return r
-        if t in self.xreg:
-            self.a.movq_rx(scratch, self.xreg[t], self.fbits(t.type))     # 실수 비트를 정수 레지스터로
+        xs = self.xmm_of(t)
+        if xs is not None:
+            self.a.movq_rx(scratch, xs, self.fbits(t.type))     # 실수 비트를 정수 레지스터로
         else:
             self.a.load(scratch, RBP, self.slot(t))
         if scratch == RAX:
@@ -450,8 +513,9 @@ class FuncGen:
         """r <- t"""
         s = self.holder(t)
         if s is None:
-            if t in self.xreg:
-                self.a.movq_rx(r, self.xreg[t], self.fbits(t.type))
+            xs = self.xmm_of(t)
+            if xs is not None:
+                self.a.movq_rx(r, xs, self.fbits(t.type))
             else:
                 self.a.load(r, RBP, self.slot(t))
             if r == RAX:
@@ -460,9 +524,16 @@ class FuncGen:
             self.a.mov_rr(r, s)
 
     # ----- 실수 값 (XMM) -----
+    def xmm_of(self, t):
+        """실수 t 가 사는 XMM — 자기 XMM, 아니면 복사 전파된 지역의 XMM (없으면 None)."""
+        xs = self.xreg.get(t)
+        if xs is None and t in self.falias:
+            xs = self.xreg[self.falias[t]]
+        return xs
+
     def fload(self, x, t, bits):
         """XMM x <- 실수 t"""
-        xs = self.xreg.get(t)
+        xs = self.xmm_of(t)
         if xs is not None:
             if xs != x:
                 self.a.movaps(x, xs)
@@ -473,14 +544,27 @@ class FuncGen:
 
     def fsrc(self, t, scratch, bits):
         """실수 t 를 담은 XMM. 없으면 scratch 로 가져온다."""
-        xs = self.xreg.get(t)
+        xs = self.xmm_of(t)
         if xs is not None:
             return xs
         self.fload(scratch, t, bits)
         return scratch
 
+    def fstore_target(self, d):
+        """실수 전달 값 d 가 바로 다음 명령에서 XMM 지역에 저장되면 그 지역의 XMM (없으면 None) — D-56."""
+        if d in self.xreg or d not in self.forwarded:
+            return None
+        u = self.f.insts[self.user[d]]
+        if u.op == "store" and u.src is d and u.addr in self.direct and self.direct[u.addr] in self.xreg:
+            return self.xreg[self.direct[u.addr]]
+        return None
+
     def fdst(self, d):
-        return self.xreg.get(d, XMM0)
+        """실수 d 를 계산할 XMM: 자기 XMM, 아니면 바로 저장될 XMM 지역의 것, 아니면 XMM0."""
+        xd = self.xreg.get(d)
+        if xd is None:
+            xd = self.fstore_target(d)
+        return xd if xd is not None else XMM0
 
     def fresult(self, d, x, bits):
         """실수 d 의 값이 XMM x 에 있다."""
@@ -488,6 +572,14 @@ class FuncGen:
         if xd is not None:
             if xd != x:
                 self.a.movaps(xd, x)
+            return
+        xt = self.fstore_target(d)
+        if xt is not None:
+            if xt != x:
+                self.a.movaps(xt, x)
+            self.pre_stored = d                  # 바로 다음 저장은 내지 않는다
+        elif d in self.forwarded and self.f.insts[self.user[d]].op == "store":
+            self.xmm_fwd = (d, x)                # 바로 다음 저장이 이 XMM 에서 저장한다
         elif d in self.forwarded:
             self.a.movq_rx(RAX, x, bits)         # 바로 다음 저장이 RAX 비트를 쓴다
             self.rax_temp = d
@@ -635,18 +727,27 @@ class FuncGen:
             a.label(i.name)
             self.rax_temp = None
         elif op == "jmp":
-            a.jmp(i.label)
+            if i.label not in self.next_labels(k):     # 넘어가면 그 라벨에 닿으면 내지 않는다 (D-56)
+                a.jmp(i.label)
             self.rax_temp = None
         elif op == "br":
             if i.cond is self.pending_cond:
-                a.jcc(self.pending_cc, i.ltrue)
+                cc = self.pending_cc
                 self.pending_cond = None
                 self.pending_cc = None
             else:
                 rc = self.src_reg(i.cond, RAX)
                 a.test(rc, rc)
-                a.jcc("ne", i.ltrue)
-            a.jmp(i.lfalse)
+                cc = "ne"
+            nl = self.next_labels(k)                   # 분기 꼴 (D-56)
+            if i.ltrue in nl:
+                if i.lfalse not in nl:
+                    a.jcc(CC_NOT[cc], i.lfalse)
+            elif i.lfalse in nl:
+                a.jcc(cc, i.ltrue)
+            else:
+                a.jcc(cc, i.ltrue)
+                a.jmp(i.lfalse)
             self.rax_temp = None
         elif op == "const":
             rd = self.dst_reg(i.dst)
@@ -810,7 +911,7 @@ class FuncGen:
         a = self.a
         d = i.dst
         t = i.type
-        if d in self.alias:
+        if d in self.alias or d in self.falias:
             return
         if i.addr in self.direct:
             var = self.direct[i.addr]
@@ -862,10 +963,13 @@ class FuncGen:
             base, index, scale, disp = RBP, None, 1, self.slot(var)
         else:
             base, index, scale, disp = self.addr_parts(i.addr, RCX, R8)
-        if i.src in self.imm_only:
+        if self.xmm_fwd is not None and self.xmm_fwd[0] is i.src:
+            a.movsd_store(base, disp, self.xmm_fwd[1], bits, index, scale)
+            self.xmm_fwd = None
+        elif i.src in self.imm_only:
             a.store_imm(base, disp, self.imm_only[i.src], bits, index, scale)
-        elif i.src in self.xreg:
-            a.movsd_store(base, disp, self.xreg[i.src], bits, index, scale)
+        elif self.xmm_of(i.src) is not None:
+            a.movsd_store(base, disp, self.xmm_of(i.src), bits, index, scale)
         else:
             rs = self.src_reg(i.src, RDX)
             a.store(base, disp, rs, bits, index, scale)
